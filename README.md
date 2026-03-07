@@ -1,20 +1,62 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ATC Easy Rada
 
-# Run and deploy your AI Studio app
+Air Traffic Control radar simulation game. Guide aircraft to a safe landing on Runway 36 without causing collisions.
 
-This contains everything you need to run your app locally.
+## How to Play
 
-View your app in AI Studio: https://ai.studio/apps/d053c749-950e-44cb-8826-de650cfa296d
+1. **Select** an aircraft by clicking on it in the radar
+2. **Issue commands** using the side panel: set heading, altitude, and speed, then press **TRANSMIT COMMANDS**
+3. **Click anywhere** on the radar to instantly point the selected aircraft in that direction
+4. **Navigate via waypoints** — click ALPHA, BRAVO, CHARLIE, or DELTA while a plane is selected to route it there
+5. Once a plane enters the ILS cone at the right altitude and heading, it will **auto-land**
 
-## Run Locally
+### Landing Requirements (Runway 36)
 
-**Prerequisites:**  Node.js
+| Parameter | Requirement          |
+|-----------|----------------------|
+| Heading   | 330° – 030° (North)  |
+| Altitude  | <= 3,000 ft          |
+| Speed     | <= 200 kts           |
 
+### Aircraft Status Colors
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+| Color  | Meaning                              |
+|--------|--------------------------------------|
+| Yellow | Uncontrolled (no instructions given) |
+| Green  | Controlled                           |
+| Blue   | Established on ILS approach          |
+| Orange | Proximity warning or bad approach    |
+| Red    | Crashed                              |
+
+## Running Locally
+
+**Prerequisites:** Node.js
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## Project Structure
+
+```
+src/
+├── types/
+│   └── index.ts            # Shared TypeScript interfaces (Plane, Difficulty)
+├── hooks/
+│   └── useGameLoop.ts      # Game engine: physics, spawning, collision detection
+└── components/
+    ├── RadarDisplay.tsx    # SVG radar view with interactive plane selection
+    └── ControlPanel.tsx    # Side panel for issuing ATC commands
+```
+
+## Game Mechanics
+
+- Planes spawn outside the radar field aimed roughly at the center
+- Turn rate: 0.5 deg/tick | Climb rate: 15 ft/tick | Acceleration: 0.2 kt/tick
+- Tick rate: 50ms (sped up by the simulation speed multiplier)
+- Collision warning: < 40px lateral + < 1,500 ft vertical separation
+- Collision accident: < 20px lateral + < 1,000 ft vertical separation
+- Score: +1 per successful landing, tracked across sessions via localStorage

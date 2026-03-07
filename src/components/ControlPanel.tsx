@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plane, WAYPOINTS } from '../hooks/useGameLoop';
+import { Plane } from '../types';
+import { WAYPOINTS } from '../hooks/useGameLoop';
 import { Compass, ArrowUpToLine, Gauge } from 'lucide-react';
 
 interface ControlPanelProps {
@@ -129,20 +130,28 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, on
         </div>
       </div>
 
-      <button
-        onClick={handleApply}
-        disabled={plane.isEstablished}
-        className="mt-auto bg-green-500/20 hover:bg-green-500/40 border border-green-500 text-green-400 font-bold py-4 px-4 rounded transition-colors text-lg tracking-widest active:bg-green-500/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-500/20"
-      >
-        {plane.isEstablished ? 'AUTOPILOT ENGAGED' : 'TRANSMIT COMMANDS'}
-      </button>
+      {plane.isEstablished ? (
+        <button
+          onClick={() => onCommand(plane.id, { isEstablished: false, goAround: true, targetHeading: Math.round(plane.heading), targetAltitude: plane.altitude, targetSpeed: plane.speed })}
+          className="mt-auto bg-orange-500/20 hover:bg-orange-500/40 border border-orange-500 text-orange-400 font-bold py-4 px-4 rounded transition-colors text-lg tracking-widest active:bg-orange-500/60"
+        >
+          GO AROUND
+        </button>
+      ) : (
+        <button
+          onClick={handleApply}
+          className="mt-auto bg-green-500/20 hover:bg-green-500/40 border border-green-500 text-green-400 font-bold py-4 px-4 rounded transition-colors text-lg tracking-widest active:bg-green-500/60"
+        >
+          TRANSMIT COMMANDS
+        </button>
+      )}
       
       <div className="mt-4 p-4 bg-slate-900 rounded border border-green-500/20 text-xs space-y-2 opacity-80">
         <p className="font-bold text-green-300 mb-2">LANDING REQUIREMENTS:</p>
         <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY 36 (Center)</span></p>
-        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">340&deg; - 020&deg; (North)</span></p>
-        <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 2000 ft</span></p>
-        <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 160 kts</span></p>
+        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">330&deg; - 030&deg; (North)</span></p>
+        <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 3000 ft</span></p>
+        <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 200 kts</span></p>
       </div>
     </div>
   );

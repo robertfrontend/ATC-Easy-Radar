@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGameLoop, Difficulty } from './hooks/useGameLoop';
 import { RadarDisplay } from './components/RadarDisplay';
 import { ControlPanel } from './components/ControlPanel';
-import { Plane as PlaneIcon, AlertTriangle, Pause, Play } from 'lucide-react';
+import { Plane as PlaneIcon, Pause, Play, RotateCcw } from 'lucide-react';
 
 export default function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
@@ -84,18 +84,26 @@ export default function App() {
             <button
               onClick={togglePause}
               className={`p-4 rounded border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                isPaused 
-                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30' 
+                isPaused
+                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30'
                   : 'bg-slate-950/80 border-green-500/30 text-green-500 hover:border-green-400'
               }`}
             >
               {isPaused ? <Play className="w-8 h-8" /> : <Pause className="w-8 h-8" />}
             </button>
+
+            <button
+              onClick={() => { restart(); setSelectedId(null); }}
+              className="p-4 rounded border backdrop-blur-sm flex items-center justify-center transition-colors bg-slate-950/80 border-red-500/30 text-red-500 hover:border-red-400 hover:bg-red-500/10"
+              title="Restart game"
+            >
+              <RotateCcw className="w-8 h-8" />
+            </button>
           </div>
         </div>
 
         {/* Radar Container */}
-        <div className="flex-1 w-full relative bg-slate-950 border-t border-green-500/20 overflow-hidden">
+        <div className="flex-1 w-full relative bg-[#020817] border-t border-green-500/20 overflow-hidden">
           <RadarDisplay 
             planes={planes} 
             selectedId={selectedId} 

@@ -1,32 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Plane, Difficulty } from '../types';
 
-export interface Plane {
-  id: string;
-  callsign: string;
-  x: number;
-  y: number;
-  heading: number;
-  targetHeading: number;
-  altitude: number;
-  targetAltitude: number;
-  speed: number;
-  targetSpeed: number;
-  trail: { x: number; y: number }[];
-  status: 'normal' | 'warning' | 'crashed' | 'bad_approach';
-  isEstablished: boolean;
-  hasInstructions: boolean;
-  targetWaypoint?: string | null;
-  markedForRemoval?: boolean;
-}
+export type { Plane, Difficulty };
 
 export const WAYPOINTS = [
-  { id: 'WP-A', label: 'ALPHA', x: 250, y: 250 },
-  { id: 'WP-B', label: 'BRAVO', x: 750, y: 250 },
-  { id: 'WP-C', label: 'CHARLIE', x: 250, y: 750 },
-  { id: 'WP-D', label: 'DELTA', x: 750, y: 750 },
+  { id: 'WP-A', label: 'ALPHA',   x: 500, y: 100 },  // N
+  { id: 'WP-B', label: 'BRAVO',   x: 830, y: 170 },  // NE
+  { id: 'WP-C', label: 'CHARLIE', x: 900, y: 500 },  // E
+  { id: 'WP-D', label: 'DELTA',   x: 830, y: 830 },  // SE
+  { id: 'WP-E', label: 'ECHO',    x: 170, y: 830 },  // SW
+  { id: 'WP-F', label: 'FOXTROT', x: 100, y: 500 },  // W
+  { id: 'WP-G', label: 'GOLF',    x: 170, y: 170 },  // NW
 ];
 
-export type Difficulty = 'easy' | 'medium' | 'hard';
 
 const getSpawnRate = (difficulty: Difficulty, score: number) => {
   switch (difficulty) {
@@ -134,12 +120,12 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           }
 
           // ILS Capture Logic
-          if (!isEstablished && plane.status !== 'crashed') {
+          if (!isEstablished && !plane.goAround && plane.status !== 'crashed') {
             // Wider and longer ILS cone for easier capture
             const inILSCone = plane.y > 500 && plane.y < 1500 && Math.abs(plane.x - 500) <= (plane.y - 500) * 0.2;
             // Very forgiving heading requirement (almost anything pointing generally North)
             const isHeadingNorthish = plane.heading > 250 || plane.heading < 110;
-            
+
             // Allow capture up to 10,000ft
             if (inILSCone && plane.altitude <= 10000 && isHeadingNorthish) {
               isEstablished = true;
@@ -300,7 +286,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
   }, [isPaused, spawnPlane, difficulty, gameSpeed, score]);
 
   const updatePlaneTarget = (id: string, updates: Partial<Plane>) => {
-    setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true } : p));
+    setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true, goAround: updates.goAround ?? false } : p));
   };
 
   const togglePause = () => setIsPaused(p => !p);
