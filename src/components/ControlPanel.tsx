@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plane } from '../types';
-import { WAYPOINTS } from '../hooks/useGameLoop';
+import { Plane, Airport } from '../types';
 import { Compass, ArrowUpToLine, Gauge } from 'lucide-react';
 
 interface ControlPanelProps {
+  airport: Airport;
   plane: Plane | null;
   onCommand: (id: string, updates: Partial<Plane>) => void;
   onDeselect: () => void;
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, onDeselect }) => {
+export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, plane, onCommand, onDeselect }) => {
   const [heading, setHeading] = useState(0);
   const [altitude, setAltitude] = useState(0);
   const [speed, setSpeed] = useState(0);
@@ -64,7 +64,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, on
         </div>
         {plane.targetWaypoint && (
           <div className="text-sm text-purple-400 font-bold mt-1">
-            DIRECT TO: {WAYPOINTS.find(w => w.id === plane.targetWaypoint)?.label}
+            DIRECT TO: {airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label}
           </div>
         )}
       </div>
@@ -148,8 +148,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, on
       
       <div className="mt-4 p-4 bg-slate-900 rounded border border-green-500/20 text-xs space-y-2 opacity-80">
         <p className="font-bold text-green-300 mb-2">LANDING REQUIREMENTS:</p>
-        <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY 36 (Center)</span></p>
-        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">330&deg; - 030&deg; (North)</span></p>
+        <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY {airport.runwayLabel}</span></p>
+        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">Aligned with RWY ({airport.runwayHeading.toString().padStart(3, '0')}&deg;)</span></p>
         <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 3000 ft</span></p>
         <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 200 kts</span></p>
       </div>

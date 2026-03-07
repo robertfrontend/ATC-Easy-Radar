@@ -1,3 +1,21 @@
+export interface Waypoint {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+}
+
+export interface Airport {
+  id: string;
+  name: string;
+  icao: string;
+  runwayLabel: string;
+  runwayHeading: number; // magnetic heading planes land on (0-359)
+  x: number;
+  y: number;
+  waypoints: Waypoint[];
+}
+
 export interface Plane {
   id: string;
   callsign: string;
@@ -19,3 +37,13 @@ export interface Plane {
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
+
+export interface SavedGame {
+  id: string;
+  savedAt: number;
+  score: number;
+  accidents: number;
+  difficulty: Difficulty;
+  airportId: string;
+  planesActive: number;
+}

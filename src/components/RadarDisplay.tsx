@@ -1,8 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Plane } from '../types';
-import { WAYPOINTS } from '../hooks/useGameLoop';
+import { Plane, Airport } from '../types';
 
 interface RadarDisplayProps {
+  airport: Airport;
   planes: Plane[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -14,7 +14,7 @@ const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
 const ZOOM_LEVELS = [400, 600, 900, 1400, 1900, 2800]; // viewBox widths, small = zoomed in
 const INIT_ZOOM_IDX = 3; // 1400
 
-export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, onSelect, onSetHeading, onSetWaypoint }) => {
+export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, selectedId, onSelect, onSetHeading, onSetWaypoint }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [vb, setVb] = useState(INIT_VB);
@@ -151,7 +151,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
           <circle cx="25" cy="25" r="0.6" fill="rgba(34, 197, 94, 0.12)" />
         </pattern>
         <clipPath id="radarClip">
-          <circle cx="500" cy="500" r="560" />
+          <circle cx={airport.x} cy={airport.y} r="560" />
         </clipPath>
       </defs>
 
@@ -159,7 +159,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
       <rect x="-5000" y="-5000" width="10000" height="10000" fill="#020817" />
 
       {/* Radar circle fill */}
-      <circle cx="500" cy="500" r="560" fill="#030d1a" />
+      <circle cx={airport.x} cy={airport.y} r="560" fill="#030d1a" />
 
       {/* ── CLIPPED RADAR CONTENT ── */}
       <g clipPath="url(#radarClip)">
@@ -168,32 +168,32 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
         <rect x="-5000" y="-5000" width="10000" height="10000" fill="url(#dots)" />
 
         {/* Range rings */}
-        <circle cx="500" cy="500" r="187" fill="none" stroke="rgba(34,197,94,0.12)" strokeWidth="1" />
-        <circle cx="500" cy="500" r="373" fill="none" stroke="rgba(34,197,94,0.12)" strokeWidth="1" />
-        <text x="692" y="503" fill="rgba(34,197,94,0.22)" fontSize="11" fontFamily="monospace">2NM</text>
-        <text x="878" y="503" fill="rgba(34,197,94,0.22)" fontSize="11" fontFamily="monospace">4NM</text>
+        <circle cx={airport.x} cy={airport.y} r="187" fill="none" stroke="rgba(34,197,94,0.12)" strokeWidth="1" />
+        <circle cx={airport.x} cy={airport.y} r="373" fill="none" stroke="rgba(34,197,94,0.12)" strokeWidth="1" />
+        <text x={airport.x + 192} y={airport.y + 3} fill="rgba(34,197,94,0.22)" fontSize="11" fontFamily="monospace">2NM</text>
+        <text x={airport.x + 378} y={airport.y + 3} fill="rgba(34,197,94,0.22)" fontSize="11" fontFamily="monospace">4NM</text>
 
         {/* Crosshair */}
-        <line x1="-5000" y1="500" x2="5500" y2="500" stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
-        <line x1="500" y1="-5000" x2="500" y2="5500" stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
+        <line x1="-5000" y1={airport.y} x2="5500" y2={airport.y} stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
+        <line x1={airport.x} y1="-5000" x2={airport.x} y2="5500" stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
 
         {/* ILS Approach Path */}
-        <g fill="none">
-          <polygon points="500,528 424,880 576,880" fill="rgba(56,189,248,0.06)" stroke="none" />
-          <line x1="500" y1="528" x2="424" y2="880" stroke="#38bdf8" strokeWidth="1" opacity="0.5" />
-          <line x1="500" y1="528" x2="576" y2="880" stroke="#38bdf8" strokeWidth="1" opacity="0.5" />
-          <line x1="500" y1="528" x2="500" y2="880" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.6" />
-          <text x="586" y="880" fill="#38bdf8" fontSize="13" fontFamily="monospace" opacity="0.7">ILS 36</text>
+        <g transform={`translate(${airport.x}, ${airport.y}) rotate(${airport.runwayHeading})`}>
+          <polygon points="0,28 -76,380 76,380" fill="rgba(56,189,248,0.06)" stroke="none" />
+          <line x1="0" y1="28" x2="-76" y2="380" stroke="#38bdf8" strokeWidth="1" opacity="0.5" />
+          <line x1="0" y1="28" x2="76" y2="380" stroke="#38bdf8" strokeWidth="1" opacity="0.5" />
+          <line x1="0" y1="28" x2="0" y2="380" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.6" />
+          <text x="86" y="380" fill="#38bdf8" fontSize="13" fontFamily="monospace" opacity="0.7" transform={`rotate(${-airport.runwayHeading}, 86, 380)`}>ILS {airport.runwayLabel}</text>
         </g>
 
-        {/* Runway 36 */}
-        <g transform="translate(500, 500)">
+        {/* Runway */}
+        <g transform={`translate(${airport.x}, ${airport.y}) rotate(${airport.runwayHeading})`}>
           <rect x="-6" y="-30" width="12" height="60" fill="#030d1a" stroke="#38bdf8" strokeWidth="1" />
           <line x1="0" y1="-25" x2="0" y2="25" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4,4" />
         </g>
 
         {/* Waypoints */}
-        {WAYPOINTS.map(wp => {
+        {airport.waypoints.map(wp => {
           const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) < 40;
           return (
             <g
@@ -235,7 +235,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
       {/* ── END CLIPPED CONTENT ── */}
 
       {/* Outer ring border */}
-      <circle cx="500" cy="500" r="560" fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="1.5" />
+      <circle cx={airport.x} cy={airport.y} r="560" fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="1.5" />
 
       {/* Bearing ticks (every 10°) */}
       {Array.from({ length: 36 }, (_, i) => {
@@ -246,8 +246,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
         const innerR = isCardinal ? 536 : isMajor ? 548 : 554;
         return (
           <line key={deg}
-            x1={500 + 560 * Math.sin(rad)} y1={500 - 560 * Math.cos(rad)}
-            x2={500 + innerR * Math.sin(rad)} y2={500 - innerR * Math.cos(rad)}
+            x1={airport.x + 560 * Math.sin(rad)} y1={airport.y - 560 * Math.cos(rad)}
+            x2={airport.x + innerR * Math.sin(rad)} y2={airport.y - innerR * Math.cos(rad)}
             stroke="rgba(34,197,94,1)" strokeWidth="1"
             opacity={isCardinal ? 0.65 : isMajor ? 0.45 : 0.28}
           />
@@ -262,7 +262,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
         const isCardinal = deg % 90 === 0;
         return (
           <text key={deg}
-            x={500 + r * Math.sin(rad)} y={500 - r * Math.cos(rad) + 4}
+            x={airport.x + r * Math.sin(rad)} y={airport.y - r * Math.cos(rad) + 4}
             fill={isCardinal ? 'rgba(34,197,94,0.7)' : 'rgba(34,197,94,0.4)'}
             fontSize={isCardinal ? '16' : '13'}
             fontFamily="monospace"
@@ -314,8 +314,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ planes, selectedId, 
             {selectedPlane?.targetWaypoint && (
               <line
                 x1={selectedPlane.x} y1={selectedPlane.y}
-                x2={WAYPOINTS.find(w => w.id === selectedPlane.targetWaypoint)?.x}
-                y2={WAYPOINTS.find(w => w.id === selectedPlane.targetWaypoint)?.y}
+                x2={airport.waypoints.find(w => w.id === selectedPlane.targetWaypoint)?.x}
+                y2={airport.waypoints.find(w => w.id === selectedPlane.targetWaypoint)?.y}
                 stroke="#a855f7" strokeWidth="1" strokeDasharray="4,4" opacity="0.6"
               />
             )}

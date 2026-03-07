@@ -7,7 +7,7 @@ Air Traffic Control radar simulation game. Guide aircraft to a safe landing on R
 1. **Select** an aircraft by clicking on it in the radar
 2. **Issue commands** using the side panel: set heading, altitude, and speed, then press **TRANSMIT COMMANDS**
 3. **Click anywhere** on the radar to instantly point the selected aircraft in that direction
-4. **Navigate via waypoints** — click ALPHA, BRAVO, CHARLIE, or DELTA while a plane is selected to route it there
+4. **Navigate via waypoints** — click any waypoint triangle while a plane is selected to route it there
 5. Once a plane enters the ILS cone at the right altitude and heading, it will **auto-land**
 
 ### Landing Requirements (Runway 36)

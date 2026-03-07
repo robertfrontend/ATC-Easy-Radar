@@ -1,18 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plane, Difficulty } from '../types';
+import { Plane, Difficulty, Airport } from '../types';
 
 export type { Plane, Difficulty };
-
-export const WAYPOINTS = [
-  { id: 'WP-A', label: 'ALPHA',   x: 500, y: 100 },  // N
-  { id: 'WP-B', label: 'BRAVO',   x: 830, y: 170 },  // NE
-  { id: 'WP-C', label: 'CHARLIE', x: 900, y: 500 },  // E
-  { id: 'WP-D', label: 'DELTA',   x: 830, y: 830 },  // SE
-  { id: 'WP-E', label: 'ECHO',    x: 170, y: 830 },  // SW
-  { id: 'WP-F', label: 'FOXTROT', x: 100, y: 500 },  // W
-  { id: 'WP-G', label: 'GOLF',    x: 170, y: 170 },  // NW
-];
-
 
 const getSpawnRate = (difficulty: Difficulty, score: number) => {
   switch (difficulty) {
@@ -31,7 +20,7 @@ const generateCallsign = () => {
   return `${airlines[Math.floor(Math.random() * airlines.length)]}${num}`;
 };
 
-export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
+export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed: number = 1) => {
   const [planes, setPlanes] = useState<Plane[]>([]);
   const [score, setScore] = useState(0);
   const [accidents, setAccidents] = useState(0);
@@ -42,11 +31,11 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
   const spawnPlane = useCallback(() => {
     const angle = Math.random() * Math.PI * 2;
     const distance = 600; // Spawn just outside the core 1000x1000 area
-    const x = 500 + Math.cos(angle) * distance;
-    const y = 500 + Math.sin(angle) * distance;
+    const x = airport.x + Math.cos(angle) * distance;
+    const y = airport.y + Math.sin(angle) * distance;
     
     // Point towards center roughly
-    const angleToCenter = Math.atan2(500 - y, 500 - x);
+    const angleToCenter = Math.atan2(airport.y - y, airport.x - x);
     let heading = (angleToCenter * 180 / Math.PI) + 90;
     if (heading < 0) heading += 360;
     
@@ -72,7 +61,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
     };
     
     setPlanes(prev => [...prev, newPlane]);
-  }, []);
+  }, [airport]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -107,7 +96,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
 
           // Waypoint logic
           if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
-            const wp = WAYPOINTS.find(w => w.id === currentTargetWaypoint);
+            const wp = airport.waypoints.find(w => w.id === currentTargetWaypoint);
             if (wp) {
               const distToWp = Math.hypot(wp.x - plane.x, wp.y - plane.y);
               if (distToWp < 20) {
@@ -121,26 +110,42 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
 
           // ILS Capture Logic
           if (!isEstablished && !plane.goAround && plane.status !== 'crashed') {
-            // Wider and longer ILS cone for easier capture
-            const inILSCone = plane.y > 500 && plane.y < 1500 && Math.abs(plane.x - 500) <= (plane.y - 500) * 0.2;
-            // Very forgiving heading requirement (almost anything pointing generally North)
-            const isHeadingNorthish = plane.heading > 250 || plane.heading < 110;
+            // Relative position to airport
+            const dx = plane.x - airport.x;
+            const dy = plane.y - airport.y;
+            
+            // Rotate position to align runway 36 (heading 0)
+            const rad = -airport.runwayHeading * Math.PI / 180;
+            const rotatedX = dx * Math.cos(rad) - dy * Math.sin(rad);
+            const rotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-            // Allow capture up to 10,000ft
-            if (inILSCone && plane.altitude <= 10000 && isHeadingNorthish) {
+            // In rotated space, ILS is coming from Y > 0 (downwards on screen if 0 is up)
+            const inILSCone = rotatedY > 28 && rotatedY < 500 && Math.abs(rotatedX) <= rotatedY * 0.2;
+            
+            // Relative heading
+            let relHeading = (plane.heading - airport.runwayHeading + 360) % 360;
+            const isHeadingAligned = relHeading > 310 || relHeading < 50;
+
+            if (inILSCone && plane.altitude <= 10000 && isHeadingAligned) {
               isEstablished = true;
             }
           }
 
           if (isEstablished && plane.status !== 'crashed') {
-            const offset = plane.x - 500;
-            // Steer towards centerline (x = 500)
-            let correctionHeading = offset < 0 ? Math.min(45, -offset * 2) : 360 - Math.min(45, offset * 2);
-            if (correctionHeading === 360) correctionHeading = 0;
-            
-            currentTargetHeading = correctionHeading;
-            currentTargetAltitude = 0;
-            currentTargetSpeed = 140;
+             // Relative position to airport
+             const dx = plane.x - airport.x;
+             const dy = plane.y - airport.y;
+             
+             // Rotate position to align runway 36 (heading 0)
+             const rad = -airport.runwayHeading * Math.PI / 180;
+             const rotatedX = dx * Math.cos(rad) - dy * Math.sin(rad);
+             
+             // Steer towards centerline (rotatedX = 0)
+             let correction = rotatedX < 0 ? Math.min(30, -rotatedX * 2) : -Math.min(30, rotatedX * 2);
+             
+             currentTargetHeading = (airport.runwayHeading + correction + 360) % 360;
+             currentTargetAltitude = 0;
+             currentTargetSpeed = 140;
           }
 
           // Turn logic (max 0.5 degrees per tick)
@@ -199,7 +204,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           }
 
           let newStatus: Plane['status'] = plane.status === 'crashed' ? 'crashed' : 'normal';
-          const distToCenter = Math.hypot(newX - 500, newY - 500);
+          const distToCenter = Math.hypot(newX - airport.x, newY - airport.y);
           
           if (newStatus === 'normal') {
             if (distToCenter < 100 && newAltitude <= 2500 && !isEstablished) {
@@ -251,12 +256,13 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
         const planesToKeep = nextPlanes.filter(plane => {
           if (plane.markedForRemoval) return false;
 
-          const distToCenter = Math.hypot(plane.x - 500, plane.y - 500);
+          const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
           
           // Landing zone check
           if (distToCenter < 20) {
             if (plane.altitude <= 3000) {
-              const isAligned = plane.heading > 330 || plane.heading < 30;
+              let relHeading = (plane.heading - airport.runwayHeading + 360) % 360;
+              const isAligned = relHeading > 330 || relHeading < 30;
               if (plane.speed <= 200 && isAligned) {
                 // Successful landing
                 setScore(s => s + 1);
@@ -283,7 +289,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
     }, TICK_RATE / gameSpeed);
 
     return () => clearInterval(interval);
-  }, [isPaused, spawnPlane, difficulty, gameSpeed, score]);
+  }, [isPaused, spawnPlane, difficulty, gameSpeed, score, airport]);
 
   const updatePlaneTarget = (id: string, updates: Partial<Plane>) => {
     setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true, goAround: updates.goAround ?? false } : p));
