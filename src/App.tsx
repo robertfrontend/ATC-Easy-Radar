@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useGameLoop, Difficulty } from './hooks/useGameLoop';
 import { RadarDisplay } from './components/RadarDisplay';
 import { ControlPanel } from './components/ControlPanel';
-import { Plane as PlaneIcon, AlertTriangle } from 'lucide-react';
+import { Plane as PlaneIcon, AlertTriangle, Pause, Play } from 'lucide-react';
 
 export default function App() {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [gameSpeed, setGameSpeed] = useState<number>(1);
-  const { planes, score, gameOver, updatePlaneTarget, restart } = useGameLoop(difficulty, gameSpeed);
+  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(difficulty, gameSpeed);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [highScore, setHighScore] = useState(() => {
     const saved = localStorage.getItem('atc_highscore');
@@ -15,11 +15,11 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (gameOver && score > highScore) {
+    if (score > highScore) {
       setHighScore(score);
       localStorage.setItem('atc_highscore', score.toString());
     }
-  }, [gameOver, score, highScore]);
+  }, [score, highScore]);
 
   const selectedPlane = planes.find(p => p.id === selectedId) || null;
 
@@ -75,49 +75,47 @@ export default function App() {
               <div className="text-xs opacity-70">SCORE</div>
               <div className="text-sm mt-2 text-green-500">HI: {highScore.toString().padStart(5, '0')}</div>
             </div>
+            
+            <div className="text-right bg-slate-950/80 p-4 rounded border border-red-500/30 backdrop-blur-sm">
+              <div className="text-3xl font-bold text-red-500">{accidents.toString().padStart(3, '0')}</div>
+              <div className="text-xs text-red-400 opacity-70">ACCIDENTS</div>
+            </div>
+
+            <button
+              onClick={togglePause}
+              className={`p-4 rounded border backdrop-blur-sm flex items-center justify-center transition-colors ${
+                isPaused 
+                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30' 
+                  : 'bg-slate-950/80 border-green-500/30 text-green-500 hover:border-green-400'
+              }`}
+            >
+              {isPaused ? <Play className="w-8 h-8" /> : <Pause className="w-8 h-8" />}
+            </button>
           </div>
         </div>
 
         {/* Radar Container */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="aspect-square h-full max-h-[800px] relative rounded-full bg-slate-950 border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.1)] overflow-hidden">
-            {/* Sweep Animation */}
-            <div 
-              className="absolute inset-0 pointer-events-none origin-center"
-              style={{
-                background: 'conic-gradient(from 0deg, rgba(34, 197, 94, 0.15) 0deg, transparent 60deg)',
-                animation: 'spin 4s linear infinite'
-              }}
-            />
-            
-            <RadarDisplay 
-              planes={planes} 
-              selectedId={selectedId} 
-              onSelect={setSelectedId} 
-              onSetHeading={(id, heading) => {
-                updatePlaneTarget(id, { targetHeading: heading });
-                setSelectedId(null);
-              }}
-            />
-          </div>
+        <div className="flex-1 w-full relative bg-slate-950 border-t border-green-500/20 overflow-hidden">
+          <RadarDisplay 
+            planes={planes} 
+            selectedId={selectedId} 
+            onSelect={setSelectedId} 
+            onSetHeading={(id, heading) => {
+              updatePlaneTarget(id, { targetHeading: heading, targetWaypoint: null });
+              setSelectedId(null);
+            }}
+            onSetWaypoint={(id, wpId) => {
+              updatePlaneTarget(id, { targetWaypoint: wpId });
+              setSelectedId(null);
+            }}
+          />
         </div>
 
-        {/* Game Over Overlay */}
-        {gameOver && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-slate-900 p-8 rounded-lg border border-red-500/50 text-center max-w-md shadow-2xl shadow-red-500/20">
-              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold text-white mb-2">INCIDENT DETECTED</h2>
-              <p className="text-red-400 mb-6">Separation minimums violated or aircraft crashed.</p>
-              <div className="text-2xl font-bold text-white mb-8">
-                FINAL SCORE: {score}
-              </div>
-              <button
-                onClick={restart}
-                className="w-full bg-green-500 hover:bg-green-400 text-slate-900 font-bold py-4 px-8 rounded transition-colors text-lg"
-              >
-                START NEW SHIFT
-              </button>
+        {/* Paused Overlay */}
+        {isPaused && (
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
+            <div className="text-6xl font-bold text-yellow-500 tracking-widest opacity-80">
+              PAUSED
             </div>
           </div>
         )}

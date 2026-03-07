@@ -12,15 +12,25 @@ export interface Plane {
   speed: number;
   targetSpeed: number;
   trail: { x: number; y: number }[];
-  status: 'normal' | 'warning' | 'crashed';
+  status: 'normal' | 'warning' | 'crashed' | 'bad_approach';
   isEstablished: boolean;
+  hasInstructions: boolean;
+  targetWaypoint?: string | null;
+  markedForRemoval?: boolean;
 }
+
+export const WAYPOINTS = [
+  { id: 'WP-A', label: 'ALPHA', x: 250, y: 250 },
+  { id: 'WP-B', label: 'BRAVO', x: 750, y: 250 },
+  { id: 'WP-C', label: 'CHARLIE', x: 250, y: 750 },
+  { id: 'WP-D', label: 'DELTA', x: 750, y: 750 },
+];
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-const getSpawnRate = (difficulty: Difficulty) => {
+const getSpawnRate = (difficulty: Difficulty, score: number) => {
   switch (difficulty) {
-    case 'easy': return 60000; // 1 minute
+    case 'easy': return Math.max(20000, 60000 - score * 2000); // 1 minute, drops by 2s per point, min 20s
     case 'medium': return 30000; // 30 seconds
     case 'hard': return 15000; // 15 seconds
     default: return 60000;
@@ -38,12 +48,14 @@ const generateCallsign = () => {
 export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
   const [planes, setPlanes] = useState<Plane[]>([]);
   const [score, setScore] = useState(0);
-  const [gameOver, setGameOver] = useState(false);
+  const [accidents, setAccidents] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const lastSpawnRef = useRef(0);
+  const initializedRef = useRef(false);
 
   const spawnPlane = useCallback(() => {
     const angle = Math.random() * Math.PI * 2;
-    const distance = 480; // Just inside the 500 radius
+    const distance = 600; // Spawn just outside the core 1000x1000 area
     const x = 500 + Math.cos(angle) * distance;
     const y = 500 + Math.sin(angle) * distance;
     
@@ -68,27 +80,36 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
       targetSpeed: 250 + Math.floor(Math.random() * 10) * 10,
       trail: [],
       status: 'normal',
-      isEstablished: false
+      isEstablished: false,
+      hasInstructions: false,
+      targetWaypoint: null
     };
     
     setPlanes(prev => [...prev, newPlane]);
   }, []);
 
   useEffect(() => {
-    if (gameOver) return;
+    if (isPaused) return;
 
     const interval = setInterval(() => {
       const now = Date.now();
       
+      // Initial spawn
+      if (!initializedRef.current) {
+        spawnPlane();
+        setTimeout(spawnPlane, 2000); // Spawn a second plane shortly after
+        initializedRef.current = true;
+        lastSpawnRef.current = now;
+      }
+
       // Spawn new planes
-      if (now - lastSpawnRef.current > getSpawnRate(difficulty) / gameSpeed) {
+      if (now - lastSpawnRef.current > getSpawnRate(difficulty, score) / gameSpeed) {
         spawnPlane();
         lastSpawnRef.current = now;
       }
 
       setPlanes(prevPlanes => {
         let nextPlanes = [...prevPlanes];
-        let newGameOver = false;
 
         // Update positions and states
         nextPlanes = nextPlanes.map(plane => {
@@ -96,13 +117,31 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           let currentTargetAltitude = plane.targetAltitude;
           let currentTargetSpeed = plane.targetSpeed;
           let isEstablished = plane.isEstablished;
+          let currentTargetWaypoint = plane.targetWaypoint;
+
+          // Waypoint logic
+          if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
+            const wp = WAYPOINTS.find(w => w.id === currentTargetWaypoint);
+            if (wp) {
+              const distToWp = Math.hypot(wp.x - plane.x, wp.y - plane.y);
+              if (distToWp < 20) {
+                currentTargetWaypoint = null; // Reached waypoint
+              } else {
+                let headingToWp = (Math.atan2(wp.y - plane.y, wp.x - plane.x) * 180 / Math.PI) + 90;
+                currentTargetHeading = (Math.round(headingToWp) + 360) % 360;
+              }
+            }
+          }
 
           // ILS Capture Logic
           if (!isEstablished && plane.status !== 'crashed') {
-            const inILSCone = plane.y > 500 && plane.y < 950 && Math.abs(plane.x - 500) <= (plane.y - 500) * 0.15;
-            const isHeadingNorthish = plane.heading > 270 || plane.heading < 90;
+            // Wider and longer ILS cone for easier capture
+            const inILSCone = plane.y > 500 && plane.y < 1500 && Math.abs(plane.x - 500) <= (plane.y - 500) * 0.2;
+            // Very forgiving heading requirement (almost anything pointing generally North)
+            const isHeadingNorthish = plane.heading > 250 || plane.heading < 110;
             
-            if (inILSCone && plane.altitude <= 5000 && isHeadingNorthish) {
+            // Allow capture up to 10,000ft
+            if (inILSCone && plane.altitude <= 10000 && isHeadingNorthish) {
               isEstablished = true;
             }
           }
@@ -110,7 +149,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           if (isEstablished && plane.status !== 'crashed') {
             const offset = plane.x - 500;
             // Steer towards centerline (x = 500)
-            let correctionHeading = offset < 0 ? Math.min(30, -offset * 1.5) : 360 - Math.min(30, offset * 1.5);
+            let correctionHeading = offset < 0 ? Math.min(45, -offset * 2) : 360 - Math.min(45, offset * 2);
             if (correctionHeading === 360) correctionHeading = 0;
             
             currentTargetHeading = correctionHeading;
@@ -159,7 +198,7 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           }
 
           // Movement logic
-          const speedMultiplier = 0.0005; // Adjust for game speed
+          const speedMultiplier = 0.0015; // Increased for better gameplay pacing
           const dx = newSpeed * speedMultiplier * Math.sin(newHeading * Math.PI / 180);
           const dy = -newSpeed * speedMultiplier * Math.cos(newHeading * Math.PI / 180);
 
@@ -171,6 +210,17 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
           if (newTrail.length === 0 || Math.hypot(newTrail[newTrail.length - 1].x - newX, newTrail[newTrail.length - 1].y - newY) > 15) {
             newTrail.push({ x: newX, y: newY });
             if (newTrail.length > 15) newTrail.shift();
+          }
+
+          let newStatus: Plane['status'] = plane.status === 'crashed' ? 'crashed' : 'normal';
+          const distToCenter = Math.hypot(newX - 500, newY - 500);
+          
+          if (newStatus === 'normal') {
+            if (distToCenter < 100 && newAltitude <= 2500 && !isEstablished) {
+              newStatus = 'bad_approach';
+            } else if (isEstablished && distToCenter < 50 && newSpeed > 160) {
+              newStatus = 'bad_approach';
+            }
           }
 
           return {
@@ -185,6 +235,8 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
             targetAltitude: currentTargetAltitude,
             targetSpeed: currentTargetSpeed,
             isEstablished,
+            status: newStatus,
+            targetWaypoint: currentTargetWaypoint,
           };
         });
 
@@ -197,70 +249,70 @@ export const useGameLoop = (difficulty: Difficulty, gameSpeed: number = 1) => {
             const altDiff = Math.abs(p1.altitude - p2.altitude);
 
             if (dist < 20 && altDiff < 1000) {
-              newGameOver = true;
-              p1.status = 'crashed';
-              p2.status = 'crashed';
+              if (!p1.markedForRemoval && !p2.markedForRemoval) {
+                setAccidents(a => a + 1);
+                p1.markedForRemoval = true;
+                p2.markedForRemoval = true;
+              }
             } else if (dist < 40 && altDiff < 1500) {
-              p1.status = 'warning';
-              p2.status = 'warning';
-            } else {
-              if (p1.status === 'warning') p1.status = 'normal';
-              if (p2.status === 'warning') p2.status = 'normal';
+              if (p1.status !== 'crashed') p1.status = 'warning';
+              if (p2.status !== 'crashed') p2.status = 'warning';
             }
           }
         }
 
         // Landing and boundary logic
         const planesToKeep = nextPlanes.filter(plane => {
+          if (plane.markedForRemoval) return false;
+
           const distToCenter = Math.hypot(plane.x - 500, plane.y - 500);
           
           // Landing zone check
           if (distToCenter < 20) {
-            if (plane.altitude <= 2000) {
-              const isAligned = plane.heading > 340 || plane.heading < 20;
-              if (plane.speed <= 160 && isAligned) {
+            if (plane.altitude <= 3000) {
+              const isAligned = plane.heading > 330 || plane.heading < 30;
+              if (plane.speed <= 200 && isAligned) {
                 // Successful landing
                 setScore(s => s + 1);
                 return false; // Remove plane
               } else {
                 // Crash at airport (too fast or not aligned)
-                newGameOver = true;
-                plane.status = 'crashed';
-                return true;
+                setAccidents(a => a + 1);
+                return false; // Remove plane
               }
             }
-            // If altitude > 2000, just overfly safely
+            // If altitude > 3000, just overfly safely
           }
           
           // Remove planes that fly too far away (handoff to next sector)
-          if (distToCenter > 600) {
+          if (distToCenter > 2500) {
              return false;
           }
           
           return true;
         });
 
-        if (newGameOver) {
-          setGameOver(true);
-        }
-
         return planesToKeep;
       });
     }, TICK_RATE / gameSpeed);
 
     return () => clearInterval(interval);
-  }, [gameOver, spawnPlane, difficulty, gameSpeed]);
+  }, [isPaused, spawnPlane, difficulty, gameSpeed, score]);
 
   const updatePlaneTarget = (id: string, updates: Partial<Plane>) => {
-    setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true } : p));
   };
+
+  const togglePause = () => setIsPaused(p => !p);
 
   const restart = () => {
     setPlanes([]);
     setScore(0);
-    setGameOver(false);
-    lastSpawnRef.current = Date.now();
+    setAccidents(0);
+    setIsPaused(false);
+    initializedRef.current = false;
+    lastSpawnRef.current = 0;
   };
 
-  return { planes, score, gameOver, updatePlaneTarget, restart };
+  return { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart };
 };

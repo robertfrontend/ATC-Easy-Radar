@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plane } from '../hooks/useGameLoop';
+import { Plane, WAYPOINTS } from '../hooks/useGameLoop';
 import { Compass, ArrowUpToLine, Gauge } from 'lucide-react';
 
 interface ControlPanelProps {
@@ -37,6 +37,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, on
       targetHeading: heading,
       targetAltitude: altitude,
       targetSpeed: speed,
+      targetWaypoint: null,
     });
     onDeselect();
   };
@@ -47,10 +48,24 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ plane, onCommand, on
         <h2 className="text-3xl font-bold text-white tracking-widest">{plane.callsign}</h2>
         <div className="text-sm opacity-70 mt-1 flex items-center gap-2">
           STATUS: 
-          <span className={`font-bold ${plane.status === 'warning' ? 'text-yellow-400' : plane.status === 'crashed' ? 'text-red-500' : plane.isEstablished ? 'text-sky-400' : 'text-green-400'}`}>
-            {plane.isEstablished ? 'ON ILS APPROACH' : plane.status.toUpperCase()}
+          <span className={`font-bold ${
+            plane.status === 'warning' ? 'text-orange-500' : 
+            plane.status === 'bad_approach' ? 'text-orange-500' : 
+            plane.status === 'crashed' ? 'text-red-500' : 
+            plane.isEstablished ? 'text-sky-400' : 
+            !plane.hasInstructions ? 'text-yellow-400' : 'text-green-400'
+          }`}>
+            {plane.isEstablished && plane.status !== 'bad_approach' ? 'ON ILS APPROACH' : 
+             plane.status === 'bad_approach' ? 'BAD APPROACH' : 
+             !plane.hasInstructions ? 'UNCONTROLLED' :
+             plane.status.toUpperCase()}
           </span>
         </div>
+        {plane.targetWaypoint && (
+          <div className="text-sm text-purple-400 font-bold mt-1">
+            DIRECT TO: {WAYPOINTS.find(w => w.id === plane.targetWaypoint)?.label}
+          </div>
+        )}
       </div>
 
       <div className="space-y-8 flex-1">
