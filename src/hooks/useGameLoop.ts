@@ -12,12 +12,6 @@ const DIFFICULTY_CONFIG = {
   hard:   { maxPlanes: 12, minPlanes: 6, spawnRate: 8000,  ilsWidth: 0.12 }
 };
 
-const generateCallsign = () => {
-  const airlines = ['AAL', 'DAL', 'UAL', 'SWA', 'JBU', 'BAW', 'AFR', 'DLH'];
-  const num = Math.floor(Math.random() * 9000) + 1000;
-  return `${airlines[Math.floor(Math.random() * airlines.length)]}${num}`;
-};
-
 export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed: number = 1) => {
   const config = DIFFICULTY_CONFIG[difficulty];
   const [planes, setPlanes] = useState<Plane[]>([]);
@@ -26,6 +20,24 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
   const [isPaused, setIsPaused] = useState(false);
   const lastSpawnRef = useRef(0);
   const initializedRef = useRef(false);
+
+  const generateFlightData = useCallback(() => {
+    // Weighted random selection
+    const totalWeight = airport.airlines.reduce((sum, a) => sum + a.weight, 0);
+    let randomVal = Math.random() * totalWeight;
+    let selectedAirline = airport.airlines[0];
+    
+    for (const airline of airport.airlines) {
+      randomVal -= airline.weight;
+      if (randomVal <= 0) {
+        selectedAirline = airline;
+        break;
+      }
+    }
+
+    const num = Math.floor(Math.random() * 9000) + 1000;
+    return { callsign: `${selectedAirline.code}${num}`, flag: selectedAirline.flag };
+  }, [airport]);
 
   const spawnPlane = useCallback(() => {
     const angle = Math.random() * Math.PI * 2;
@@ -38,9 +50,12 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
     if (heading < 0) heading += 360;
     heading = (heading + (Math.random() * 60 - 30)) % 360;
 
+    const { callsign, flag } = generateFlightData();
+
     const newPlane: Plane = {
       id: Math.random().toString(36).substring(7),
-      callsign: generateCallsign(),
+      callsign,
+      originFlag: flag,
       x,
       y,
       heading,
@@ -58,7 +73,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
     
     setPlanes(prev => [...prev, newPlane]);
     audioManager.playBlip();
-  }, [airport]);
+  }, [airport, generateFlightData]);
 
   useEffect(() => {
     if (isPaused) return;

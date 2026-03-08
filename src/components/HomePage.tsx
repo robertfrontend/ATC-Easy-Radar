@@ -45,7 +45,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
             <Radio className="w-4 h-4 text-green-300 absolute -bottom-1 -right-1" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold text-white tracking-widest">ATC RADAR</h1>
+            <h1 className="text-4xl font-bold text-white tracking-widest">✈️ ATC RADAR</h1>
             <div className="text-sm text-green-500/70 tracking-widest">SECTOR CONTROL</div>
           </div>
           {highScore > 0 && (
@@ -203,6 +203,32 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               </div>
             )}
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-12 mb-4 text-center space-y-2">
+          <p className="text-green-500/40 text-sm tracking-widest uppercase">
+            Developed with <span className="text-red-500/60 mx-1">❤️</span> by{' '}
+            <a 
+              href="https://github.com/robertfrontend" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-green-400/60 font-bold hover:text-green-400 transition-colors"
+            >
+              robertfrontend
+            </a>
+          </p>
+          <p className="text-[10px] text-green-500/30 tracking-[0.2em] uppercase">
+            This project is a public repository on{' '}
+            <a 
+              href="https://github.com/robertfrontend/ATC-Easy-Radar" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-green-500/50 transition-colors underline decoration-green-500/20"
+            >
+              GitHub
+            </a>
+          </p>
         </div>
       </div>
     </div>

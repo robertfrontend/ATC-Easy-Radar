@@ -7,13 +7,14 @@ interface RadarDisplayProps {
   planes: Plane[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  ilsEntry?: { x: number; y: number };
 }
 
 const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
 const ZOOM_LEVELS = [400, 600, 900, 1400, 1900, 2800]; // viewBox widths, small = zoomed in
 const INIT_ZOOM_IDX = 3; // 1400
 
-export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, selectedId, onSelect }) => {
+export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, selectedId, onSelect, ilsEntry }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [vb, setVb] = useState(INIT_VB);
@@ -174,6 +175,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
           <line x1="0" y1="-25" x2="0" y2="25" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4,4" />
         </g>
 
+        {/* ILS Entry Point Marker */}
+        {ilsEntry && (
+          <g transform={`translate(${ilsEntry.x}, ${ilsEntry.y})`}>
+            <rect x="-8" y="-8" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2" transform="rotate(45)" opacity="0.8" />
+            <text x="12" y="5" fill="#38bdf8" fontSize="12" fontFamily="monospace" fontWeight="bold">FINAL</text>
+          </g>
+        )}
+
         {/* Waypoints */}
         {airport.waypoints.map(wp => {
           const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) < 40;
@@ -300,9 +309,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
             <g transform={`translate(${plane.x + 25}, ${plane.y - 25})`} style={{ pointerEvents: 'none' }}>
               <rect x="0" y="-14" width="95" height="54" fill="rgba(0,0,0,0.8)" rx="4" stroke={isSelected ? '#fff' : color} strokeWidth="1" />
               
-              {/* Callsign */}
+              {/* Callsign & Flag */}
               <text x="6" y="4" fill={isSelected ? '#fff' : color} fontSize="14" fontFamily="monospace" fontWeight="bold">
-                {plane.callsign}
+                {plane.originFlag} {plane.callsign}
               </text>
               
               {/* Altitude & Trend */}
