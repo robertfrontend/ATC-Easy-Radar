@@ -7,15 +7,13 @@ interface RadarDisplayProps {
   planes: Plane[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onSetHeading?: (id: string, heading: number) => void;
-  onSetWaypoint?: (id: string, waypointId: string) => void;
 }
 
 const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
 const ZOOM_LEVELS = [400, 600, 900, 1400, 1900, 2800]; // viewBox widths, small = zoomed in
 const INIT_ZOOM_IDX = 3; // 1400
 
-export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, selectedId, onSelect, onSetHeading, onSetWaypoint }) => {
+export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, selectedId, onSelect }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [vb, setVb] = useState(INIT_VB);
@@ -74,7 +72,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [applyZoomAt]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -83,13 +81,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // Track mouse for heading helper line
-    if (selectedId) {
-      const coords = getCoordinates(e);
-      if (coords) setMousePos(coords);
-    } else {
-      if (mousePos) setMousePos(null);
-    }
+    // Track mouse for hover effects
+    const coords = getCoordinates(e);
+    if (coords) setMousePos(coords);
 
     // Pan
     if (!panRef.current) return;
@@ -116,19 +110,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
     panRef.current = null;
   };
 
-  const handleSvgClick = (e: React.MouseEvent) => {
-    if (hasDraggedRef.current) return;
-    if (!selectedId || !onSetHeading) return;
-    const selectedPlane = planes.find(p => p.id === selectedId);
-    if (!selectedPlane || selectedPlane.isEstablished) return;
-    const coords = getCoordinates(e);
-    if (!coords) return;
-    let heading = (Math.atan2(coords.y - selectedPlane.y, coords.x - selectedPlane.x) * 180 / Math.PI) + 90;
-    heading = (Math.round(heading) + 360) % 360;
-    onSetHeading(selectedId, heading);
-    audioManager.playSelect();
-  };
-
   const selectedPlane = planes.find(p => p.id === selectedId);
 
   const zoomIn  = () => applyZoomAt(Math.max(0, zoomIdxRef.current - 1), vb.x + vb.w / 2, vb.y + vb.h / 2);
@@ -141,12 +122,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
       viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="w-full h-full bg-[#020817]"
-      style={{ overflow: 'visible', cursor: hasDraggedRef.current ? 'grabbing' : selectedId ? 'crosshair' : 'grab' }}
+      style={{ overflow: 'visible', cursor: hasDraggedRef.current ? 'grabbing' : 'default' }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
-      onClick={handleSvgClick}
     >
       <defs>
         <pattern id="dots" width="50" height="50" patternUnits="userSpaceOnUse">
@@ -201,16 +181,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
             <g
               key={wp.id}
               transform={`translate(${wp.x}, ${wp.y})`}
-              style={{ cursor: 'pointer' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (selectedId && onSetWaypoint) onSetWaypoint(selectedId, wp.id);
-              }}
+              style={{ cursor: 'default' }}
             >
               <circle cx="0" cy="0" r="30" fill="transparent" />
               <polygon
                 points="0,-8 7,5 -7,5"
-                fill={isHovered ? 'rgba(168,85,247,0.5)' : 'none'}
+                fill={isHovered ? 'rgba(168,85,247,0.3)' : 'none'}
                 stroke="#a855f7"
                 strokeWidth="2"
               />
@@ -222,13 +198,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
               >
                 {wp.label}
               </text>
-              {selectedId && isHovered && selectedPlane && (
-                <line
-                  x1={-wp.x + selectedPlane.x} y1={-wp.y + selectedPlane.y}
-                  x2="0" y2="0"
-                  stroke="#a855f7" strokeWidth="2" strokeDasharray="6,6" opacity="0.8"
-                />
-              )}
             </g>
           );
         })}
@@ -282,17 +251,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
           x1={selectedPlane.x} y1={selectedPlane.y}
           x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)}
           y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)}
-          stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="10,10"
-          style={{ pointerEvents: 'none' }}
-        />
-      )}
-
-      {/* Mouse Helper Line */}
-      {selectedPlane && mousePos && (
-        <line
-          x1={selectedPlane.x} y1={selectedPlane.y}
-          x2={mousePos.x} y2={mousePos.y}
-          stroke="rgba(255,255,255,0.5)" strokeWidth="1" strokeDasharray="5,5"
+          stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="10,10"
           style={{ pointerEvents: 'none' }}
         />
       )}
@@ -338,13 +297,27 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
               x1={plane.x} y1={plane.y} x2={plane.x + 20} y2={plane.y - 20}
               stroke={isSelected ? '#fff' : color} strokeWidth="1"
             />
-            <g transform={`translate(${plane.x + 20}, ${plane.y - 20})`} style={{ pointerEvents: 'none' }}>
-              <rect x="0" y="-12" width="70" height="36" fill="rgba(0,0,0,0.7)" rx="4" />
-              <text x="4" y="0" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace" fontWeight="bold">
+            <g transform={`translate(${plane.x + 25}, ${plane.y - 25})`} style={{ pointerEvents: 'none' }}>
+              <rect x="0" y="-14" width="95" height="54" fill="rgba(0,0,0,0.8)" rx="4" stroke={isSelected ? '#fff' : color} strokeWidth="1" />
+              
+              {/* Callsign */}
+              <text x="6" y="4" fill={isSelected ? '#fff' : color} fontSize="14" fontFamily="monospace" fontWeight="bold">
                 {plane.callsign}
               </text>
-              <text x="4" y="14" fill={isSelected ? '#fff' : color} fontSize="10" fontFamily="monospace">
-                {Math.round(plane.altitude / 100).toString().padStart(3, '0')} {Math.round(plane.speed / 10).toString().padStart(2, '0')}
+              
+              {/* Altitude & Trend */}
+              <text x="6" y="20" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace">
+                {plane.altitude >= 10000 
+                  ? `FL${Math.round(plane.altitude / 100).toString().padStart(3, '0')}` 
+                  : `${Math.round(plane.altitude)}ft`}
+                {Math.abs(plane.altitude - plane.targetAltitude) > 100 
+                  ? (plane.targetAltitude > plane.altitude ? ' ↑' : ' ↓') 
+                  : ''}
+              </text>
+
+              {/* Speed & Heading */}
+              <text x="6" y="34" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace">
+                {Math.round(plane.speed)}kt {Math.round(plane.heading).toString().padStart(3, '0')}°
               </text>
             </g>
           </g>

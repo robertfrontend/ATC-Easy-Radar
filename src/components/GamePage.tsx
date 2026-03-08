@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plane as PlaneIcon, Pause, Play, RotateCcw, Save, Home, Volume2, VolumeX } from 'lucide-react';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { RadarDisplay } from './RadarDisplay';
@@ -9,29 +9,24 @@ import { audioManager } from '../utils/audio';
 interface GamePageProps {
   airport: Airport;
   difficulty: Difficulty;
+  highScore: number;
   onExit: () => void;
   onSave: (save: Omit<SavedGame, 'id' | 'savedAt'>) => void;
+  onScoreUpdate: (score: number) => void;
 }
 
-export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, onExit, onSave }) => {
+export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highScore, onExit, onSave, onScoreUpdate }) => {
   const [gameSpeed, setGameSpeed] = useState<number>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(airport, difficulty, gameSpeed);
 
-  const [highScore, setHighScore] = useState(() => {
-    const saved = localStorage.getItem('atc_highscore');
-    return saved ? parseInt(saved, 10) : 0;
-  });
-
   useEffect(() => {
-    if (score > highScore) {
-      setHighScore(score);
-      localStorage.setItem('atc_highscore', score.toString());
-    }
-  }, [score, highScore]);
+    onScoreUpdate(score);
+  }, [score, onScoreUpdate]);
 
   const selectedPlane = planes.find(p => p.id === selectedId) || null;
 
@@ -41,6 +36,13 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, onExit,
       setSelectedId(null);
     }
   }, [planes, selectedId]);
+
+  // Auto-focus command input on selection
+  useEffect(() => {
+    if (selectedId) {
+      setTimeout(() => inputRef.current?.focus(), 10);
+    }
+  }, [selectedId]);
 
   const handleSaveGame = () => {
     onSave({
@@ -58,6 +60,56 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, onExit,
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     audioManager.setMuted(newMuted);
+  };
+
+  const [commandInput, setCommandInput] = useState('');
+
+  const handleCommandSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId || !commandInput.trim()) return;
+
+    const fullCmd = commandInput.trim().toUpperCase();
+    const updates: Partial<Plane> = {};
+    let anyValid = false;
+
+    // 1. Parse Waypoints
+    const tokens = fullCmd.split(/\s+/);
+    tokens.forEach(token => {
+      const wp = airport.waypoints.find(w => w.label.toUpperCase() === token);
+      if (wp) {
+        updates.targetWaypoint = wp.id;
+        anyValid = true;
+      }
+    });
+
+    // 2. Parse prefixed commands using Regex (handles spaces like "D 3000")
+    const cmdRegex = /([CDHS])\s?(\d+)/g;
+    let match;
+    while ((match = cmdRegex.exec(fullCmd)) !== null) {
+      const prefix = match[1];
+      const val = parseInt(match[2]);
+
+      if (!isNaN(val)) {
+        if (prefix === 'C' || prefix === 'D') {
+          updates.targetAltitude = val;
+          anyValid = true;
+        } else if (prefix === 'H') {
+          updates.targetHeading = val % 360;
+          updates.targetWaypoint = null;
+          anyValid = true;
+        } else if (prefix === 'S') {
+          updates.targetSpeed = val;
+          anyValid = true;
+        }
+      }
+    }
+
+    if (anyValid) {
+      updatePlaneTarget(selectedId, updates);
+      audioManager.playRadio();
+      setCommandInput('');
+      setSelectedId(null);
+    }
   };
 
   return (
@@ -160,23 +212,45 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, onExit,
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onSetHeading={(id, heading) => {
-              updatePlaneTarget(id, { targetHeading: heading, targetWaypoint: null });
-              setSelectedId(null);
-            }}
-            onSetWaypoint={(id, wpId) => {
-              updatePlaneTarget(id, { targetWaypoint: wpId });
-              setSelectedId(null);
-            }}
           />
+
+          {/* Command Console Input */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 pointer-events-auto">
+            <form onSubmit={handleCommandSubmit} className="relative group">
+              <div className="absolute -inset-0.5 bg-green-500/20 rounded blur opacity-75 group-hover:opacity-100 transition duration-1000 group-focus-within:bg-green-500/40"></div>
+              <div className="relative flex items-center bg-slate-950 border border-green-500/30 rounded px-4 py-3 shadow-2xl">
+                <span className="text-green-500 font-bold mr-3 animate-pulse">
+                  {selectedPlane ? selectedPlane.callsign : 'SYS'}&gt;
+                </span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  placeholder={selectedPlane ? "C5000, D2000, H090, S210, ALPHA..." : "SELECT AIRCRAFT..."}
+                  disabled={!selectedId}
+                  className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/50 uppercase tracking-widest text-lg disabled:cursor-not-allowed"
+                />
+                {commandInput && (
+                  <div className="text-[10px] text-green-500/40 absolute right-4 bottom-1 font-bold">PRESS ENTER TO TX</div>
+                )}
+              </div>
+            </form>
+          </div>
         </div>
 
         {/* Paused Overlay */}
         {isPaused && (
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
-            <div className="text-6xl font-bold text-yellow-500 tracking-widest opacity-80">
+          <div className="absolute inset-0 bg-slate-950/40 flex flex-col items-center justify-center z-50">
+            <div className="text-6xl font-bold text-yellow-500 tracking-[0.3em] mb-8 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">
               PAUSED
             </div>
+            <button
+              onClick={togglePause}
+              className="px-8 py-4 bg-yellow-500 text-slate-950 font-bold text-xl rounded border-2 border-yellow-400 hover:bg-yellow-400 transition-all hover:scale-110 active:scale-95 shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+            >
+              RESUME SESSION
+            </button>
           </div>
         )}
       </div>

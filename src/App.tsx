@@ -30,6 +30,13 @@ export default function App() {
     return saved ? parseInt(saved, 10) : 0;
   });
 
+  const updateHighScore = (score: number) => {
+    if (score > highScore) {
+      setHighScore(score);
+      localStorage.setItem('atc_highscore', score.toString());
+    }
+  };
+
   const handleNewGame = (diff: Difficulty, selectedAirportId: string) => {
     const selectedAirport = AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0];
     setAirport(selectedAirport);
@@ -69,8 +76,10 @@ export default function App() {
     <GamePage
       airport={airport}
       difficulty={difficulty}
+      highScore={highScore}
       onExit={() => setPage('home')}
       onSave={handleSaveGame}
+      onScoreUpdate={updateHighScore}
     />
   );
 }
