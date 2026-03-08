@@ -11,16 +11,20 @@ export interface Airline {
   weight: number; // For frequency of spawn (higher = more frequent)
 }
 
+export interface Runway {
+  label: string;
+  heading: number;
+}
+
 export interface Airport {
   id: string;
   name: string;
   icao: string;
-  runwayLabel: string;
-  runwayHeading: number; // magnetic heading planes land on (0-359)
   x: number;
   y: number;
   waypoints: Waypoint[];
   airlines: Airline[];
+  runways: Runway[];
 }
 
 export interface Plane {

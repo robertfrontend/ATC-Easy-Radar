@@ -8,6 +8,7 @@ import { audioManager } from '../utils/audio';
 
 interface GamePageProps {
   airport: Airport;
+  activeRunwayIndex: number;
   difficulty: Difficulty;
   highScore: number;
   onExit: () => void;
@@ -15,14 +16,15 @@ interface GamePageProps {
   onScoreUpdate: (score: number) => void;
 }
 
-export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highScore, onExit, onSave, onScoreUpdate }) => {
+export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, difficulty, highScore, onExit, onSave, onScoreUpdate }) => {
   const [gameSpeed, setGameSpeed] = useState<number>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(airport, difficulty, gameSpeed);
+  const activeRunway = airport.runways[activeRunwayIndex];
+  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(airport, activeRunwayIndex, difficulty, gameSpeed);
 
   useEffect(() => {
     onScoreUpdate(score);
@@ -70,10 +72,12 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
       const tokens = commandInput.trim().toUpperCase().split(/\s+/);
       const lastToken = tokens[tokens.length - 1];
       
+      const autoCompleteTargets = [...airport.waypoints.map(w => w.label), 'FINAL', 'ILS'];
+
       if (lastToken) {
-        const match = airport.waypoints.find(w => w.label.toUpperCase().startsWith(lastToken));
+        const match = autoCompleteTargets.find(label => label.toUpperCase().startsWith(lastToken));
         if (match) {
-          tokens[tokens.length - 1] = match.label.toUpperCase();
+          tokens[tokens.length - 1] = match.toUpperCase();
           setCommandInput(tokens.join(' ') + ' ');
         }
       }
@@ -88,8 +92,8 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
     const updates: Partial<Plane> = {};
     let anyValid = false;
 
-    // Calculate dynamic ILS entry point based on runway heading
-    const rad = (airport.runwayHeading * Math.PI) / 180;
+    // Calculate dynamic ILS entry point based on active runway
+    const rad = (activeRunway.heading * Math.PI) / 180;
     const ilsEntry = {
       x: airport.x - 450 * Math.sin(rad),
       y: airport.y + 450 * Math.cos(rad)
@@ -144,8 +148,8 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
   };
 
   const ilsEntry = {
-    x: airport.x - 450 * Math.sin((airport.runwayHeading * Math.PI) / 180),
-    y: airport.y + 450 * Math.cos((airport.runwayHeading * Math.PI) / 180)
+    x: airport.x - 450 * Math.sin((activeRunway.heading * Math.PI) / 180),
+    y: airport.y + 450 * Math.cos((activeRunway.heading * Math.PI) / 180)
   };
 
   return (
@@ -159,19 +163,19 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
               <PlaneIcon className="text-green-500" />
               ✈️ ATC RADAR
             </h1>
-            <div className="text-sm opacity-80 mt-1">{airport.name} ({airport.icao}) - LOCAL CONTROL</div>
+            <div className="text-sm opacity-80 mt-1">{airport.name} ({airport.icao}) - RWY {activeRunway.label}</div>
           </div>
           <div className="flex items-center gap-6 pointer-events-auto">
             <div className="bg-slate-950/80 p-3 rounded border border-green-500/30 backdrop-blur-sm flex flex-col gap-1">
               <label className="text-xs text-green-500 font-bold">SIM SPEED</label>
               <div className="flex gap-1">
-                {[0.5, 1, 2, 5].map(speed => (
+                {[0.1, 0.25, 0.5, 1, 2].map(speed => (
                   <button
                     key={speed}
                     onClick={() => setGameSpeed(speed)}
-                    className={`px-2 py-1 rounded text-xs font-bold border transition-colors ${gameSpeed === speed ? 'bg-green-500 text-slate-950 border-green-500' : 'bg-slate-900 text-green-500 border-green-500/50 hover:border-green-400'}`}
+                    className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${gameSpeed === speed ? 'bg-green-500 text-slate-950 border-green-500' : 'bg-slate-900 text-green-500 border-green-500/50 hover:border-green-400'}`}
                   >
-                    {speed}x
+                    {speed === 0.1 ? 'REAL' : `${speed}x`}
                   </button>
                 ))}
               </div>
@@ -245,6 +249,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
         <div className="flex-1 w-full relative bg-[#020817] border-t border-green-500/20 overflow-hidden">
           <RadarDisplay
             airport={airport}
+            activeRunwayIndex={activeRunwayIndex}
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
@@ -295,7 +300,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
 
       {/* Side Panel */}
       <div className="w-96 bg-slate-950 border-l border-green-500/20 p-6 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
-        <ControlPanel airport={airport} plane={selectedPlane} onCommand={updatePlaneTarget} onDeselect={() => setSelectedId(null)} />
+        <ControlPanel airport={airport} activeRunwayIndex={activeRunwayIndex} plane={selectedPlane} onCommand={updatePlaneTarget} onDeselect={() => setSelectedId(null)} />
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `

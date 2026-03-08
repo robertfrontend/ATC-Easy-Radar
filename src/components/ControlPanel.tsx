@@ -5,15 +5,18 @@ import { audioManager } from '../utils/audio';
 
 interface ControlPanelProps {
   airport: Airport;
+  activeRunwayIndex: number;
   plane: Plane | null;
   onCommand: (id: string, updates: Partial<Plane>) => void;
   onDeselect: () => void;
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, plane, onCommand, onDeselect }) => {
+export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, activeRunwayIndex, plane, onCommand, onDeselect }) => {
   const [heading, setHeading] = useState(0);
   const [altitude, setAltitude] = useState(0);
   const [speed, setSpeed] = useState(0);
+
+  const activeRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
 
   useEffect(() => {
     if (plane) {
@@ -153,8 +156,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, plane, onCo
       
       <div className="mt-4 p-4 bg-slate-900 rounded border border-green-500/20 text-xs space-y-2 opacity-80">
         <p className="font-bold text-green-300 mb-2">LANDING REQUIREMENTS:</p>
-        <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY {airport.runwayLabel}</span></p>
-        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">Aligned with RWY ({airport.runwayHeading.toString().padStart(3, '0')}&deg;)</span></p>
+        <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY {activeRunway.label}</span></p>
+        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">Aligned with RWY ({activeRunway.heading.toString().padStart(3, '0')}&deg;)</span></p>
         <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 3000 ft</span></p>
         <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 200 kts</span></p>
       </div>
