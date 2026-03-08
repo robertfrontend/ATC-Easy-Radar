@@ -157,7 +157,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-widest">
               <PlaneIcon className="text-green-500" />
-              ATC RADAR
+              ✈️ ATC RADAR
             </h1>
             <div className="text-sm opacity-80 mt-1">{airport.name} ({airport.icao}) - LOCAL CONTROL</div>
           </div>
