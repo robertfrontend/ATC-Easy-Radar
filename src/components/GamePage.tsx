@@ -3,7 +3,7 @@ import { Plane as PlaneIcon, Pause, Play, RotateCcw, Save, Home, Volume2, Volume
 import { useGameLoop } from '../hooks/useGameLoop';
 import { RadarDisplay } from './RadarDisplay';
 import { ControlPanel } from './ControlPanel';
-import { Airport, Difficulty, SavedGame } from '../types';
+import { Airport, Difficulty, SavedGame, Plane } from '../types';
 import { audioManager } from '../utils/audio';
 
 interface GamePageProps {

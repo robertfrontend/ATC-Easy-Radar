@@ -5,6 +5,12 @@ export interface Waypoint {
   y: number;
 }
 
+export interface Airline {
+  code: string;
+  flag: string;
+  weight: number; // For frequency of spawn (higher = more frequent)
+}
+
 export interface Airport {
   id: string;
   name: string;
@@ -14,6 +20,7 @@ export interface Airport {
   x: number;
   y: number;
   waypoints: Waypoint[];
+  airlines: Airline[];
 }
 
 export interface Plane {
@@ -31,6 +38,7 @@ export interface Plane {
   status: 'normal' | 'warning' | 'crashed' | 'bad_approach';
   isEstablished: boolean;
   hasInstructions: boolean;
+  originFlag: string;
   targetWaypoint?: string | null;
   markedForRemoval?: boolean;
   goAround?: boolean;

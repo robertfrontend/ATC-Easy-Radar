@@ -309,9 +309,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
             <g transform={`translate(${plane.x + 25}, ${plane.y - 25})`} style={{ pointerEvents: 'none' }}>
               <rect x="0" y="-14" width="95" height="54" fill="rgba(0,0,0,0.8)" rx="4" stroke={isSelected ? '#fff' : color} strokeWidth="1" />
               
-              {/* Callsign */}
+              {/* Callsign & Flag */}
               <text x="6" y="4" fill={isSelected ? '#fff' : color} fontSize="14" fontFamily="monospace" fontWeight="bold">
-                {plane.callsign}
+                {plane.originFlag} {plane.callsign}
               </text>
               
               {/* Altitude & Trend */}
