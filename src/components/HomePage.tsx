@@ -91,7 +91,10 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                           : 'bg-slate-900 border-green-500/10 text-green-500/60 hover:border-green-500/30'
                       }`}
                     >
-                      <div className="font-bold text-sm">{a.name}</div>
+                      <div className="font-bold text-sm flex items-center gap-2">
+                        <span>{a.countryFlag}</span>
+                        <span>{a.name}</span>
+                      </div>
                       <div className="text-[10px] opacity-60 mt-0.5">{a.icao} · {a.runways.length} Runways</div>
                     </button>
                   ))}
