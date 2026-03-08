@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plane, Airport } from '../types';
 import { Compass, ArrowUpToLine, Gauge } from 'lucide-react';
+import { audioManager } from '../utils/audio';
 
 interface ControlPanelProps {
   airport: Airport;
@@ -40,6 +41,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, plane, onCo
       targetSpeed: speed,
       targetWaypoint: null,
     });
+    audioManager.playRadio();
     onDeselect();
   };
 
@@ -132,7 +134,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, plane, onCo
 
       {plane.isEstablished ? (
         <button
-          onClick={() => onCommand(plane.id, { isEstablished: false, goAround: true, targetHeading: Math.round(plane.heading), targetAltitude: plane.altitude, targetSpeed: plane.speed })}
+          onClick={() => {
+            onCommand(plane.id, { isEstablished: false, goAround: true, targetHeading: Math.round(plane.heading), targetAltitude: plane.altitude, targetSpeed: plane.speed });
+            audioManager.playRadio();
+          }}
           className="mt-auto bg-orange-500/20 hover:bg-orange-500/40 border border-orange-500 text-orange-400 font-bold py-4 px-4 rounded transition-colors text-lg tracking-widest active:bg-orange-500/60"
         >
           GO AROUND

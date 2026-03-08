@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plane, Difficulty, Airport } from '../types';
+import { audioManager } from '../utils/audio';
 
 export type { Plane, Difficulty };
 
@@ -61,6 +62,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
     };
     
     setPlanes(prev => [...prev, newPlane]);
+    audioManager.playBlip();
   }, [airport]);
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
 
       setPlanes(prevPlanes => {
         let nextPlanes = [...prevPlanes];
+        let hasNewWarning = false;
 
         // Update positions and states
         nextPlanes = nextPlanes.map(plane => {
@@ -244,12 +247,18 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
                 setAccidents(a => a + 1);
                 p1.markedForRemoval = true;
                 p2.markedForRemoval = true;
+                audioManager.playCrash();
               }
             } else if (dist < 40 && altDiff < 1500) {
               if (p1.status !== 'crashed') p1.status = 'warning';
               if (p2.status !== 'crashed') p2.status = 'warning';
+              hasNewWarning = true;
             }
           }
+        }
+
+        if (hasNewWarning) {
+          audioManager.playWarning();
         }
 
         // Landing and boundary logic
@@ -266,10 +275,12 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
               if (plane.speed <= 200 && isAligned) {
                 // Successful landing
                 setScore(s => s + 1);
+                audioManager.playSuccess();
                 return false; // Remove plane
               } else {
                 // Crash at airport (too fast or not aligned)
                 setAccidents(a => a + 1);
+                audioManager.playCrash();
                 return false; // Remove plane
               }
             }
@@ -290,6 +301,15 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
 
     return () => clearInterval(interval);
   }, [isPaused, spawnPlane, difficulty, gameSpeed, score, airport]);
+
+  // Periodic radar sweep sound
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      audioManager.playBlip();
+    }, 4000 / gameSpeed); // Every 4 seconds, synced roughly with speed
+    return () => clearInterval(interval);
+  }, [isPaused, gameSpeed]);
 
   const updatePlaneTarget = (id: string, updates: Partial<Plane>) => {
     setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true, goAround: updates.goAround ?? false } : p));

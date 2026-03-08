@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Plane, Airport } from '../types';
+import { audioManager } from '../utils/audio';
 
 interface RadarDisplayProps {
   airport: Airport;
@@ -125,6 +126,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
     let heading = (Math.atan2(coords.y - selectedPlane.y, coords.x - selectedPlane.x) * 180 / Math.PI) + 90;
     heading = (Math.round(heading) + 360) % 360;
     onSetHeading(selectedId, heading);
+    audioManager.playSelect();
   };
 
   const selectedPlane = planes.find(p => p.id === selectedId);
@@ -304,7 +306,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, planes, sel
                       plane.isEstablished ? '#38bdf8' :
                       !plane.hasInstructions ? '#eab308' : '#4ade80';
         return (
-          <g key={plane.id} onClick={(e) => { e.stopPropagation(); if (!hasDraggedRef.current) onSelect(plane.id); }} style={{ cursor: 'pointer' }}>
+          <g key={plane.id} onClick={(e) => { 
+            e.stopPropagation(); 
+            if (!hasDraggedRef.current) {
+              onSelect(plane.id);
+              audioManager.playSelect();
+            }
+          }} style={{ cursor: 'pointer' }}>
             <circle cx={plane.x} cy={plane.y} r="24" fill="transparent" />
             {plane.trail.slice(-8).map((p, i, arr) => (
               <circle key={i} cx={p.x} cy={p.y} r="2"
