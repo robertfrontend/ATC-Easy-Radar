@@ -1,4 +1,4 @@
-# ATC Easy Rada
+# ATC Easy Radar
 
 Air Traffic Control radar simulation game. Guide aircraft to a safe landing on Runway 36 without causing collisions.
 
