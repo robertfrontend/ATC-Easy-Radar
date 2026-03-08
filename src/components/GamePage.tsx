@@ -64,6 +64,22 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
 
   const [commandInput, setCommandInput] = useState('');
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Tab') {
+      e.preventDefault(); // Prevent focus loss
+      const tokens = commandInput.trim().toUpperCase().split(/\s+/);
+      const lastToken = tokens[tokens.length - 1];
+      
+      if (lastToken) {
+        const match = airport.waypoints.find(w => w.label.toUpperCase().startsWith(lastToken));
+        if (match) {
+          tokens[tokens.length - 1] = match.label.toUpperCase();
+          setCommandInput(tokens.join(' ') + ' ');
+        }
+      }
+    }
+  };
+
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedId || !commandInput.trim()) return;
@@ -71,6 +87,21 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
     const fullCmd = commandInput.trim().toUpperCase();
     const updates: Partial<Plane> = {};
     let anyValid = false;
+
+    // Calculate dynamic ILS entry point based on runway heading
+    const rad = (airport.runwayHeading * Math.PI) / 180;
+    const ilsEntry = {
+      x: airport.x - 450 * Math.sin(rad),
+      y: airport.y + 450 * Math.cos(rad)
+    };
+
+    // Special command: FINAL or ILS
+    if (fullCmd.includes('FINAL') || fullCmd.includes('ILS')) {
+      const angle = (Math.atan2(ilsEntry.y - selectedPlane!.y, ilsEntry.x - selectedPlane!.x) * 180 / Math.PI) + 90;
+      updates.targetHeading = (angle + 360) % 360;
+      updates.targetWaypoint = null;
+      anyValid = true;
+    }
 
     // 1. Parse Waypoints
     const tokens = fullCmd.split(/\s+/);
@@ -110,6 +141,11 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
       setCommandInput('');
       setSelectedId(null);
     }
+  };
+
+  const ilsEntry = {
+    x: airport.x - 450 * Math.sin((airport.runwayHeading * Math.PI) / 180),
+    y: airport.y + 450 * Math.cos((airport.runwayHeading * Math.PI) / 180)
   };
 
   return (
@@ -212,6 +248,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            ilsEntry={ilsEntry}
           />
 
           {/* Command Console Input */}
@@ -227,6 +264,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, difficulty, highSco
                   type="text"
                   value={commandInput}
                   onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder={selectedPlane ? "C5000, D2000, H090, S210, ALPHA..." : "SELECT AIRCRAFT..."}
                   disabled={!selectedId}
                   className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/50 uppercase tracking-widest text-lg disabled:cursor-not-allowed"
