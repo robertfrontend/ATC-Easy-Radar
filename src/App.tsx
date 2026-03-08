@@ -23,6 +23,7 @@ export default function App() {
   const [page, setPage] = useState<'home' | 'game'>('home');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [airport, setAirport] = useState<Airport>(AIRPORTS[0]);
+  const [activeRunwayIndex, setActiveRunwayIndex] = useState(0);
   const [savedGames, setSavedGames] = useState<SavedGame[]>(loadSavedGames);
 
   const [highScore, setHighScore] = useState(() => {
@@ -37,9 +38,10 @@ export default function App() {
     }
   };
 
-  const handleNewGame = (diff: Difficulty, selectedAirportId: string) => {
+  const handleNewGame = (diff: Difficulty, selectedAirportId: string, runwayIndex: number) => {
     const selectedAirport = AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0];
     setAirport(selectedAirport);
+    setActiveRunwayIndex(runwayIndex);
     setDifficulty(diff);
     setPage('game');
   };
@@ -75,6 +77,7 @@ export default function App() {
   return (
     <GamePage
       airport={airport}
+      activeRunwayIndex={activeRunwayIndex}
       difficulty={difficulty}
       highScore={highScore}
       onExit={() => setPage('home')}

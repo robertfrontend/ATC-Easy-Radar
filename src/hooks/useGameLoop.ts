@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Plane, Difficulty, Airport } from '../types';
 import { audioManager } from '../utils/audio';
 
@@ -12,36 +12,45 @@ const DIFFICULTY_CONFIG = {
   hard:   { maxPlanes: 12, minPlanes: 6, spawnRate: 8000,  ilsWidth: 0.12 }
 };
 
-export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed: number = 1) => {
+const generateCallsign = (airport: Airport) => {
+  // Weighted random airline selection
+  const totalWeight = airport.airlines.reduce((sum, a) => sum + a.weight, 0);
+  let randomVal = Math.random() * totalWeight;
+  let selectedAirline = airport.airlines[0];
+  
+  for (const airline of airport.airlines) {
+    randomVal -= airline.weight;
+    if (randomVal <= 0) {
+      selectedAirline = airline;
+      break;
+    }
+  }
+
+  const num = Math.floor(Math.random() * 9000) + 1000;
+  return { callsign: `${selectedAirline.code}${num}`, flag: selectedAirline.flag };
+};
+
+export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficulty: Difficulty, gameSpeed: number = 1) => {
   const config = DIFFICULTY_CONFIG[difficulty];
+  const activeRunway = useMemo(() => airport.runways[activeRunwayIndex] || airport.runways[0], [airport, activeRunwayIndex]);
+  
   const [planes, setPlanes] = useState<Plane[]>([]);
   const [score, setScore] = useState(0);
   const [accidents, setAccidents] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  
   const lastSpawnRef = useRef(0);
   const initializedRef = useRef(false);
+  const planesRef = useRef<Plane[]>([]);
 
-  const generateFlightData = useCallback(() => {
-    // Weighted random selection
-    const totalWeight = airport.airlines.reduce((sum, a) => sum + a.weight, 0);
-    let randomVal = Math.random() * totalWeight;
-    let selectedAirline = airport.airlines[0];
-    
-    for (const airline of airport.airlines) {
-      randomVal -= airline.weight;
-      if (randomVal <= 0) {
-        selectedAirline = airline;
-        break;
-      }
-    }
-
-    const num = Math.floor(Math.random() * 9000) + 1000;
-    return { callsign: `${selectedAirline.code}${num}`, flag: selectedAirline.flag };
-  }, [airport]);
+  // Keep ref in sync for interval access without dependency restart
+  useEffect(() => {
+    planesRef.current = planes;
+  }, [planes]);
 
   const spawnPlane = useCallback(() => {
     const angle = Math.random() * Math.PI * 2;
-    const distance = 600; // Spawn just outside the core 1000x1000 area
+    const distance = 600;
     const x = airport.x + Math.cos(angle) * distance;
     const y = airport.y + Math.sin(angle) * distance;
     
@@ -50,7 +59,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
     if (heading < 0) heading += 360;
     heading = (heading + (Math.random() * 60 - 30)) % 360;
 
-    const { callsign, flag } = generateFlightData();
+    const { callsign, flag } = generateCallsign(airport);
 
     const newPlane: Plane = {
       id: Math.random().toString(36).substring(7),
@@ -73,7 +82,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
     
     setPlanes(prev => [...prev, newPlane]);
     audioManager.playBlip();
-  }, [airport, generateFlightData]);
+  }, [airport]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -87,33 +96,24 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
         lastSpawnRef.current = now;
       }
 
-      // Dynamic Spawn Logic
-      const currentCount = planes.length;
+      // Dynamic Spawn
+      const currentCount = planesRef.current.length;
       const timeSinceLast = now - lastSpawnRef.current;
       
-      let shouldSpawn = false;
-      if (currentCount < config.minPlanes) {
-        shouldSpawn = true;
-      } else if (currentCount < config.maxPlanes && timeSinceLast > config.spawnRate / gameSpeed) {
-        shouldSpawn = true;
-      }
-
-      if (shouldSpawn) {
+      if (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > config.spawnRate / gameSpeed)) {
         spawnPlane();
         lastSpawnRef.current = now;
       }
 
       setPlanes(prevPlanes => {
-        let nextPlanes = [...prevPlanes];
-        let hasNewWarning = false;
-
-        nextPlanes = nextPlanes.map(plane => {
+        let nextPlanes = prevPlanes.map(plane => {
           let currentTargetHeading = plane.targetHeading;
           let currentTargetAltitude = plane.targetAltitude;
           let currentTargetSpeed = plane.targetSpeed;
           let isEstablished = plane.isEstablished;
           let currentTargetWaypoint = plane.targetWaypoint;
 
+          // Waypoint logic
           if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
             const wp = airport.waypoints.find(w => w.id === currentTargetWaypoint);
             if (wp) {
@@ -131,16 +131,16 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
             }
           }
 
+          // ILS Logic
           if (!isEstablished && !plane.goAround && plane.status !== 'crashed') {
             const dx = plane.x - airport.x;
             const dy = plane.y - airport.y;
-            const rad = -airport.runwayHeading * Math.PI / 180;
+            const rad = -activeRunway.heading * Math.PI / 180;
             const rotatedX = dx * Math.cos(rad) - dy * Math.sin(rad);
             const rotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-            // Use dynamic ilsWidth from config
             const inILSCone = rotatedY > 28 && rotatedY < 500 && Math.abs(rotatedX) <= rotatedY * config.ilsWidth;
-            let relHeading = (plane.heading - airport.runwayHeading + 360) % 360;
+            let relHeading = (plane.heading - activeRunway.heading + 360) % 360;
             const isHeadingAligned = relHeading > 310 || relHeading < 50;
 
             if (inILSCone && plane.altitude <= 10000 && isHeadingAligned) {
@@ -151,14 +151,15 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
           if (isEstablished && plane.status !== 'crashed') {
              const dx = plane.x - airport.x;
              const dy = plane.y - airport.y;
-             const rad = -airport.runwayHeading * Math.PI / 180;
+             const rad = -activeRunway.heading * Math.PI / 180;
              const rotatedX = dx * Math.cos(rad) - dy * Math.sin(rad);
              let correction = rotatedX < 0 ? Math.min(30, -rotatedX * 2) : -Math.min(30, rotatedX * 2);
-             currentTargetHeading = (airport.runwayHeading + correction + 360) % 360;
+             currentTargetHeading = (activeRunway.heading + correction + 360) % 360;
              currentTargetAltitude = 0;
              currentTargetSpeed = 140;
           }
 
+          // Movement Physics
           let newHeading = plane.heading;
           if (plane.heading !== currentTargetHeading) {
             let diff = currentTargetHeading - plane.heading;
@@ -207,6 +208,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
           return { ...plane, x: newX, y: newY, heading: newHeading, altitude: newAltitude, speed: newSpeed, trail: newTrail, targetHeading: currentTargetHeading, targetAltitude: currentTargetAltitude, targetSpeed: currentTargetSpeed, isEstablished, status: newStatus, targetWaypoint: currentTargetWaypoint };
         });
 
+        // Separation & Collisions
         for (let i = 0; i < nextPlanes.length; i++) {
           for (let j = i + 1; j < nextPlanes.length; j++) {
             const p1 = nextPlanes[i];
@@ -223,14 +225,12 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
             } else if (dist < 40 && altDiff < 1500) {
               if (p1.status !== 'crashed') p1.status = 'warning';
               if (p2.status !== 'crashed') p2.status = 'warning';
-              hasNewWarning = true;
             }
           }
         }
 
-        if (hasNewWarning) audioManager.playWarning();
-
-        const planesToKeep = nextPlanes.filter(plane => {
+        // Landing & Exit logic
+        return nextPlanes.filter(plane => {
           if (plane.markedForRemoval) return false;
           const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
           if (distToCenter < 25) {
@@ -240,7 +240,7 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
               return false;
             }
             if (plane.altitude <= 2000) {
-              let relHeading = (plane.heading - airport.runwayHeading + 360) % 360;
+              let relHeading = (plane.heading - activeRunway.heading + 360) % 360;
               const isAligned = relHeading > 340 || relHeading < 20;
               if (plane.speed <= 220 && isAligned) {
                 setScore(s => s + 1);
@@ -253,22 +253,18 @@ export const useGameLoop = (airport: Airport, difficulty: Difficulty, gameSpeed:
               }
             }
           }
-          if (distToCenter > 2500) return false;
-          return true;
+          return distToCenter < 2500;
         });
-
-        return planesToKeep;
       });
     }, TICK_RATE / gameSpeed);
 
     return () => clearInterval(interval);
-  }, [isPaused, spawnPlane, difficulty, gameSpeed, score, airport, config, planes.length]);
+  }, [isPaused, spawnPlane, difficulty, gameSpeed, airport, config, activeRunway]);
 
+  // Audio sweep
   useEffect(() => {
     if (isPaused) return;
-    const interval = setInterval(() => {
-      audioManager.playBlip();
-    }, 4000 / gameSpeed);
+    const interval = setInterval(() => audioManager.playBlip(), 4000 / gameSpeed);
     return () => clearInterval(interval);
   }, [isPaused, gameSpeed]);
 
