@@ -42,7 +42,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, activeRunwa
       targetHeading: heading,
       targetAltitude: altitude,
       targetSpeed: speed,
-      targetWaypoint: null,
+      targetWaypoint: plane.type === 'departure' ? plane.targetWaypoint : null,
     });
     audioManager.playRadio();
     onDeselect();
@@ -51,7 +51,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, activeRunwa
   return (
     <div className="flex flex-col gap-6 text-green-400 h-full">
       <div className="border-b border-green-500/30 pb-4">
-        <h2 className="text-3xl font-bold text-white tracking-widest">{plane.callsign}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold text-white tracking-widest">{plane.callsign}</h2>
+          <span className={`px-2 py-0.5 rounded text-xs font-bold border ${plane.type === 'departure' ? 'border-purple-500 text-purple-400' : 'border-green-500 text-green-400'}`}>
+            {plane.type.toUpperCase()}
+          </span>
+        </div>
         <div className="text-sm opacity-70 mt-1 flex items-center gap-2">
           STATUS: 
           <span className={`font-bold ${
@@ -59,10 +64,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, activeRunwa
             plane.status === 'bad_approach' ? 'text-orange-500' : 
             plane.status === 'crashed' ? 'text-red-500' : 
             plane.isEstablished ? 'text-sky-400' : 
+            plane.type === 'departure' ? 'text-purple-400' :
             !plane.hasInstructions ? 'text-yellow-400' : 'text-green-400'
           }`}>
             {plane.isEstablished && plane.status !== 'bad_approach' ? 'ON ILS APPROACH' : 
              plane.status === 'bad_approach' ? 'BAD APPROACH' : 
+             plane.type === 'departure' ? 'AUTOMATIC DEPARTURE' :
              !plane.hasInstructions ? 'UNCONTROLLED' :
              plane.status.toUpperCase()}
           </span>
@@ -154,13 +161,22 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, activeRunwa
         </button>
       )}
       
-      <div className="mt-4 p-4 bg-slate-900 rounded border border-green-500/20 text-xs space-y-2 opacity-80">
-        <p className="font-bold text-green-300 mb-2">LANDING REQUIREMENTS:</p>
-        <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY {activeRunway.label}</span></p>
-        <p className="flex justify-between"><span>Heading:</span> <span className="text-white">Aligned with RWY ({activeRunway.heading.toString().padStart(3, '0')}&deg;)</span></p>
-        <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 3000 ft</span></p>
-        <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 200 kts</span></p>
-      </div>
+      {plane.type === 'departure' ? (
+        <div className="mt-4 p-4 bg-slate-900 rounded border border-purple-500/20 text-xs space-y-2 opacity-80">
+          <p className="font-bold text-purple-300 mb-2">DEPARTURE MISSION:</p>
+          <p className="flex justify-between"><span>Objective:</span> <span className="text-white">Reach exit waypoint</span></p>
+          <p className="flex justify-between"><span>Waypoint:</span> <span className="text-white">{airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || 'N/A'}</span></p>
+          <p className="flex justify-between"><span>Action:</span> <span className="text-white">Auto-handover upon arrival</span></p>
+        </div>
+      ) : (
+        <div className="mt-4 p-4 bg-slate-900 rounded border border-green-500/20 text-xs space-y-2 opacity-80">
+          <p className="font-bold text-green-300 mb-2">LANDING REQUIREMENTS:</p>
+          <p className="flex justify-between"><span>Destination:</span> <span className="text-white">ILS RWY {activeRunway.label}</span></p>
+          <p className="flex justify-between"><span>Heading:</span> <span className="text-white">Aligned with RWY ({activeRunway.heading.toString().padStart(3, '0')}&deg;)</span></p>
+          <p className="flex justify-between"><span>Altitude:</span> <span className="text-white">&le; 3000 ft</span></p>
+          <p className="flex justify-between"><span>Speed:</span> <span className="text-white">&le; 200 kts</span></p>
+        </div>
+      )}
     </div>
   );
 };

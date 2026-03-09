@@ -31,6 +31,7 @@ export interface Airport {
 export interface Plane {
   id: string;
   callsign: string;
+  type: 'arrival' | 'departure';
   x: number;
   y: number;
   heading: number;
