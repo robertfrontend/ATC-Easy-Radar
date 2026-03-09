@@ -269,6 +269,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onCommand={updatePlaneTarget}
             ilsEntry={ilsEntry_ui}
             upwindPoint={upwindPoint_ui}
           />

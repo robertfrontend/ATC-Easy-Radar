@@ -7,7 +7,8 @@ interface RadarDisplayProps {
   activeRunwayIndex: number;
   planes: Plane[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
+  onCommand?: (id: string, updates: Partial<Plane>) => void;
   ilsEntry?: { x: number; y: number };
   upwindPoint?: { x: number; y: number };
 }
@@ -16,7 +17,7 @@ const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
 const ZOOM_LEVELS = [400, 600, 900, 1400, 1900, 2800]; // viewBox widths
 const INIT_ZOOM_IDX = 3; // 1400
 
-export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwayIndex, planes, selectedId, onSelect, ilsEntry, upwindPoint }) => {
+export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwayIndex, planes, selectedId, onSelect, onCommand, ilsEntry, upwindPoint }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [vb, setVb] = useState(INIT_VB);
@@ -101,7 +102,24 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
     }
   };
 
-  const handleMouseUp = () => panRef.current = null;
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!hasDraggedRef.current && selectedId && mousePos && onCommand) {
+      const plane = planes.find(p => p.id === selectedId);
+      if (plane && !plane.isEstablished) {
+        // Calculate heading to mouse click
+        let headingToMouse = (Math.atan2(mousePos.y - plane.y, mousePos.x - plane.x) * 180 / Math.PI) + 90;
+        headingToMouse = (headingToMouse + 360) % 360;
+        
+        onCommand(selectedId, { 
+          targetHeading: Math.round(headingToMouse),
+          targetWaypoint: null 
+        });
+        audioManager.playRadio();
+        onSelect(null); // DESELECT PLANE AFTER COMMAND
+      }
+    }
+    panRef.current = null;
+  };
   const handleMouseLeave = () => { setMousePos(null); panRef.current = null; };
 
   const selectedPlane = planes.find(p => p.id === selectedId);
@@ -195,6 +213,21 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
 
       {selectedPlane && (
         <line x1={selectedPlane.x} y1={selectedPlane.y} x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)} y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)} stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="10,10" style={{ pointerEvents: 'none' }} />
+      )}
+
+      {selectedPlane && !selectedPlane.isEstablished && mousePos && (
+        <g style={{ pointerEvents: 'none' }}>
+          <line 
+            x1={selectedPlane.x} 
+            y1={selectedPlane.y} 
+            x2={mousePos.x} 
+            y2={mousePos.y} 
+            stroke="rgba(34, 197, 94, 0.4)" 
+            strokeWidth="2" 
+            strokeDasharray="5,5" 
+          />
+          <circle cx={mousePos.x} cy={mousePos.y} r="5" fill="none" stroke="#4ade80" strokeWidth="1" />
+        </g>
       )}
 
       {planes.map(plane => {
