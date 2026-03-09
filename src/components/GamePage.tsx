@@ -72,7 +72,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
       const tokens = commandInput.trim().toUpperCase().split(/\s+/);
       const lastToken = tokens[tokens.length - 1];
       
-      const autoCompleteTargets = [...airport.waypoints.map(w => w.label), 'FINAL', 'ILS'];
+      const autoCompleteTargets = [...airport.waypoints.map(w => w.label), 'FINAL', 'ILS', 'UPWIND', 'DEP'];
 
       if (lastToken) {
         const match = autoCompleteTargets.find(label => label.toUpperCase().startsWith(lastToken));
@@ -92,16 +92,27 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
     const updates: Partial<Plane> = {};
     let anyValid = false;
 
-    // Calculate dynamic ILS entry point based on active runway
+    // Calculate dynamic ILS entry and Upwind points based on active runway
     const rad = (activeRunway.heading * Math.PI) / 180;
     const ilsEntry = {
       x: airport.x - 450 * Math.sin(rad),
       y: airport.y + 450 * Math.cos(rad)
     };
+    const upwindPoint = {
+      x: airport.x + 450 * Math.sin(rad),
+      y: airport.y - 450 * Math.cos(rad)
+    };
 
     // Special command: FINAL or ILS
     if (fullCmd.includes('FINAL') || fullCmd.includes('ILS')) {
       const angle = (Math.atan2(ilsEntry.y - selectedPlane!.y, ilsEntry.x - selectedPlane!.x) * 180 / Math.PI) + 90;
+      updates.targetHeading = (angle + 360) % 360;
+      updates.targetWaypoint = null;
+      anyValid = true;
+    }
+    // Special command: UPWIND or DEP
+    else if (fullCmd.includes('UPWIND') || fullCmd.includes('DEP')) {
+      const angle = (Math.atan2(upwindPoint.y - selectedPlane!.y, upwindPoint.x - selectedPlane!.x) * 180 / Math.PI) + 90;
       updates.targetHeading = (angle + 360) % 360;
       updates.targetWaypoint = null;
       anyValid = true;
@@ -147,9 +158,14 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
     }
   };
 
-  const ilsEntry = {
-    x: airport.x - 450 * Math.sin((activeRunway.heading * Math.PI) / 180),
-    y: airport.y + 450 * Math.cos((activeRunway.heading * Math.PI) / 180)
+  const rad_ui = (activeRunway.heading * Math.PI) / 180;
+  const ilsEntry_ui = {
+    x: airport.x - 450 * Math.sin(rad_ui),
+    y: airport.y + 450 * Math.cos(rad_ui)
+  };
+  const upwindPoint_ui = {
+    x: airport.x + 450 * Math.sin(rad_ui),
+    y: airport.y - 450 * Math.cos(rad_ui)
   };
 
   return (
@@ -253,7 +269,8 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            ilsEntry={ilsEntry}
+            ilsEntry={ilsEntry_ui}
+            upwindPoint={upwindPoint_ui}
           />
 
           {/* Command Console Input */}

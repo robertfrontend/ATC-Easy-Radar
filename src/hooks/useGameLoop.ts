@@ -49,35 +49,80 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
   }, [planes]);
 
   const spawnPlane = useCallback(() => {
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 600;
-    const x = airport.x + Math.cos(angle) * distance;
-    const y = airport.y + Math.sin(angle) * distance;
-    
-    const angleToCenter = Math.atan2(airport.y - y, airport.x - x);
-    let heading = (angleToCenter * 180 / Math.PI) + 90;
-    if (heading < 0) heading += 360;
-    heading = (heading + (Math.random() * 60 - 30)) % 360;
-
+    const activeRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
+    // Force first plane to be a departure if it's the very first one, then 40% chance
+    const isDeparture = planesRef.current.length === 0 ? true : Math.random() < 0.4;
     const { callsign, flag } = generateCallsign(airport);
+    
+    let x, y, heading, targetHeading, altitude, targetAltitude, speed, targetSpeed, targetWaypoint = null;
+
+    if (isDeparture) {
+      // Departures start at the airport with a small random offset
+      x = airport.x + (Math.random() * 4 - 2);
+      y = airport.y + (Math.random() * 4 - 2);
+      
+      // SAME heading as the runway (taking off forward)
+      const departureHeading = activeRunway.heading;
+      
+      // Find waypoints that are "in front" of the runway
+      const waypointsWithScore = airport.waypoints.map(wp => {
+        const angleToWp = (Math.atan2(wp.y - airport.y, wp.x - airport.x) * 180 / Math.PI) + 90;
+        const normalizedAngle = (angleToWp + 360) % 360;
+        let diff = Math.abs(normalizedAngle - departureHeading);
+        if (diff > 180) diff = 360 - diff;
+        return { wp, diff };
+      });
+      
+      // Pick the best waypoints that are in front of the takeoff path
+      waypointsWithScore.sort((a, b) => a.diff - b.diff);
+      const bestWaypoints = waypointsWithScore.slice(0, 2);
+      const selectedWp = bestWaypoints[Math.floor(Math.random() * bestWaypoints.length)].wp;
+      
+      targetWaypoint = selectedWp.id;
+      heading = departureHeading; // Start flying forward
+      targetHeading = heading;
+
+      altitude = 0;
+      targetAltitude = 12000 + Math.floor(Math.random() * 8) * 1000;
+      speed = 140;
+      targetSpeed = 250 + Math.floor(Math.random() * 5) * 10;
+    } else {
+      // Arrivals spawn at the edge
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 600;
+      x = airport.x + Math.cos(angle) * distance;
+      y = airport.y + Math.sin(angle) * distance;
+      
+      const angleToCenter = Math.atan2(airport.y - y, airport.x - x);
+      heading = (angleToCenter * 180 / Math.PI) + 90;
+      if (heading < 0) heading += 360;
+      heading = (heading + (Math.random() * 60 - 30)) % 360;
+      targetHeading = heading;
+
+      altitude = 10000 + Math.floor(Math.random() * 20) * 1000;
+      targetAltitude = altitude;
+      speed = 250 + Math.floor(Math.random() * 10) * 10;
+      targetSpeed = speed;
+    }
 
     const newPlane: Plane = {
       id: Math.random().toString(36).substring(7),
       callsign,
+      type: isDeparture ? 'departure' : 'arrival',
       originFlag: flag,
       x,
       y,
       heading,
-      targetHeading: heading,
-      altitude: 10000 + Math.floor(Math.random() * 20) * 1000,
-      targetAltitude: 10000 + Math.floor(Math.random() * 20) * 1000,
-      speed: 250 + Math.floor(Math.random() * 10) * 10,
-      targetSpeed: 250 + Math.floor(Math.random() * 10) * 10,
+      targetHeading,
+      altitude,
+      targetAltitude,
+      speed,
+      targetSpeed,
       trail: [],
       status: 'normal',
       isEstablished: false,
-      hasInstructions: false,
-      targetWaypoint: null
+      hasInstructions: isDeparture,
+      targetWaypoint
     };
     
     setPlanes(prev => [...prev, newPlane]);
@@ -99,8 +144,9 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
       // Dynamic Spawn
       const currentCount = planesRef.current.length;
       const timeSinceLast = now - lastSpawnRef.current;
+      const minSpawnInterval = 4000 / gameSpeed; // Increased to 4s to be safer
       
-      if (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > config.spawnRate / gameSpeed)) {
+      if (timeSinceLast > minSpawnInterval && (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > config.spawnRate / gameSpeed))) {
         spawnPlane();
         lastSpawnRef.current = now;
       }
@@ -114,12 +160,17 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
           let currentTargetWaypoint = plane.targetWaypoint;
 
           // Waypoint logic
+          let markedForRemoval = plane.markedForRemoval;
           if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
             const wp = airport.waypoints.find(w => w.id === currentTargetWaypoint);
             if (wp) {
               const distToWp = Math.hypot(wp.x - plane.x, wp.y - plane.y);
-              if (distToWp < 20) {
-                currentTargetWaypoint = null;
+              if (distToWp < 25) { // Increased distance slightly
+                if (plane.type === 'departure') {
+                  markedForRemoval = true;
+                } else {
+                  currentTargetWaypoint = null;
+                }
               } else {
                 let headingToWp = (Math.atan2(wp.y - plane.y, wp.x - plane.x) * 180 / Math.PI) + 90;
                 headingToWp = (headingToWp + 360) % 360;
@@ -205,7 +256,7 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
             else if (isEstablished && distToCenter < 50 && newSpeed > 160) newStatus = 'bad_approach';
           }
 
-          return { ...plane, x: newX, y: newY, heading: newHeading, altitude: newAltitude, speed: newSpeed, trail: newTrail, targetHeading: currentTargetHeading, targetAltitude: currentTargetAltitude, targetSpeed: currentTargetSpeed, isEstablished, status: newStatus, targetWaypoint: currentTargetWaypoint };
+          return { ...plane, x: newX, y: newY, heading: newHeading, altitude: newAltitude, speed: newSpeed, trail: newTrail, targetHeading: currentTargetHeading, targetAltitude: currentTargetAltitude, targetSpeed: currentTargetSpeed, isEstablished, status: newStatus, targetWaypoint: currentTargetWaypoint, markedForRemoval };
         });
 
         // Separation & Collisions
@@ -215,11 +266,20 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
             const p2 = nextPlanes[j];
             const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
             const altDiff = Math.abs(p1.altitude - p2.altitude);
-            if (dist < 20 && altDiff < 1000) {
+
+            // COMPREHENSIVE COLLISION AVOIDANCE FOR TAKEOFFS/LANDINGS
+            // Planes below 1000ft are considered "on runway/taking off/landing"
+            // and won't collide with each other to prevent starting accidents.
+            const p1Safe = p1.altitude < 1000;
+            const p2Safe = p2.altitude < 1000;
+
+            if (dist < 20 && altDiff < 1000 && !(p1Safe && p2Safe)) {
               if (!p1.markedForRemoval && !p2.markedForRemoval) {
                 setAccidents(a => a + 1);
                 p1.markedForRemoval = true;
                 p2.markedForRemoval = true;
+                p1.status = 'crashed';
+                p2.status = 'crashed';
                 audioManager.playCrash();
               }
             } else if (dist < 40 && altDiff < 1500) {
@@ -231,28 +291,41 @@ export const useGameLoop = (airport: Airport, activeRunwayIndex: number, difficu
 
         // Landing & Exit logic
         return nextPlanes.filter(plane => {
-          if (plane.markedForRemoval) return false;
-          const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
-          if (distToCenter < 25) {
-            if (plane.isEstablished) {
+          if (plane.markedForRemoval) {
+            // Only give points if it wasn't a crash
+            if (plane.type === 'departure' && plane.status !== 'crashed') {
               setScore(s => s + 1);
               audioManager.playSuccess();
-              return false;
             }
-            if (plane.altitude <= 2000) {
-              let relHeading = (plane.heading - activeRunway.heading + 360) % 360;
-              const isAligned = relHeading > 340 || relHeading < 20;
-              if (plane.speed <= 220 && isAligned) {
+            return false;
+          }
+
+          const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
+
+          // ONLY ARRIVALS can land. Departures should not trigger landing logic.
+          if (plane.type === 'arrival') {
+            if (distToCenter < 25) {
+              if (plane.isEstablished) {
                 setScore(s => s + 1);
                 audioManager.playSuccess();
                 return false;
-              } else {
-                setAccidents(a => a + 1);
-                audioManager.playCrash();
-                return false;
+              }
+              if (plane.altitude <= 2000) {
+                let relHeading = (plane.heading - activeRunway.heading + 360) % 360;
+                const isAligned = relHeading > 340 || relHeading < 20;
+                if (plane.speed <= 220 && isAligned) {
+                  setScore(s => s + 1);
+                  audioManager.playSuccess();
+                  return false;
+                } else {
+                  setAccidents(a => a + 1);
+                  audioManager.playCrash();
+                  return false;
+                }
               }
             }
           }
+          
           return distToCenter < 2500;
         });
       });

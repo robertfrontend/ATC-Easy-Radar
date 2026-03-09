@@ -9,13 +9,14 @@ interface RadarDisplayProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   ilsEntry?: { x: number; y: number };
+  upwindPoint?: { x: number; y: number };
 }
 
 const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
 const ZOOM_LEVELS = [400, 600, 900, 1400, 1900, 2800]; // viewBox widths
 const INIT_ZOOM_IDX = 3; // 1400
 
-export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwayIndex, planes, selectedId, onSelect, ilsEntry }) => {
+export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwayIndex, planes, selectedId, onSelect, ilsEntry, upwindPoint }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [vb, setVb] = useState(INIT_VB);
@@ -139,19 +140,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
         <line x1="-5000" y1={airport.y} x2="5500" y2={airport.y} stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
         <line x1={airport.x} y1="-5000" x2={airport.x} y2="5500" stroke="rgba(34,197,94,0.15)" strokeWidth="1" strokeDasharray="8,6" />
 
-        {/* ── RUNWAY & ILS (ROTATED GROUP) ── */}
         <g transform={`translate(${airport.x}, ${airport.y}) rotate(${activeRunway.heading})`}>
-          {/* ILS Cone */}
           <polygon points="0,28 -76,450 76,450" fill="rgba(56,189,248,0.06)" stroke="none" />
           <line x1="0" y1="28" x2="-76" y2="450" stroke="#38bdf8" strokeWidth="1" opacity="0.4" />
           <line x1="0" y1="28" x2="76" y2="450" stroke="#38bdf8" strokeWidth="1" opacity="0.4" />
           <line x1="0" y1="28" x2="0" y2="450" stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.5" />
-          
-          {/* Runway Rect */}
           <rect x="-6" y="-30" width="12" height="60" fill="#030d1a" stroke="#38bdf8" strokeWidth="1.5" />
           <line x1="0" y1="-25" x2="0" y2="25" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4,4" />
-          
-          {/* Label (Fixed Rotation) */}
           <text x="86" y="450" fill="#38bdf8" fontSize="13" fontFamily="monospace" opacity="0.7" transform={`rotate(${-activeRunway.heading}, 86, 450)`}>
             ILS {activeRunway.label}
           </text>
@@ -165,16 +160,21 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
           </g>
         )}
 
-        {/* Waypoints */}
+        {/* Upwind / Departure Point Marker */}
+        {upwindPoint && (
+          <g transform={`translate(${upwindPoint.x}, ${upwindPoint.y})`}>
+            <rect x="-8" y="-8" width="16" height="16" fill="none" stroke="#fb923c" strokeWidth="2" transform="rotate(45)" opacity="0.8" />
+            <text x="12" y="5" fill="#fb923c" fontSize="12" fontFamily="monospace" fontWeight="bold">DEP</text>
+          </g>
+        )}
+
         {airport.waypoints.map(wp => {
           const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) < 40;
           return (
             <g key={wp.id} transform={`translate(${wp.x}, ${wp.y})`} style={{ cursor: 'default' }}>
               <circle cx="0" cy="0" r="30" fill="transparent" />
               <polygon points="0,-8 7,5 -7,5" fill={isHovered ? 'rgba(168,85,247,0.3)' : 'none'} stroke="#a855f7" strokeWidth="2" />
-              <text x="12" y="4" fill={isHovered ? '#d8b4fe' : '#a855f7'} fontSize="14" fontFamily="monospace" fontWeight={isHovered ? 'bold' : 'normal'}>
-                {wp.label}
-              </text>
+              <text x="12" y="4" fill={isHovered ? '#d8b4fe' : '#a855f7'} fontSize="14" fontFamily="monospace" fontWeight={isHovered ? 'bold' : 'normal'}>{wp.label}</text>
             </g>
           );
         })}
@@ -182,7 +182,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
 
       <circle cx={airport.x} cy={airport.y} r="560" fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="1.5" />
 
-      {/* Bearing ticks */}
       {Array.from({ length: 36 }, (_, i) => {
         const deg = i * 10;
         const rad = deg * Math.PI / 180;
@@ -190,32 +189,21 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
         const isMajor = deg % 30 === 0;
         const innerR = isCardinal ? 536 : isMajor ? 548 : 554;
         return (
-          <line key={deg}
-            x1={airport.x + 560 * Math.sin(rad)} y1={airport.y - 560 * Math.cos(rad)}
-            x2={airport.x + innerR * Math.sin(rad)} y2={airport.y - innerR * Math.cos(rad)}
-            stroke="rgba(34,197,94,1)" strokeWidth="1" opacity={isCardinal ? 0.65 : isMajor ? 0.45 : 0.28}
-          />
+          <line key={deg} x1={airport.x + 560 * Math.sin(rad)} y1={airport.y - 560 * Math.cos(rad)} x2={airport.x + innerR * Math.sin(rad)} y2={airport.y - innerR * Math.cos(rad)} stroke="rgba(34,197,94,1)" strokeWidth="1" opacity={isCardinal ? 0.65 : isMajor ? 0.45 : 0.28} />
         );
       })}
 
-      {/* Target Heading Line */}
       {selectedPlane && (
-        <line
-          x1={selectedPlane.x} y1={selectedPlane.y}
-          x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)}
-          y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)}
-          stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="10,10"
-          style={{ pointerEvents: 'none' }}
-        />
+        <line x1={selectedPlane.x} y1={selectedPlane.y} x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)} y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)} stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeDasharray="10,10" style={{ pointerEvents: 'none' }} />
       )}
 
-      {/* Planes */}
       {planes.map(plane => {
         const isSelected = plane.id === selectedId;
         const color = plane.status === 'crashed' ? '#ef4444' :
                       plane.status === 'warning' ? '#f97316' :
                       plane.status === 'bad_approach' ? '#f97316' :
                       plane.isEstablished ? '#38bdf8' :
+                      plane.type === 'departure' ? '#a855f7' :
                       !plane.hasInstructions ? '#eab308' : '#4ade80';
         return (
           <g key={plane.id} onClick={(e) => { e.stopPropagation(); if (!hasDraggedRef.current) { onSelect(plane.id); audioManager.playSelect(); } }} style={{ cursor: 'pointer' }}>
@@ -223,8 +211,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
             {plane.trail.slice(-8).map((p, i, arr) => (
               <circle key={i} cx={p.x} cy={p.y} r="2" fill={color} opacity={(i + 1) / arr.length * 0.5} />
             ))}
-            {selectedPlane?.targetWaypoint && (
-              <line x1={selectedPlane.x} y1={selectedPlane.y} x2={airport.waypoints.find(w => w.id === selectedPlane.targetWaypoint)?.x} y2={airport.waypoints.find(w => w.id === selectedPlane.targetWaypoint)?.y} stroke="#a855f7" strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
+            {plane.targetWaypoint && isSelected && (
+              <line x1={plane.x} y1={plane.y} x2={airport.waypoints.find(w => w.id === plane.targetWaypoint)?.x} y2={airport.waypoints.find(w => w.id === plane.targetWaypoint)?.y} stroke={color} strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
             )}
             <line x1={plane.x} y1={plane.y} x2={plane.x + (plane.speed / 10) * Math.sin(plane.heading * Math.PI / 180)} y2={plane.y - (plane.speed / 10) * Math.cos(plane.heading * Math.PI / 180)} stroke={isSelected ? '#fff' : color} strokeWidth="2" opacity="0.8" />
             <rect x={plane.x - 4} y={plane.y - 4} width="8" height="8" fill={isSelected ? '#fff' : color} />
@@ -233,7 +221,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({ airport, activeRunwa
               <rect x="0" y="-14" width="95" height="54" fill="rgba(0,0,0,0.8)" rx="4" stroke={isSelected ? '#fff' : color} strokeWidth="1" />
               <text x="6" y="4" fill={isSelected ? '#fff' : color} fontSize="14" fontFamily="monospace" fontWeight="bold">{plane.originFlag} {plane.callsign}</text>
               <text x="6" y="20" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace">{plane.altitude >= 10000 ? `FL${Math.round(plane.altitude / 100).toString().padStart(3, '0')}` : `${Math.round(plane.altitude)}ft`}{Math.abs(plane.altitude - plane.targetAltitude) > 100 ? (plane.targetAltitude > plane.altitude ? ' ↑' : ' ↓') : ''}</text>
-              <text x="6" y="34" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace">{Math.round(plane.speed)}kt {Math.round(plane.heading).toString().padStart(3, '0')}°</text>
+              <text x="6" y="34" fill={isSelected ? '#fff' : color} fontSize="12" fontFamily="monospace">{Math.round(plane.speed)}kt {plane.type === 'departure' ? 'DEP' : 'ARR'}</text>
             </g>
           </g>
         );
