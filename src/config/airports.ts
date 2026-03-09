@@ -5,6 +5,7 @@ export const AIRPORTS: Airport[] = [
     id: 'logan-int',
     name: 'Logan Intl Airport',
     icao: 'KBOS',
+    countryFlag: '🇺🇸',
     x: 500,
     y: 500,
     runways: [
@@ -29,6 +30,7 @@ export const AIRPORTS: Airport[] = [
     id: 'las-americas',
     name: 'Las Américas Intl',
     icao: 'MDSD',
+    countryFlag: '🇩🇴',
     x: 500,
     y: 500,
     runways: [
@@ -52,6 +54,7 @@ export const AIRPORTS: Airport[] = [
     id: 'dubai-int',
     name: 'Dubai Intl Airport',
     icao: 'OMDB',
+    countryFlag: '🇦🇪',
     x: 500,
     y: 500,
     runways: [
@@ -77,6 +80,7 @@ export const AIRPORTS: Airport[] = [
     id: 'london-lhr',
     name: 'London Heathrow',
     icao: 'EGLL',
+    countryFlag: '🇬🇧',
     x: 500,
     y: 500,
     runways: [
@@ -102,6 +106,7 @@ export const AIRPORTS: Airport[] = [
     id: 'amsterdam-ams',
     name: 'Amsterdam Schiphol',
     icao: 'EHAM',
+    countryFlag: '🇳🇱',
     x: 500,
     y: 500,
     runways: [
@@ -128,6 +133,7 @@ export const AIRPORTS: Airport[] = [
     id: 'panama-pty',
     name: 'Panama Tocumen',
     icao: 'MPTO',
+    countryFlag: '🇵🇦',
     x: 500,
     y: 500,
     runways: [

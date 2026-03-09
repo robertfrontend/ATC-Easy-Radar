@@ -20,6 +20,7 @@ export interface Airport {
   id: string;
   name: string;
   icao: string;
+  countryFlag: string;
   x: number;
   y: number;
   waypoints: Waypoint[];
