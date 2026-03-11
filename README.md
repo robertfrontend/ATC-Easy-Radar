@@ -2,6 +2,9 @@
 
 Air Traffic Control radar simulation game. Guide aircraft to a safe landing on Runway 36 without causing collisions.
 
+<img width="1465" height="832" alt="Screenshot 2026-03-07 at 11 33 00 PM" src="https://github.com/user-attachments/assets/ee206919-19a8-4cf1-b399-71dda2543bf6" />
+
+
 ## How to Play
 
 1. **Select** an aircraft by clicking on it in the radar
