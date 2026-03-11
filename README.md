@@ -1,65 +1,97 @@
 # ATC Easy Radar
 
-Air Traffic Control radar simulation game. Guide aircraft to a safe landing on Runway 36 without causing collisions.
+**ATC Easy Radar** is a high-performance Air Traffic Control (ATC) simulation built with React and TypeScript. Take command of the skies, managing both incoming arrivals and departing traffic in a high-stakes environment where every degree and foot of altitude matters.
 
 <img width="1465" height="832" alt="Screenshot 2026-03-07 at 11 33 00 PM" src="https://github.com/user-attachments/assets/ee206919-19a8-4cf1-b399-71dda2543bf6" />
 
+---
 
-## How to Play
+## 🎮 How to Play
 
-1. **Select** an aircraft by clicking on it in the radar
-2. **Issue commands** using the side panel: set heading, altitude, and speed, then press **TRANSMIT COMMANDS**
-3. **Click anywhere** on the radar to instantly point the selected aircraft in that direction
-4. **Navigate via waypoints** — click any waypoint triangle while a plane is selected to route it there
-5. Once a plane enters the ILS cone at the right altitude and heading, it will **auto-land**
+### 1. Selection & Command
+- **Select an aircraft** by clicking its icon on the radar.
+- **Issue orders** via the **Control Panel** (Heading, Altitude, Speed) and press **TRANSMIT COMMANDS**.
+- **Keyboard Shortcuts:** Use the Command Console at the bottom for professional ATC inputs (e.g., `H250` for heading, `A5000` for altitude).
+
+### 2. Mouse Interaction (Advanced)
+- **Direct Heading:** With a plane selected, simply **click anywhere on the radar** to instantly set its heading towards that point. The plane will automatically deselect after the command, allowing for rapid-fire sequencing.
+- **Visual Preview:** A dotted guide line follows your mouse when a plane is selected, showing the intended flight path.
+
+### 3. Flight Operations
+- **Arrivals (ARR - Green):** Guide them into the **blue ILS cone** below 10,000ft. Once established, they will auto-land.
+- **Departures (DEP - Purple):** These aircraft spawn at the airport and climb automatically. Their mission is to **reach their assigned exit waypoint** to be handed over to the next sector.
+
+---
+
+## 🛠️ Flight Mechanics & Requirements
 
 ### Landing Requirements (Runway 36)
+| Parameter | Requirement |
+| :--- | :--- |
+| **Heading** | Aligned with Runway (approx. 360°/000°) |
+| **Altitude** | ≤ 3,000 ft |
+| **Speed** | ≤ 200 kts |
 
-| Parameter | Requirement          |
-|-----------|----------------------|
-| Heading   | 330° – 030° (North)  |
-| Altitude  | <= 3,000 ft          |
-| Speed     | <= 200 kts           |
+### Departure Mission
+| Parameter | Requirement |
+| :--- | :--- |
+| **Objective** | Reach assigned Waypoint (Triangle icons) |
+| **Automation** | Auto-climb and Auto-navigation (unless overridden) |
+| **Handover** | Automatic removal upon reaching waypoint |
 
 ### Aircraft Status Colors
+| Color | Status | Meaning |
+| :--- | :--- | :--- |
+| 🟢 **Green** | ARR - Controlled | Arrival with active instructions. |
+| 🟡 **Yellow** | ARR - Uncontrolled | Arrival awaiting initial instructions. |
+| 🟣 **Purple** | DEP - Departure | Aircraft taking off and climbing. |
+| 🔵 **Blue** | Established | Aircraft locked onto the ILS glideslope. |
+| 🟠 **Orange** | Warning | Proximity alert or unstable approach. |
+| 🔴 **Red** | Emergency | Collision or crash occurred. |
 
-| Color  | Meaning                              |
-|--------|--------------------------------------|
-| Yellow | Uncontrolled (no instructions given) |
-| Green  | Controlled                           |
-| Blue   | Established on ILS approach          |
-| Orange | Proximity warning or bad approach    |
-| Red    | Crashed                              |
+---
 
-## Running Locally
+## ⚙️ Technical Specifications
 
-**Prerequisites:** Node.js
+- **Physics Engine:** Custom 50ms tick-rate loop with realistic turn rates (0.5°/tick), climb rates (15ft/tick), and acceleration.
+- **Separation Standards:** 
+  - **Warning:** < 40px lateral + < 1,500ft vertical.
+  - **Collision:** < 20px lateral + < 1,000ft vertical.
+- **Responsive Radar:** SVG-based display with smooth zooming and panning.
 
-```bash
-npm install
-npm run dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000)
+## 🚀 Getting Started
 
-## Project Structure
+1. **Clone the repo**
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+4. **Open your browser:** `http://localhost:5173` (or your local Vite port).
 
-```
+---
+
+## 📂 Project Architecture
+
+```text
 src/
-├── types/
-│   └── index.ts            # Shared TypeScript interfaces (Plane, Difficulty)
+├── components/
+│   ├── RadarDisplay.tsx    # SVG Engine & Mouse Interactions
+│   ├── ControlPanel.tsx    # Manual Command Interface
+│   └── GamePage.tsx        # Command Parsing & State Management
 ├── hooks/
-│   └── useGameLoop.ts      # Game engine: physics, spawning, collision detection
-└── components/
-    ├── RadarDisplay.tsx    # SVG radar view with interactive plane selection
-    └── ControlPanel.tsx    # Side panel for issuing ATC commands
+│   └── useGameLoop.ts      # Core Engine: Physics, Collisions, Spawning
+├── types/
+│   └── index.ts            # Type definitions for Planes, Airports, etc.
+└── utils/
+    └── audio.ts            # Sound effects manager
 ```
 
-## Game Mechanics
+---
 
-- Planes spawn outside the radar field aimed roughly at the center
-- Turn rate: 0.5 deg/tick | Climb rate: 15 ft/tick | Acceleration: 0.2 kt/tick
-- Tick rate: 50ms (sped up by the simulation speed multiplier)
-- Collision warning: < 40px lateral + < 1,500 ft vertical separation
-- Collision accident: < 20px lateral + < 1,000 ft vertical separation
-- Score: +1 per successful landing, tracked across sessions via localStorage
+*Good luck, Controller. Keep the skies safe.*
