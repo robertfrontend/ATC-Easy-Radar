@@ -1,6 +1,8 @@
-# ✈️ ATC Easy Radar (ATC-Easy-Rada)
+# ATC Easy Radar
 
 **ATC Easy Radar** is a high-performance Air Traffic Control (ATC) simulation built with React and TypeScript. Take command of the skies, managing both incoming arrivals and departing traffic in a high-stakes environment where every degree and foot of altitude matters.
+
+<img width="1465" height="832" alt="Screenshot 2026-03-07 at 11 33 00 PM" src="https://github.com/user-attachments/assets/ee206919-19a8-4cf1-b399-71dda2543bf6" />
 
 ---
 
