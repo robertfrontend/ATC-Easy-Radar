@@ -57,6 +57,8 @@ export const useGameLoop = (
   const initializedRef = useRef(false);
   const planesRef = useRef<Plane[]>([]);
   const runwayConfigRef = useRef<RunwayConfig>(runwayConfig);
+  const lastDepartureTimeRef = useRef<Record<string, number>>({});
+  const globalLastDepartureRef = useRef<number>(0);
 
   useEffect(() => {
     runwayConfigRef.current = runwayConfig;
@@ -66,24 +68,80 @@ export const useGameLoop = (
     planesRef.current = planes;
   }, [planes]);
 
-  const spawnPlane = useCallback(() => {
-    // Get all runways active for departure
-    const departureRunways = airport.runways.filter(r => runwayConfigRef.current[r.id]?.departure);
-    const activeDepRunway = departureRunways.length > 0
-      ? departureRunways[Math.floor(Math.random() * departureRunways.length)]
-      : airport.runways[0];
+  // Real-world aviation departure clearance & separation check
+  const isRunwaySafeForDeparture = useCallback((rwy: Runway, allPlanes: Plane[], now: number, spd: number) => {
+    // 1. Is this runway configured for departure?
+    if (!runwayConfigRef.current[rwy.id]?.departure) return false;
 
-    const isDeparture = planesRef.current.length === 0 ? true : Math.random() < 0.4;
+    // 2. Minimum Time Separation between takeoffs (Wake Turbulence Spacing: min 20s per runway, 10s global)
+    const lastRwyDep = lastDepartureTimeRef.current[rwy.id] || 0;
+    const timeSinceLastRwy = now - lastRwyDep;
+    const minRwyInterval = 20000 / spd;
+    if (timeSinceLastRwy < minRwyInterval) return false;
+
+    const timeSinceGlobal = now - globalLastDepartureRef.current;
+    const minGlobalInterval = 10000 / spd;
+    if (timeSinceGlobal < minGlobalInterval) return false;
+
+    const rwyX = airport.x + (rwy.offsetX || 0);
+    const rwyY = airport.y + (rwy.offsetY || 0);
+
+    for (const p of allPlanes) {
+      if (p.status === 'crashed' || p.markedForRemoval) continue;
+
+      const distToRwy = Math.hypot(p.x - rwyX, p.y - rwyY);
+
+      // 3. Preceding Departure Separation (Downfield distance > 4.5 NM / 100 units & Altitude > 2,000 ft)
+      if (p.type === 'departure' && p.assignedRunwayId === rwy.id) {
+        if (distToRwy < 110 || p.altitude < 2000) {
+          return false; // Preceding departure still in initial takeoff corridor!
+        }
+      }
+
+      // 4. Runway Occupancy Protection (No aircraft on ground or rolling within threshold zone)
+      if (distToRwy < 75 && p.altitude < 1200) {
+        return false; // Runway is occupied
+      }
+
+      // 5. Inbound Arrival Separation (Incursion Protection against short final traffic)
+      if (p.type === 'arrival') {
+        const isApproachingThisRwy = p.establishedRunwayId === rwy.id || (p.assignedRunwayId === rwy.id && p.isEstablished);
+        if (isApproachingThisRwy) {
+          if (distToRwy < 125 || p.altitude < 2800) {
+            return false; // Landing aircraft is on short final!
+          }
+        }
+      }
+    }
+
+    return true;
+  }, [airport]);
+
+  const spawnPlane = useCallback(() => {
+    const now = Date.now();
+    const allPlanes = planesRef.current;
+
+    // Find all runways eligible for safe departure right now
+    const safeDepartureRunways = airport.runways.filter(r => 
+      isRunwaySafeForDeparture(r, allPlanes, now, gameSpeed)
+    );
+
+    // Only allow departure if at least one runway is 100% clear and legal
+    const isDeparture = safeDepartureRunways.length > 0 && (allPlanes.length === 0 ? true : Math.random() < 0.35);
     const { callsign, flag, model, squawk } = generateCallsignAndDetails(airport);
     
     let x, y, heading, targetHeading, altitude, targetAltitude, speed, targetSpeed, targetWaypoint = null;
     let assignedRunwayId: string | null = null;
 
     if (isDeparture) {
+      const activeDepRunway = safeDepartureRunways[Math.floor(Math.random() * safeDepartureRunways.length)];
+      lastDepartureTimeRef.current[activeDepRunway.id] = now;
+      globalLastDepartureRef.current = now;
+
       const rwyX = airport.x + (activeDepRunway.offsetX || 0);
       const rwyY = airport.y + (activeDepRunway.offsetY || 0);
-      x = rwyX + (Math.random() * 4 - 2);
-      y = rwyY + (Math.random() * 4 - 2);
+      x = rwyX;
+      y = rwyY;
       
       const departureHeading = activeDepRunway.heading;
       
@@ -107,9 +165,9 @@ export const useGameLoop = (
       assignedRunwayId = activeDepRunway.id;
 
       altitude = 0;
-      targetAltitude = 12000 + Math.floor(Math.random() * 8) * 1000;
-      speed = 140;
-      targetSpeed = 250 + Math.floor(Math.random() * 5) * 10;
+      targetAltitude = 11000 + Math.floor(Math.random() * 6) * 1000;
+      speed = 135;
+      targetSpeed = 240;
     } else {
       // Arrivals spawn at perimeter
       const angle = Math.random() * Math.PI * 2;
@@ -156,7 +214,7 @@ export const useGameLoop = (
     
     setPlanes(prev => [...prev, newPlane]);
     audioManager.playBlip();
-  }, [airport]);
+  }, [airport, isRunwaySafeForDeparture, gameSpeed]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -191,13 +249,20 @@ export const useGameLoop = (
           let establishedRunwayId = plane.establishedRunwayId;
           let currentTargetWaypoint = plane.targetWaypoint;
 
-          // 1. Waypoint Guidance
+          // 1. Departure Initial Climb Corridor & Waypoint Guidance
           let markedForRemoval = plane.markedForRemoval;
-          if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
+
+          // For departures: maintain straight runway heading during initial climb (< 2,500 ft)
+          if (plane.type === 'departure' && plane.altitude < 2500 && plane.assignedRunwayId) {
+            const depRwy = airport.runways.find(r => r.id === plane.assignedRunwayId);
+            if (depRwy) {
+              currentTargetHeading = depRwy.heading;
+            }
+          } else if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
             const wp = airport.waypoints.find(w => w.id === currentTargetWaypoint);
             if (wp) {
               const distToWp = Math.hypot(wp.x - plane.x, wp.y - plane.y);
-              if (distToWp < 30) {
+              if (distToWp < 35) {
                 if (plane.type === 'departure') {
                   markedForRemoval = true;
                 } else {

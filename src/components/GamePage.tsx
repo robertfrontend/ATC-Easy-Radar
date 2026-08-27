@@ -12,7 +12,8 @@ import { audioManager } from '../utils/audio';
 
 interface GamePageProps {
   airport: Airport;
-  activeRunwayIndex: number;
+  initialRunwayConfig?: RunwayConfig;
+  activeRunwayIndex?: number;
   difficulty: Difficulty;
   highScore: number;
   onExit: () => void;
@@ -22,6 +23,7 @@ interface GamePageProps {
 
 export const GamePage: React.FC<GamePageProps> = ({
   airport,
+  initialRunwayConfig,
   activeRunwayIndex,
   difficulty,
   highScore,
@@ -34,9 +36,12 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
   const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>(() => {
+    if (initialRunwayConfig && Object.keys(initialRunwayConfig).length > 0) {
+      return initialRunwayConfig;
+    }
     const initial: RunwayConfig = {};
     airport.runways.forEach((r, idx) => {
-      const isSelected = idx === activeRunwayIndex;
+      const isSelected = idx === (activeRunwayIndex || 0);
       initial[r.id] = {
         landing: isSelected,
         departure: isSelected,

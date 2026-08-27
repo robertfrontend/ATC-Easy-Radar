@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { HomePage } from './components/HomePage';
 import { GamePage } from './components/GamePage';
-import { SavedGame, Airport, Difficulty } from './types';
+import { SavedGame, Airport, Difficulty, RunwayConfig } from './types';
 import { AIRPORTS } from './config/airports';
 
 const SAVED_GAMES_KEY = 'atc_saved_games';
@@ -23,7 +23,7 @@ export default function App() {
   const [page, setPage] = useState<'home' | 'game'>('home');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [airport, setAirport] = useState<Airport>(AIRPORTS[0]);
-  const [activeRunwayIndex, setActiveRunwayIndex] = useState(0);
+  const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>({});
   const [savedGames, setSavedGames] = useState<SavedGame[]>(loadSavedGames);
 
   const [highScore, setHighScore] = useState(() => {
@@ -38,10 +38,10 @@ export default function App() {
     }
   };
 
-  const handleNewGame = (diff: Difficulty, selectedAirportId: string, runwayIndex: number) => {
+  const handleNewGame = (diff: Difficulty, selectedAirportId: string, config: RunwayConfig) => {
     const selectedAirport = AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0];
     setAirport(selectedAirport);
-    setActiveRunwayIndex(runwayIndex);
+    setRunwayConfig(config);
     setDifficulty(diff);
     setPage('game');
   };
@@ -77,7 +77,7 @@ export default function App() {
   return (
     <GamePage
       airport={airport}
-      activeRunwayIndex={activeRunwayIndex}
+      initialRunwayConfig={runwayConfig}
       difficulty={difficulty}
       highScore={highScore}
       onExit={() => setPage('home')}
