@@ -1,1 +1,27 @@
 @import "tailwindcss";
+
+@keyframes radarBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-radar-blink {
+  animation: radarBlink 0.9s ease-in-out infinite;
+}
+
+@keyframes conflictFlash {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.animate-conflict-flash {
+  animation: conflictFlash 0.45s ease-in-out infinite;
+}

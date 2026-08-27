@@ -585,11 +585,18 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const isSelected = plane.id === selectedId;
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
+          const isDeparture = plane.type === 'departure';
+          const isUncontrolled = !plane.hasInstructions;
           
-          // Authentic target coloring: Yellow when selected, Flashing Red in Conflict, White standard
+          // Authentic target coloring:
+          // 1. Conflict: Flashing Red (#ef4444)
+          // 2. Selected: Bright Yellow (#facc15)
+          // 3. Departures: Warm Amber/Orange (#fb923c)
+          // 4. Arrivals: Crisp White (#ffffff)
+          const baseColor = isDeparture ? '#fb923c' : '#ffffff';
           const targetColor = 
             isConflict ? '#ef4444' :
-            isSelected ? '#facc15' : '#ffffff';
+            isSelected ? '#facc15' : baseColor;
 
           // Velocity Vector Projections (1 min = 60s, 2 min = 120s)
           const vectorLen1Min = (plane.speed / 10) * 1.5;
@@ -630,6 +637,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             ? `${Math.round(plane.speed)} ${statusLine}`
             : `${Math.round(plane.speed)}H ${statusLine}`;
 
+          // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
+          const animClass = isConflict
+            ? 'animate-conflict-flash'
+            : (isUncontrolled && !isSelected)
+              ? 'animate-radar-blink'
+              : '';
+
           return (
             <g
               key={plane.id}
@@ -643,6 +657,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               onMouseEnter={() => setHoveredPlaneId(plane.id)}
               onMouseLeave={() => setHoveredPlaneId(null)}
               style={{ cursor: 'pointer' }}
+              className={animClass}
             >
               {/* Click Target Area */}
               <circle cx={plane.x} cy={plane.y} r="24" fill="transparent" />
@@ -653,8 +668,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   cx={plane.x}
                   cy={plane.y}
                   r={3 * UNITS_PER_NM}
-                  fill={isConflict ? "rgba(239, 68, 68, 0.08)" : isSelected ? "rgba(250, 204, 21, 0.05)" : "rgba(148, 163, 184, 0.04)"}
-                  stroke={isConflict ? "#ef4444" : isSelected ? "rgba(250, 204, 21, 0.5)" : "rgba(148, 163, 184, 0.3)"}
+                  fill={isConflict ? "rgba(239, 68, 68, 0.08)" : isSelected ? "rgba(250, 204, 21, 0.05)" : isDeparture ? "rgba(251, 146, 60, 0.04)" : "rgba(148, 163, 184, 0.04)"}
+                  stroke={isConflict ? "#ef4444" : isSelected ? "rgba(250, 204, 21, 0.5)" : isDeparture ? "rgba(251, 146, 60, 0.4)" : "rgba(148, 163, 184, 0.3)"}
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
@@ -663,6 +678,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               {/* Phosphor History Trail (Small square/round dots ▪ ▪ ▪) */}
               {layers.showTrails && plane.trail.map((p, i, arr) => {
                 const ratio = (i + 1) / arr.length;
+                const trailFill = isSelected
+                  ? "#facc15"
+                  : isDeparture
+                    ? "rgba(251, 146, 60, 0.75)"
+                    : "rgba(226, 232, 240, 0.75)";
                 return (
                   <rect
                     key={i}
@@ -670,8 +690,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                     y={p.y - 1}
                     width="2.5"
                     height="2.5"
-                    fill={isSelected ? "#facc15" : "rgba(226, 232, 240, 0.7)"}
-                    opacity={ratio * 0.7}
+                    fill={trailFill}
+                    opacity={ratio * 0.75}
                   />
                 );
               })}
@@ -683,7 +703,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y1={plane.y}
                   x2={vx1}
                   y2={vy1}
-                  stroke={isSelected ? "#facc15" : "rgba(226, 232, 240, 0.45)"}
+                  stroke={isSelected ? "#facc15" : isDeparture ? "rgba(251, 146, 60, 0.5)" : "rgba(226, 232, 240, 0.45)"}
                   strokeWidth={isSelected ? "1.6" : "1"}
                   strokeDasharray={isSelected ? undefined : "2,3"}
                 />
@@ -698,7 +718,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 fontFamily="monospace"
                 fontWeight="bold"
                 textAnchor="middle"
-                className={isConflict ? "animate-pulse" : ""}
               >
                 ✳
               </text>
@@ -712,7 +731,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 stroke={targetColor}
                 strokeWidth="1"
                 strokeDasharray="2,2"
-                opacity="0.6"
+                opacity="0.65"
               />
 
               {/* Authentic 3-Line Data Block (Monospace, Sharp Text) */}
@@ -723,11 +742,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y="-11"
                   width="85"
                   height="38"
-                  fill="rgba(0, 3, 10, 0.7)"
+                  fill="rgba(0, 3, 10, 0.75)"
                   rx="2"
                 />
 
-                {/* Line 1: Callsign */}
+                {/* Line 1: Callsign + (DEP indicator if departure) */}
                 <text
                   x="0"
                   y="0"
