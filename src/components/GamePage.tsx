@@ -7,7 +7,7 @@ import {
 import { useGameLoop } from '../hooks/useGameLoop';
 import { RadarDisplay } from './RadarDisplay';
 import { ControlPanel } from './ControlPanel';
-import { Airport, Difficulty, SavedGame, Plane, RadarLayers, RunwayConfig } from '../types';
+import { Airport, Difficulty, SavedGame, Plane, RadarLayers, RunwayConfig, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 
 interface GamePageProps {
@@ -31,7 +31,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   onSave,
   onScoreUpdate
 }) => {
-  const [gameSpeed, setGameSpeed] = useState<number>(1);
+  const [gameSpeed, setGameSpeed] = useState<GameSpeed>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
@@ -113,7 +113,7 @@ export const GamePage: React.FC<GamePageProps> = ({
     showExtendedCenterlines: true,
   });
 
-  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
+  const { planes, score, accidents, isPaused, togglePause, setPaused, updatePlaneTarget, restart } = useGameLoop(
     airport,
     runwayConfig,
     difficulty,
@@ -144,6 +144,15 @@ export const GamePage: React.FC<GamePageProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Auto-pause game when opening any menu, and resume when closing
+  useEffect(() => {
+    if (activeMenu !== null) {
+      setPaused(true);
+    } else {
+      setPaused(false);
+    }
+  }, [activeMenu, setPaused]);
 
   const toggleSubmenu = (menu: 'runways' | 'settings') => {
     setActiveMenu(prev => prev === menu ? null : menu);
@@ -181,6 +190,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       difficulty,
       airportId: airport.id,
       planesActive: planes.length,
+      gameSpeed,
     });
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 1500);
@@ -319,6 +329,15 @@ export const GamePage: React.FC<GamePageProps> = ({
             <span className="text-sky-400 font-semibold">RWY {activeRunwaysSummary.landings}</span>
             <span className="text-slate-600">|</span>
             <span className="text-slate-400">{planes.length} TRACKS</span>
+            {gameSpeed === 'real' && (
+              <>
+                <span className="text-slate-600">|</span>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider animate-pulse flex items-center gap-1.5 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  VELOCIDAD REAL (1:1)
+                </span>
+              </>
+            )}
           </div>
 
           {/* Center: Monospace Zulu Clock & Stats */}
@@ -330,6 +349,14 @@ export const GamePage: React.FC<GamePageProps> = ({
             <span className={accidents > 0 ? 'text-red-400 font-bold animate-pulse' : 'text-slate-500'}>
               ACCD: {accidents}
             </span>
+            {isPaused && (
+              <>
+                <span className="text-slate-700">·</span>
+                <span className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider animate-pulse">
+                  PAUSED
+                </span>
+              </>
+            )}
           </div>
 
           {/* Right: Only 2 Minimalist Dropdown Action Buttons */}
@@ -441,10 +468,34 @@ export const GamePage: React.FC<GamePageProps> = ({
               {activeMenu === 'settings' && (
                 <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#060d1d] border border-slate-700 rounded-lg shadow-2xl p-3.5 z-50 space-y-3 backdrop-blur-md text-xs">
                   {/* Simulation Controls */}
-                  <div className="space-y-1.5">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Simulation Speed:</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Velocidad / Speed:</div>
+                      {gameSpeed === 'real' && (
+                        <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                          1:1 REAL TIME
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dedicated Real Speed Button */}
+                    <button
+                      onClick={() => setGameSpeed('real')}
+                      className={`w-full py-1.5 px-2.5 rounded font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
+                        gameSpeed === 'real'
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                          : 'bg-slate-900/90 border-slate-700 text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                      }`}
+                      title="Simulación en tiempo real (1:1 ATC scale, giros 3°/s)"
+                    >
+                      <Gauge className="w-3.5 h-3.5" />
+                      <span>VELOCIDAD REAL</span>
+                      {gameSpeed === 'real' && <Check className="w-3.5 h-3.5 ml-0.5" />}
+                    </button>
+
+                    {/* Multiplier Speeds */}
                     <div className="grid grid-cols-4 gap-1">
-                      {[0.5, 1, 2, 4].map(spd => (
+                      {([0.5, 1, 2, 4] as const).map(spd => (
                         <button
                           key={spd}
                           onClick={() => setGameSpeed(spd)}
@@ -458,6 +509,12 @@ export const GamePage: React.FC<GamePageProps> = ({
                         </button>
                       ))}
                     </div>
+
+                    {gameSpeed === 'real' && (
+                      <div className="text-[9.5px] text-emerald-400/90 bg-emerald-950/40 border border-emerald-500/20 rounded p-1.5 leading-tight font-mono">
+                        Escala física 1:1, viraje estándar a 3°/s y velocidades reales en nudos (KTS).
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-1.5 pt-1">
                       <button
@@ -583,6 +640,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             onSelect={setSelectedId}
             onCommand={updatePlaneTarget}
             layers={layers}
+            gameSpeed={gameSpeed}
           />
 
           {/* Authentic ATC Command Console */}
@@ -626,8 +684,8 @@ export const GamePage: React.FC<GamePageProps> = ({
           </div>
         </div>
 
-        {/* Paused Overlay */}
-        {isPaused && (
+        {/* Paused Overlay (shown when paused and no dropdown menu is open) */}
+        {isPaused && !activeMenu && (
           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
             <div className="text-5xl font-bold text-yellow-500 tracking-[0.3em] mb-6 drop-shadow-[0_0_20px_rgba(234,179,8,0.5)]">
               SIMULATION PAUSED

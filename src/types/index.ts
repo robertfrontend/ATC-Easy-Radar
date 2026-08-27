@@ -96,6 +96,7 @@ export interface RadarLayers {
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
+export type GameSpeed = 'real' | 0.5 | 1 | 2 | 4;
 
 export interface SavedGame {
   id: string;
@@ -105,6 +106,7 @@ export interface SavedGame {
   difficulty: Difficulty;
   airportId: string;
   planesActive: number;
+  gameSpeed?: GameSpeed;
 }
 
 

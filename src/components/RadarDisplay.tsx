@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import { Plane, Airport, RunwayConfig, RadarLayers } from '../types';
+import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 
 interface RadarDisplayProps {
@@ -10,6 +10,7 @@ interface RadarDisplayProps {
   onSelect: (id: string | null) => void;
   onCommand?: (id: string, updates: Partial<Plane>) => void;
   layers?: RadarLayers;
+  gameSpeed?: GameSpeed;
 }
 
 const DEFAULT_LAYERS: RadarLayers = {
@@ -35,7 +36,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   selectedId,
   onSelect,
   onCommand,
-  layers = DEFAULT_LAYERS
+  layers = DEFAULT_LAYERS,
+  gameSpeed = 1
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -605,8 +607,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             isConflict ? '#ef4444' :
             isSelected ? '#facc15' : baseColor;
 
-          // Velocity Vector Projections (1 min = 60s, 2 min = 120s)
-          const vectorLen1Min = (plane.speed / 10) * 1.5;
+          // Velocity Vector Projections (1 min = 60s)
+          const isReal = gameSpeed === 'real';
+          const vectorLen1Min = isReal
+            ? ((plane.speed * UNITS_PER_NM) / 60)
+            : ((plane.speed / 10) * 1.5);
           const headingRad = plane.heading * Math.PI / 180;
           const vx1 = plane.x + vectorLen1Min * Math.sin(headingRad);
           const vy1 = plane.y - vectorLen1Min * Math.cos(headingRad);

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plane, Difficulty, Airport, Runway, RunwayConfig } from '../types';
+import { Plane, Difficulty, GameSpeed, Airport, Runway, RunwayConfig } from '../types';
 import { audioManager } from '../utils/audio';
 
-export type { Plane, Difficulty };
+export type { Plane, Difficulty, GameSpeed };
 
 const TICK_RATE = 50; // ms
 
@@ -44,7 +44,7 @@ export const useGameLoop = (
   airport: Airport,
   runwayConfig: RunwayConfig,
   difficulty: Difficulty,
-  gameSpeed: number = 1
+  gameSpeed: GameSpeed = 1
 ) => {
   const config = DIFFICULTY_CONFIG[difficulty];
   
@@ -69,18 +69,21 @@ export const useGameLoop = (
   }, [planes]);
 
   // Real-world aviation departure clearance & separation check
-  const isRunwaySafeForDeparture = useCallback((rwy: Runway, allPlanes: Plane[], now: number, spd: number) => {
+  const isRunwaySafeForDeparture = useCallback((rwy: Runway, allPlanes: Plane[], now: number, spd: GameSpeed) => {
     // 1. Is this runway configured for departure?
     if (!runwayConfigRef.current[rwy.id]?.departure) return false;
 
-    // 2. Minimum Time Separation between takeoffs (Wake Turbulence Spacing: min 20s per runway, 10s global)
+    const isReal = spd === 'real';
+    const numSpeed = typeof spd === 'number' ? spd : 1;
+
+    // 2. Minimum Time Separation between takeoffs (Wake Turbulence Spacing: 45s for real, 20s/spd for arcade)
     const lastRwyDep = lastDepartureTimeRef.current[rwy.id] || 0;
     const timeSinceLastRwy = now - lastRwyDep;
-    const minRwyInterval = 20000 / spd;
+    const minRwyInterval = isReal ? 45000 : (20000 / numSpeed);
     if (timeSinceLastRwy < minRwyInterval) return false;
 
     const timeSinceGlobal = now - globalLastDepartureRef.current;
-    const minGlobalInterval = 10000 / spd;
+    const minGlobalInterval = isReal ? 20000 : (10000 / numSpeed);
     if (timeSinceGlobal < minGlobalInterval) return false;
 
     const rwyX = airport.x + (rwy.offsetX || 0);
@@ -219,6 +222,10 @@ export const useGameLoop = (
   useEffect(() => {
     if (isPaused) return;
 
+    const isReal = gameSpeed === 'real';
+    const numSpeed = typeof gameSpeed === 'number' ? gameSpeed : 1;
+    const tickInterval = isReal ? TICK_RATE : (TICK_RATE / numSpeed);
+
     const interval = setInterval(() => {
       const now = Date.now();
       
@@ -230,9 +237,14 @@ export const useGameLoop = (
 
       const currentCount = planesRef.current.length;
       const timeSinceLast = now - lastSpawnRef.current;
-      const minSpawnInterval = 4000 / gameSpeed;
+      const minSpawnInterval = isReal
+        ? (currentCount < config.minPlanes ? 6000 : 25000)
+        : (4000 / numSpeed);
+      const effectiveSpawnRate = isReal
+        ? (difficulty === 'easy' ? 80000 : difficulty === 'medium' ? 50000 : 30000)
+        : (config.spawnRate / numSpeed);
       
-      if (timeSinceLast > minSpawnInterval && (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > config.spawnRate / gameSpeed))) {
+      if (timeSinceLast > minSpawnInterval && (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > effectiveSpawnRate))) {
         spawnPlane();
         lastSpawnRef.current = now;
       }
@@ -325,42 +337,52 @@ export const useGameLoop = (
           }
 
           // 4. Movement Physics
+          // Real mode: Standard rate 1 turn = 3 deg/sec (0.15 deg/tick at 20 ticks/sec)
+          // Arcade mode: 0.6 deg/tick (12 deg/sec at 1x)
+          const turnRate = isReal ? 0.15 : 0.6;
           let newHeading = plane.heading;
           if (plane.heading !== currentTargetHeading) {
             let diff = currentTargetHeading - plane.heading;
             while (diff <= -180) diff += 360;
             while (diff > 180) diff -= 360;
-            const turnRate = 0.6;
             if (Math.abs(diff) < turnRate) newHeading = currentTargetHeading;
             else newHeading = (plane.heading + Math.sign(diff) * turnRate + 360) % 360;
           }
 
+          // Real mode: 2.0 ft/tick (2400 ft/min), on glideslope: 0.65 ft/tick (780 ft/min)
+          // Arcade mode: 18 ft/tick
+          const climbRate = isReal ? (isEstablished ? 0.65 : 2.0) : 18;
           let newAltitude = plane.altitude;
           if (plane.altitude !== currentTargetAltitude) {
             const altDiff = currentTargetAltitude - plane.altitude;
-            const climbRate = 18;
             if (Math.abs(altDiff) < climbRate) newAltitude = currentTargetAltitude;
             else newAltitude = plane.altitude + Math.sign(altDiff) * climbRate;
           }
 
+          // Real mode: 1.2 kts/sec (0.06 kts/tick)
+          // Arcade mode: 0.25 kts/tick
+          const accelRate = isReal ? 0.06 : 0.25;
           let newSpeed = plane.speed;
           if (plane.speed !== currentTargetSpeed) {
             const speedDiff = currentTargetSpeed - plane.speed;
-            const accelRate = 0.25;
             if (Math.abs(speedDiff) < accelRate) newSpeed = currentTargetSpeed;
             else newSpeed = plane.speed + Math.sign(speedDiff) * accelRate;
           }
 
-          const speedMultiplier = 0.0015;
+          // Real-time speed: 1 NM = 22.4 units -> at V knots: (V * 22.4) / (3600 * 20) = V * 0.00031111111
+          // Arcade mode: 0.0015
+          const speedMultiplier = isReal ? (22.4 / (3600 * 20)) : 0.0015;
           const dx = newSpeed * speedMultiplier * Math.sin(newHeading * Math.PI / 180);
           const dy = -newSpeed * speedMultiplier * Math.cos(newHeading * Math.PI / 180);
           const newX = plane.x + dx;
           const newY = plane.y + dy;
 
+          const trailThreshold = isReal ? 5 : 12;
+          const maxTrailPoints = isReal ? 25 : 18;
           const newTrail = [...plane.trail];
-          if (newTrail.length === 0 || Math.hypot(newTrail[newTrail.length - 1].x - newX, newTrail[newTrail.length - 1].y - newY) > 12) {
+          if (newTrail.length === 0 || Math.hypot(newTrail[newTrail.length - 1].x - newX, newTrail[newTrail.length - 1].y - newY) > trailThreshold) {
             newTrail.push({ x: newX, y: newY });
-            if (newTrail.length > 18) newTrail.shift();
+            if (newTrail.length > maxTrailPoints) newTrail.shift();
           }
 
           let newStatus: Plane['status'] = plane.status === 'crashed' ? 'crashed' : 'normal';
@@ -468,7 +490,7 @@ export const useGameLoop = (
           return distToCenter < 2500;
         });
       });
-    }, TICK_RATE / gameSpeed);
+    }, tickInterval);
 
     return () => clearInterval(interval);
   }, [isPaused, spawnPlane, difficulty, gameSpeed, airport, config]);
@@ -476,7 +498,10 @@ export const useGameLoop = (
   // Audio sweep
   useEffect(() => {
     if (isPaused) return;
-    const interval = setInterval(() => audioManager.playBlip(), 4000 / gameSpeed);
+    const isReal = gameSpeed === 'real';
+    const numSpeed = typeof gameSpeed === 'number' ? gameSpeed : 1;
+    const sweepInterval = isReal ? 4500 : (4000 / numSpeed);
+    const interval = setInterval(() => audioManager.playBlip(), sweepInterval);
     return () => clearInterval(interval);
   }, [isPaused, gameSpeed]);
 
@@ -485,6 +510,7 @@ export const useGameLoop = (
   };
 
   const togglePause = () => setIsPaused(p => !p);
+  const setPaused = (paused: boolean) => setIsPaused(paused);
 
   const restart = () => {
     setPlanes([]);
@@ -495,7 +521,7 @@ export const useGameLoop = (
     lastSpawnRef.current = 0;
   };
 
-  return { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart };
+  return { planes, score, accidents, isPaused, togglePause, setPaused, updatePlaneTarget, restart };
 };
 
 

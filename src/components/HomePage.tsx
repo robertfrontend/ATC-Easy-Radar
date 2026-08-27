@@ -479,6 +479,11 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${info.badge}`}>
                           {info.label}
                         </span>
+                        {game.gameSpeed === 'real' && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            REAL 1:1
+                          </span>
+                        )}
                         <div>
                           <div className="font-bold text-white flex items-center gap-2">
                             <span>{gameAirport?.icao || 'SECT'}</span>
