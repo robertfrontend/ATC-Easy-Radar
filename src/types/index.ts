@@ -7,13 +7,41 @@ export interface Waypoint {
 
 export interface Airline {
   code: string;
+  name?: string;
   flag: string;
   weight: number; // For frequency of spawn (higher = more frequent)
+  models?: string[];
 }
 
 export interface Runway {
+  id: string;
   label: string;
   heading: number;
+  length?: number;
+  offsetX?: number;
+  offsetY?: number;
+}
+
+export type RunwayConfig = Record<string, {
+  landing: boolean;   // Active ILS for arrivals
+  departure: boolean; // Active for takeoffs
+}>;
+
+export interface AirspacePolygon {
+  id: string;
+  points: string;
+  label?: string;
+  dashed?: boolean;
+}
+
+export interface HoldingStack {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
 }
 
 export interface Airport {
@@ -21,16 +49,21 @@ export interface Airport {
   name: string;
   icao: string;
   countryFlag: string;
+  elevation?: number;
   x: number;
   y: number;
   waypoints: Waypoint[];
   airlines: Airline[];
   runways: Runway[];
+  airspacePolygons?: AirspacePolygon[];
+  holdingStacks?: HoldingStack[];
 }
 
 export interface Plane {
   id: string;
   callsign: string;
+  model: string;
+  squawk: string;
   type: 'arrival' | 'departure';
   x: number;
   y: number;
@@ -43,11 +76,23 @@ export interface Plane {
   trail: { x: number; y: number }[];
   status: 'normal' | 'warning' | 'crashed' | 'bad_approach';
   isEstablished: boolean;
+  establishedRunwayId?: string | null;
+  assignedRunwayId?: string | null;
   hasInstructions: boolean;
   originFlag: string;
   targetWaypoint?: string | null;
   markedForRemoval?: boolean;
   goAround?: boolean;
+  conflict?: boolean;
+}
+
+export interface RadarLayers {
+  showRangeRings: boolean;
+  showFixes: boolean;
+  showVectors: boolean;
+  showTrails: boolean;
+  showHalos: boolean;
+  showExtendedCenterlines: boolean;
 }
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -61,3 +106,5 @@ export interface SavedGame {
   airportId: string;
   planesActive: number;
 }
+
+

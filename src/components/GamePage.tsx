@@ -1,9 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plane as PlaneIcon, Pause, Play, RotateCcw, Save, Home, Volume2, VolumeX } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import {
+  Pause, Play, RotateCcw, Save, Home, Volume2, VolumeX,
+  Layers, AlertOctagon, Terminal, CloudSun, Gauge, Settings,
+  ChevronDown, Check, Compass, Radio, Wind
+} from 'lucide-react';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { RadarDisplay } from './RadarDisplay';
 import { ControlPanel } from './ControlPanel';
-import { Airport, Difficulty, SavedGame, Plane } from '../types';
+import { Airport, Difficulty, SavedGame, Plane, RadarLayers, RunwayConfig } from '../types';
 import { audioManager } from '../utils/audio';
 
 interface GamePageProps {
@@ -16,21 +20,140 @@ interface GamePageProps {
   onScoreUpdate: (score: number) => void;
 }
 
-export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, difficulty, highScore, onExit, onSave, onScoreUpdate }) => {
+export const GamePage: React.FC<GamePageProps> = ({
+  airport,
+  activeRunwayIndex,
+  difficulty,
+  highScore,
+  onExit,
+  onSave,
+  onScoreUpdate
+}) => {
   const [gameSpeed, setGameSpeed] = useState<number>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
+  const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>(() => {
+    const initial: RunwayConfig = {};
+    airport.runways.forEach((r, idx) => {
+      const isSelected = idx === activeRunwayIndex;
+      initial[r.id] = {
+        landing: isSelected,
+        departure: isSelected,
+      };
+    });
+    return initial;
+  });
+
+  const activeRunwaysSummary = useMemo(() => {
+    const landings = airport.runways.filter(r => runwayConfig[r.id]?.landing).map(r => r.label);
+    const departures = airport.runways.filter(r => runwayConfig[r.id]?.departure).map(r => r.label);
+    return {
+      landings: landings.length > 0 ? landings.join(', ') : 'NONE',
+      departures: departures.length > 0 ? departures.join(', ') : 'NONE',
+      landingCount: landings.length,
+      departureCount: departures.length,
+    };
+  }, [airport.runways, runwayConfig]);
+
+  const toggleRunwayLanding = (runwayId: string) => {
+    setRunwayConfig(prev => {
+      const current = prev[runwayId] || { landing: false, departure: false };
+      return {
+        ...prev,
+        [runwayId]: { ...current, landing: !current.landing }
+      };
+    });
+  };
+
+  const toggleRunwayDeparture = (runwayId: string) => {
+    setRunwayConfig(prev => {
+      const current = prev[runwayId] || { landing: false, departure: false };
+      return {
+        ...prev,
+        [runwayId]: { ...current, departure: !current.departure }
+      };
+    });
+  };
+
+  const setRunwayPreset = (preset: 'single' | 'all-ils' | 'all-ops') => {
+    setRunwayConfig(() => {
+      const next: RunwayConfig = {};
+      airport.runways.forEach((r, idx) => {
+        if (preset === 'single') {
+          const isDefault = idx === activeRunwayIndex;
+          next[r.id] = { landing: isDefault, departure: isDefault };
+        } else if (preset === 'all-ils') {
+          next[r.id] = { landing: true, departure: idx === 0 };
+        } else if (preset === 'all-ops') {
+          next[r.id] = { landing: true, departure: true };
+        }
+      });
+      return next;
+    });
+  };
+
+  const [activeMenu, setActiveMenu] = useState<'runways' | 'settings' | null>(null);
+  const [utcTime, setUtcTime] = useState('');
+  const headerRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  const activeRunway = airport.runways[activeRunwayIndex];
-  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(airport, activeRunwayIndex, difficulty, gameSpeed);
+
+  // Radar scope layer toggles
+  const [layers, setLayers] = useState<RadarLayers>({
+    showRangeRings: true,
+    showFixes: true,
+    showVectors: true,
+    showTrails: true,
+    showHalos: true,
+    showExtendedCenterlines: true,
+  });
+
+  const { planes, score, accidents, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
+    airport,
+    runwayConfig,
+    difficulty,
+    gameSpeed
+  );
+
+  // Real-time UTC / Zulu Clock
+  useEffect(() => {
+    const updateTime = () => {
+      const d = new Date();
+      const h = d.getUTCHours().toString().padStart(2, '0');
+      const m = d.getUTCMinutes().toString().padStart(2, '0');
+      const s = d.getUTCSeconds().toString().padStart(2, '0');
+      setUtcTime(`${h}:${m}:${s}Z`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close submenus on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setActiveMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleSubmenu = (menu: 'runways' | 'settings') => {
+    setActiveMenu(prev => prev === menu ? null : menu);
+  };
 
   useEffect(() => {
     onScoreUpdate(score);
   }, [score, onScoreUpdate]);
 
   const selectedPlane = planes.find(p => p.id === selectedId) || null;
+
+  // Check if any aircraft is currently in STCA conflict alert
+  const hasActiveConflict = useMemo(() => {
+    return planes.some(p => p.conflict || p.status === 'warning');
+  }, [planes]);
 
   // Deselect if plane is removed
   useEffect(() => {
@@ -55,7 +178,7 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
       planesActive: planes.length,
     });
     setSaveFlash(true);
-    setTimeout(() => setSaveFlash(false), 1200);
+    setTimeout(() => setSaveFlash(false), 1500);
   };
 
   const toggleMute = () => {
@@ -68,11 +191,11 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Tab') {
-      e.preventDefault(); // Prevent focus loss
+      e.preventDefault();
       const tokens = commandInput.trim().toUpperCase().split(/\s+/);
       const lastToken = tokens[tokens.length - 1];
-      
-      const autoCompleteTargets = [...airport.waypoints.map(w => w.label), 'FINAL', 'ILS', 'UPWIND', 'DEP'];
+      const rwyTargets = airport.runways.map(r => `ILS${r.label}`);
+      const autoCompleteTargets = [...airport.waypoints.map(w => w.label), ...rwyTargets, 'FINAL', 'ILS', 'UPWIND', 'DEP'];
 
       if (lastToken) {
         const match = autoCompleteTargets.find(label => label.toUpperCase().startsWith(lastToken));
@@ -81,6 +204,9 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
           setCommandInput(tokens.join(' ') + ' ');
         }
       }
+    } else if (e.key === 'Escape') {
+      setSelectedId(null);
+      setActiveMenu(null);
     }
   };
 
@@ -92,48 +218,63 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
     const updates: Partial<Plane> = {};
     let anyValid = false;
 
-    // Calculate dynamic ILS entry and Upwind points based on active runway
-    const rad = (activeRunway.heading * Math.PI) / 180;
-    const ilsEntry = {
-      x: airport.x - 450 * Math.sin(rad),
-      y: airport.y + 450 * Math.cos(rad)
-    };
-    const upwindPoint = {
-      x: airport.x + 450 * Math.sin(rad),
-      y: airport.y - 450 * Math.cos(rad)
-    };
-
-    // Special command: FINAL or ILS
-    if (fullCmd.includes('FINAL') || fullCmd.includes('ILS')) {
-      const angle = (Math.atan2(ilsEntry.y - selectedPlane!.y, ilsEntry.x - selectedPlane!.x) * 180 / Math.PI) + 90;
-      updates.targetHeading = (angle + 360) % 360;
+    // 1. Check for specific runway ILS approach command (e.g. "ILS 33L", "FINAL 27", "RWY 04R")
+    const rwyMatch = fullCmd.match(/(?:ILS|RWY|FINAL)\s*([0-9]{1,2}[LRC]?)/);
+    if (rwyMatch && selectedPlane) {
+      const label = rwyMatch[1];
+      const rwy = airport.runways.find(r => r.label === label);
+      if (rwy) {
+        const rwyX = airport.x + (rwy.offsetX || 0);
+        const rwyY = airport.y + (rwy.offsetY || 0);
+        const rad = (rwy.heading * Math.PI) / 180;
+        const fafPoint = {
+          x: rwyX - 450 * Math.sin(rad),
+          y: rwyY + 450 * Math.cos(rad)
+        };
+        const angle = (Math.atan2(fafPoint.y - selectedPlane.y, fafPoint.x - selectedPlane.x) * 180 / Math.PI) + 90;
+        updates.targetHeading = Math.round((angle + 360) % 360);
+        updates.targetAltitude = 3000;
+        updates.targetSpeed = 180;
+        updates.targetWaypoint = null;
+        updates.assignedRunwayId = rwy.id;
+        anyValid = true;
+      }
+    } else if ((fullCmd.includes('FINAL') || fullCmd.includes('ILS')) && selectedPlane) {
+      // General FINAL/ILS: vector to the primary/first active ILS runway
+      const activeLanding = airport.runways.find(r => runwayConfig[r.id]?.landing) || airport.runways[0];
+      const rwyX = airport.x + (activeLanding.offsetX || 0);
+      const rwyY = airport.y + (activeLanding.offsetY || 0);
+      const rad = (activeLanding.heading * Math.PI) / 180;
+      const fafPoint = {
+        x: rwyX - 450 * Math.sin(rad),
+        y: rwyY + 450 * Math.cos(rad)
+      };
+      const angle = (Math.atan2(fafPoint.y - selectedPlane.y, fafPoint.x - selectedPlane.x) * 180 / Math.PI) + 90;
+      updates.targetHeading = Math.round((angle + 360) % 360);
+      updates.targetAltitude = 3000;
+      updates.targetSpeed = 180;
       updates.targetWaypoint = null;
+      updates.assignedRunwayId = activeLanding.id;
       anyValid = true;
     }
-    // Special command: UPWIND or DEP
-    else if (fullCmd.includes('UPWIND') || fullCmd.includes('DEP')) {
-      const angle = (Math.atan2(upwindPoint.y - selectedPlane!.y, upwindPoint.x - selectedPlane!.x) * 180 / Math.PI) + 90;
-      updates.targetHeading = (angle + 360) % 360;
-      updates.targetWaypoint = null;
-      anyValid = true;
-    }
 
-    // 1. Parse Waypoints
+    // 2. Parse Waypoints
     const tokens = fullCmd.split(/\s+/);
     tokens.forEach(token => {
       const wp = airport.waypoints.find(w => w.label.toUpperCase() === token);
       if (wp) {
         updates.targetWaypoint = wp.id;
+        updates.assignedRunwayId = null;
         anyValid = true;
       }
     });
 
-    // 2. Parse prefixed commands using Regex (handles spaces like "D 3000")
+    // 3. Parse prefixed commands (e.g. D3000, H090, S210, C10000)
     const cmdRegex = /([CDHS])\s?(\d+)/g;
     let match;
     while ((match = cmdRegex.exec(fullCmd)) !== null) {
       const prefix = match[1];
-      const val = parseInt(match[2]);
+      const val = parseInt(match[2], 10);
 
       if (!isNaN(val)) {
         if (prefix === 'C' || prefix === 'D') {
@@ -158,143 +299,323 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
     }
   };
 
-  const rad_ui = (activeRunway.heading * Math.PI) / 180;
-  const ilsEntry_ui = {
-    x: airport.x - 450 * Math.sin(rad_ui),
-    y: airport.y + 450 * Math.cos(rad_ui)
-  };
-  const upwindPoint_ui = {
-    x: airport.x + 450 * Math.sin(rad_ui),
-    y: airport.y - 450 * Math.cos(rad_ui)
-  };
+  const primaryRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
 
   return (
-    <div className="flex h-screen bg-slate-900 text-green-400 font-mono overflow-hidden selection:bg-green-500/30">
+    <div className="flex h-screen bg-[#00030a] text-slate-200 font-mono overflow-hidden select-none">
       {/* Main Radar Area */}
       <div className="flex-1 flex flex-col relative">
-        {/* Top Bar */}
-        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 pointer-events-none">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-widest">
-              <PlaneIcon className="text-green-500" />
-              ✈️ ATC RADAR
-            </h1>
-            <div className="text-sm opacity-80 mt-1">{airport.name} ({airport.icao}) - RWY {activeRunway.label}</div>
+        {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}
+        <header ref={headerRef} className="h-10 bg-[#02050e] border-b border-slate-800/80 px-4 flex justify-between items-center z-30 select-none text-xs">
+          {/* Left: Clean Station Identifier */}
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-white tracking-widest text-sm">{airport.icao} APP</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-sky-400 font-semibold">RWY {activeRunwaysSummary.landings}</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-slate-400">{planes.length} TRACKS</span>
           </div>
-          <div className="flex items-center gap-6 pointer-events-auto">
-            <div className="bg-slate-950/80 p-3 rounded border border-green-500/30 backdrop-blur-sm flex flex-col gap-1">
-              <label className="text-xs text-green-500 font-bold">SIM SPEED</label>
-              <div className="flex gap-1">
-                {[0.1, 0.25, 0.5, 1, 2].map(speed => (
-                  <button
-                    key={speed}
-                    onClick={() => setGameSpeed(speed)}
-                    className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${gameSpeed === speed ? 'bg-green-500 text-slate-950 border-green-500' : 'bg-slate-900 text-green-500 border-green-500/50 hover:border-green-400'}`}
-                  >
-                    {speed === 0.1 ? 'REAL' : `${speed}x`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="text-right bg-slate-950/80 p-4 rounded border border-green-500/30 backdrop-blur-sm">
-              <div className="text-3xl font-bold text-white">{score.toString().padStart(5, '0')}</div>
-              <div className="text-xs opacity-70">SCORE</div>
-              <div className="text-sm mt-2 text-green-500">HI: {highScore.toString().padStart(5, '0')}</div>
-            </div>
 
-            <div className="text-right bg-slate-950/80 p-4 rounded border border-red-500/30 backdrop-blur-sm">
-              <div className="text-3xl font-bold text-red-500">{accidents.toString().padStart(3, '0')}</div>
-              <div className="text-xs text-red-400 opacity-70">ACCIDENTS</div>
-            </div>
-
-            <button
-              onClick={togglePause}
-              className={`p-2 rounded border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                isPaused
-                  ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500 hover:bg-yellow-500/30'
-                  : 'bg-slate-950/80 border-green-500/30 text-green-500 hover:border-green-400'
-              }`}
-            >
-              {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
-            </button>
-
-            <button
-              onClick={toggleMute}
-              className={`p-2 rounded border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                isMuted
-                  ? 'bg-red-500/20 border-red-500 text-red-500'
-                  : 'bg-slate-950/80 border-green-500/30 text-green-500 hover:border-green-400'
-              }`}
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </button>
-
-            <button
-              onClick={handleSaveGame}
-              title="Save game"
-              className={`p-2 rounded border backdrop-blur-sm flex items-center justify-center transition-colors ${
-                saveFlash
-                  ? 'bg-sky-500/30 border-sky-400 text-sky-300'
-                  : 'bg-slate-950/80 border-sky-500/30 text-sky-500 hover:border-sky-400 hover:bg-sky-500/10'
-              }`}
-            >
-              <Save className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => { restart(); setSelectedId(null); }}
-              className="p-2 rounded border backdrop-blur-sm flex items-center justify-center transition-colors bg-slate-950/80 border-red-500/30 text-red-500 hover:border-red-400 hover:bg-red-500/10"
-              title="Restart game"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={onExit}
-              className="p-2 rounded border backdrop-blur-sm flex items-center justify-center transition-colors bg-slate-950/80 border-green-500/20 text-green-500/60 hover:border-green-500/50 hover:text-green-400"
-              title="Go to home"
-            >
-              <Home className="w-5 h-5" />
-            </button>
+          {/* Center: Monospace Zulu Clock & Stats */}
+          <div className="flex items-center gap-4 text-xs font-mono">
+            <span className="text-slate-200 font-bold tracking-wider">{utcTime || '00:00:00Z'}</span>
+            <span className="text-slate-700">·</span>
+            <span className="text-green-400 font-semibold">LANDED: {score}</span>
+            <span className="text-slate-700">·</span>
+            <span className={accidents > 0 ? 'text-red-400 font-bold animate-pulse' : 'text-slate-500'}>
+              ACCD: {accidents}
+            </span>
           </div>
-        </div>
 
-        {/* Radar Container */}
-        <div className="flex-1 w-full relative bg-[#020817] border-t border-green-500/20 overflow-hidden">
+          {/* Right: Only 2 Minimalist Dropdown Action Buttons */}
+          <div className="flex items-center gap-2">
+            {/* 1. RUNWAYS BUTTON & DROPDOWN */}
+            <div className="relative">
+              <button
+                onClick={() => toggleSubmenu('runways')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
+                  activeMenu === 'runways'
+                    ? 'bg-sky-500/20 border-sky-400 text-sky-200'
+                    : 'bg-slate-900/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                }`}
+                title="Configure Active Runways & ILS"
+              >
+                <span>🛬 RWYS ({activeRunwaysSummary.landingCount})</span>
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
+
+              {activeMenu === 'runways' && (
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#060d1d] border border-slate-700 rounded-lg shadow-2xl p-3 z-50 space-y-2.5 backdrop-blur-md text-xs">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <span className="font-bold text-sky-300 uppercase tracking-wider text-[11px]">ACTIVE RUNWAYS & ILS</span>
+                    <span className="text-[10px] text-slate-500 font-bold">{airport.icao}</span>
+                  </div>
+
+                  {/* Presets */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setRunwayPreset('all-ils')}
+                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-sky-300 transition-colors"
+                    >
+                      ALL ILS
+                    </button>
+                    <button
+                      onClick={() => setRunwayPreset('all-ops')}
+                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-green-300 transition-colors"
+                    >
+                      FULL OPS
+                    </button>
+                    <button
+                      onClick={() => setRunwayPreset('single')}
+                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-400 transition-colors"
+                    >
+                      SINGLE
+                    </button>
+                  </div>
+
+                  {/* Runways Toggle List */}
+                  <div className="space-y-1.5 max-h-52 overflow-y-auto pr-0.5">
+                    {airport.runways.map(rwy => {
+                      const isLanding = !!runwayConfig[rwy.id]?.landing;
+                      const isDep = !!runwayConfig[rwy.id]?.departure;
+                      return (
+                        <div
+                          key={rwy.id}
+                          className="bg-slate-900/90 border border-slate-800 rounded p-2 flex items-center justify-between"
+                        >
+                          <div className="font-bold text-white text-xs">
+                            RWY {rwy.label} <span className="text-[10px] text-slate-500 font-normal">({rwy.heading}°)</span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => toggleRunwayLanding(rwy.id)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                                isLanding
+                                  ? 'bg-sky-500 text-slate-950 border-sky-400'
+                                  : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                              }`}
+                            >
+                              ILS
+                            </button>
+                            <button
+                              onClick={() => toggleRunwayDeparture(rwy.id)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                                isDep
+                                  ? 'bg-orange-500 text-slate-950 border-orange-400'
+                                  : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                              }`}
+                            >
+                              DEP
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 2. UNIFIED SETTINGS / ATC MENU */}
+            <div className="relative">
+              <button
+                onClick={() => toggleSubmenu('settings')}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
+                  activeMenu === 'settings'
+                    ? 'bg-slate-800 border-slate-500 text-white'
+                    : 'bg-slate-900/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                }`}
+                title="Simulation Controls, Overlays & Settings"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>MENU</span>
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
+
+              {activeMenu === 'settings' && (
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#060d1d] border border-slate-700 rounded-lg shadow-2xl p-3.5 z-50 space-y-3 backdrop-blur-md text-xs">
+                  {/* Simulation Controls */}
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Simulation Speed:</div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {[0.5, 1, 2, 4].map(spd => (
+                        <button
+                          key={spd}
+                          onClick={() => setGameSpeed(spd)}
+                          className={`py-1 rounded text-center font-bold border text-xs transition-colors ${
+                            gameSpeed === spd
+                              ? 'bg-sky-500 text-slate-950 border-sky-400'
+                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      <button
+                        onClick={togglePause}
+                        className={`py-1.5 px-2 rounded border font-bold flex items-center justify-center gap-1.5 text-xs transition-colors ${
+                          isPaused
+                            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
+                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        {isPaused ? <Play className="w-3 h-3 text-yellow-400" /> : <Pause className="w-3 h-3" />}
+                        <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                      </button>
+
+                      <button
+                        onClick={toggleMute}
+                        className={`py-1.5 px-2 rounded border font-bold flex items-center justify-center gap-1.5 text-xs transition-colors ${
+                          isMuted
+                            ? 'bg-red-500/20 border-red-500 text-red-400'
+                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-green-400" />}
+                        <span>{isMuted ? 'Muted' : 'Audio ON'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Overlays / Radar Layers */}
+                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Radar Overlays:</div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={layers.showRangeRings}
+                          onChange={e => setLayers(l => ({ ...l, showRangeRings: e.target.checked }))}
+                          className="accent-sky-500"
+                        />
+                        <span>Range Rings</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={layers.showFixes}
+                          onChange={e => setLayers(l => ({ ...l, showFixes: e.target.checked }))}
+                          className="accent-sky-500"
+                        />
+                        <span>Fixes (◎)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={layers.showVectors}
+                          onChange={e => setLayers(l => ({ ...l, showVectors: e.target.checked }))}
+                          className="accent-sky-500"
+                        />
+                        <span>Vectors</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                        <input
+                          type="checkbox"
+                          checked={layers.showHalos}
+                          onChange={e => setLayers(l => ({ ...l, showHalos: e.target.checked }))}
+                          className="accent-sky-500"
+                        />
+                        <span>3 NM Halos</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Weather Info */}
+                  <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-0.5">
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">METAR / ATIS:</div>
+                    <div className="text-slate-300">WIND: {primaryRunway.heading}° / 10KT · QNH: 1013 (29.92)</div>
+                  </div>
+
+                  {/* System Actions */}
+                  <div className="pt-2 border-t border-slate-800 flex items-center gap-1.5">
+                    <button
+                      onClick={() => { handleSaveGame(); setActiveMenu(null); }}
+                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-300 font-bold text-[11px] flex items-center justify-center gap-1"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>{saveFlash ? 'Saved!' : 'Save'}</span>
+                    </button>
+                    <button
+                      onClick={() => { restart(); setSelectedId(null); setActiveMenu(null); }}
+                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-red-400 font-bold text-[11px] flex items-center justify-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Restart</span>
+                    </button>
+                    <button
+                      onClick={onExit}
+                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-[11px] flex items-center justify-center gap-1"
+                    >
+                      <Home className="w-3 h-3" />
+                      <span>Exit</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* STCA Conflict Warning Bar (Flashing alert banner) */}
+        {hasActiveConflict && (
+          <div className="bg-red-950/90 border-b border-red-500 text-red-300 px-4 py-1.5 text-xs font-bold flex items-center justify-center gap-2 animate-pulse z-20">
+            <AlertOctagon className="w-4 h-4 text-red-400" />
+            <span>CA ALARM: LOSS OF SEPARATION (LESS THAN 3 NM / 1000 FT) DETECTED</span>
+          </div>
+        )}
+
+        {/* Main Radar Scope Container */}
+        <div className="flex-1 w-full relative bg-[#020610] overflow-hidden">
           <RadarDisplay
             airport={airport}
-            activeRunwayIndex={activeRunwayIndex}
+            runwayConfig={runwayConfig}
             planes={planes}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onCommand={updatePlaneTarget}
-            ilsEntry={ilsEntry_ui}
-            upwindPoint={upwindPoint_ui}
+            layers={layers}
           />
 
-          {/* Command Console Input */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 pointer-events-auto">
+          {/* Authentic ATC Command Console */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4 pointer-events-auto">
             <form onSubmit={handleCommandSubmit} className="relative group">
-              <div className="absolute -inset-0.5 bg-green-500/20 rounded blur opacity-75 group-hover:opacity-100 transition duration-1000 group-focus-within:bg-green-500/40"></div>
-              <div className="relative flex items-center bg-slate-950 border border-green-500/30 rounded px-4 py-3 shadow-2xl">
-                <span className="text-green-500 font-bold mr-3 animate-pulse">
-                  {selectedPlane ? selectedPlane.callsign : 'SYS'}&gt;
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={commandInput}
-                  onChange={(e) => setCommandInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={selectedPlane ? "C5000, D2000, H090, S210, ALPHA..." : "SELECT AIRCRAFT..."}
-                  disabled={!selectedId}
-                  className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/50 uppercase tracking-widest text-lg disabled:cursor-not-allowed"
-                />
-                {commandInput && (
-                  <div className="text-[10px] text-green-500/40 absolute right-4 bottom-1 font-bold">PRESS ENTER TO TX</div>
-                )}
+              <div className="absolute -inset-0.5 bg-green-500/20 rounded blur opacity-75 group-hover:opacity-100 transition duration-500 group-focus-within:bg-green-500/40"></div>
+              
+              <div className="relative flex flex-col bg-slate-950 border border-green-500/40 rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-green-400" />
+                  <span className="text-green-400 font-bold text-sm tracking-wider">
+                    {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
+                  </span>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={commandInput}
+                    onChange={(e) => setCommandInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={selectedPlane ? "e.g. ILS 33L, D3000 H090 S210, HARBR..." : "CLICK AIRCRAFT TO COMMAND..."}
+                    disabled={!selectedId}
+                    className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/60 uppercase tracking-widest text-sm disabled:cursor-not-allowed"
+                  />
+                  {commandInput && (
+                    <button
+                      type="submit"
+                      className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-[10px] font-bold px-2 py-1 rounded border border-green-500/40 uppercase tracking-wider"
+                    >
+                      ENTER: TX
+                    </button>
+                  )}
+                </div>
+
+                {/* Micro Syntax Cheat-Sheet */}
+                <div className="mt-1 pt-1 border-t border-green-500/10 flex items-center justify-between text-[10px] text-green-500/60 font-mono">
+                  <span>ILS 33L (Approach) · D3000 (Descend) · H270 (Heading) · S210 (Speed)</span>
+                  <span>[TAB] Auto-Complete</span>
+                </div>
               </div>
             </form>
           </div>
@@ -302,31 +623,33 @@ export const GamePage: React.FC<GamePageProps> = ({ airport, activeRunwayIndex, 
 
         {/* Paused Overlay */}
         {isPaused && (
-          <div className="absolute inset-0 bg-slate-950/40 flex flex-col items-center justify-center z-50">
-            <div className="text-6xl font-bold text-yellow-500 tracking-[0.3em] mb-8 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">
-              PAUSED
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+            <div className="text-5xl font-bold text-yellow-500 tracking-[0.3em] mb-6 drop-shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+              SIMULATION PAUSED
             </div>
             <button
               onClick={togglePause}
-              className="px-8 py-4 bg-yellow-500 text-slate-950 font-bold text-xl rounded border-2 border-yellow-400 hover:bg-yellow-400 transition-all hover:scale-110 active:scale-95 shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+              className="px-8 py-3.5 bg-yellow-500 text-slate-950 font-bold text-lg rounded border-2 border-yellow-400 hover:bg-yellow-400 transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(234,179,8,0.4)]"
             >
-              RESUME SESSION
+              RESUME RADAR
             </button>
           </div>
         )}
       </div>
 
-      {/* Side Panel */}
-      <div className="w-96 bg-slate-950 border-l border-green-500/20 p-6 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
-        <ControlPanel airport={airport} activeRunwayIndex={activeRunwayIndex} plane={selectedPlane} onCommand={updatePlaneTarget} onDeselect={() => setSelectedId(null)} />
+      {/* Side ATC Flight Strip Pedestal */}
+      <div className="w-96 bg-[#030712] border-l border-green-500/20 p-5 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.6)]">
+        <ControlPanel
+          airport={airport}
+          runwayConfig={runwayConfig}
+          plane={selectedPlane}
+          onCommand={updatePlaneTarget}
+          onDeselect={() => setSelectedId(null)}
+        />
       </div>
-
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}} />
     </div>
   );
 };
+
+
+
