@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import { HomePage } from './components/HomePage';
 import { GamePage } from './components/GamePage';
-import { SavedGame, Airport, Difficulty, RunwayConfig } from './types';
+import { SavedGame, Difficulty, RunwayConfig } from './types';
 import { AIRPORTS } from './config/airports';
 
 const SAVED_GAMES_KEY = 'atc_saved_games';
@@ -19,11 +20,85 @@ function persistSavedGames(games: SavedGame[]) {
   localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
 }
 
+function HomePageWrapper({
+  savedGames,
+  highScore,
+  onDeleteGame,
+}: {
+  savedGames: SavedGame[];
+  highScore: number;
+  onDeleteGame: (id: string) => void;
+}) {
+  const navigate = useNavigate();
+
+  const handleStartNewGame = (diff: Difficulty, selectedAirportId: string, runwayConfig: RunwayConfig) => {
+    navigate(`/game?airport=${selectedAirportId}&diff=${diff}`, {
+      state: {
+        difficulty: diff,
+        airportId: selectedAirportId,
+        runwayConfig,
+      }
+    });
+  };
+
+  return (
+    <HomePage
+      savedGames={savedGames}
+      onNewGame={handleStartNewGame}
+      onDeleteGame={onDeleteGame}
+      highScore={highScore}
+    />
+  );
+}
+
+function GamePageWrapper({
+  highScore,
+  onSave,
+  onScoreUpdate,
+}: {
+  highScore: number;
+  onSave: (saveData: Omit<SavedGame, 'id' | 'savedAt'>) => void;
+  onScoreUpdate: (score: number) => void;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const state = location.state as {
+    difficulty?: Difficulty;
+    airportId?: string;
+    runwayConfig?: RunwayConfig;
+  } | null;
+
+  const airportId = state?.airportId || searchParams.get('airport') || AIRPORTS[0].id;
+  const difficulty = (state?.difficulty || searchParams.get('diff') || 'easy') as Difficulty;
+  const airport = AIRPORTS.find(a => a.id === airportId) || AIRPORTS[0];
+
+  const initialRunwayConfig: RunwayConfig = useMemo(() => {
+    if (state?.runwayConfig && Object.keys(state.runwayConfig).length > 0) {
+      return state.runwayConfig;
+    }
+    const initial: RunwayConfig = {};
+    airport.runways.forEach((r, idx) => {
+      initial[r.id] = { landing: idx === 0, departure: idx === 0 };
+    });
+    return initial;
+  }, [state?.runwayConfig, airport]);
+
+  return (
+    <GamePage
+      airport={airport}
+      initialRunwayConfig={initialRunwayConfig}
+      difficulty={difficulty}
+      highScore={highScore}
+      onExit={() => navigate('/')}
+      onSave={onSave}
+      onScoreUpdate={onScoreUpdate}
+    />
+  );
+}
+
 export default function App() {
-  const [page, setPage] = useState<'home' | 'game'>('home');
-  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
-  const [airport, setAirport] = useState<Airport>(AIRPORTS[0]);
-  const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>({});
   const [savedGames, setSavedGames] = useState<SavedGame[]>(loadSavedGames);
 
   const [highScore, setHighScore] = useState(() => {
@@ -36,14 +111,6 @@ export default function App() {
       setHighScore(score);
       localStorage.setItem('atc_highscore', score.toString());
     }
-  };
-
-  const handleNewGame = (diff: Difficulty, selectedAirportId: string, config: RunwayConfig) => {
-    const selectedAirport = AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0];
-    setAirport(selectedAirport);
-    setRunwayConfig(config);
-    setDifficulty(diff);
-    setPage('game');
   };
 
   const handleSaveGame = (saveData: Omit<SavedGame, 'id' | 'savedAt'>) => {
@@ -63,26 +130,31 @@ export default function App() {
     persistSavedGames(updated);
   };
 
-  if (page === 'home') {
-    return (
-      <HomePage
-        savedGames={savedGames}
-        onNewGame={handleNewGame}
-        onDeleteGame={handleDeleteGame}
-        highScore={highScore}
-      />
-    );
-  }
-
   return (
-    <GamePage
-      airport={airport}
-      initialRunwayConfig={runwayConfig}
-      difficulty={difficulty}
-      highScore={highScore}
-      onExit={() => setPage('home')}
-      onSave={handleSaveGame}
-      onScoreUpdate={updateHighScore}
-    />
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <HomePageWrapper
+              savedGames={savedGames}
+              highScore={highScore}
+              onDeleteGame={handleDeleteGame}
+            />
+          }
+        />
+        <Route
+          path="/game"
+          element={
+            <GamePageWrapper
+              highScore={highScore}
+              onSave={handleSaveGame}
+              onScoreUpdate={updateHighScore}
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
