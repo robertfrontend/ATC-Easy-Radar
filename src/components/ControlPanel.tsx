@@ -160,20 +160,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
         {/* Status Indicator Bar */}
         <div className="mt-3 flex items-center justify-between text-xs">
-          <span className="text-green-500/70 text-[10px]">TRACK STATUS:</span>
+          <span className="text-slate-400 text-[10px]">TRACK STATUS:</span>
           <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${
             plane.status === 'crashed' ? 'bg-red-500/20 text-red-400 border border-red-500/50' :
-            plane.conflict || plane.status === 'warning' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/50 animate-pulse' :
-            plane.isEstablished ? 'bg-sky-500/20 text-sky-300 border border-sky-500/50' :
-            plane.type === 'departure' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50' :
-            !plane.hasInstructions ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50' :
+            plane.conflict || plane.status === 'warning' ? 'bg-red-500/25 text-red-300 border border-red-500 animate-conflict-flash' :
+            plane.isEstablished ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)]' :
+            plane.type === 'departure' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
+            !plane.hasInstructions ? 'bg-yellow-500/25 text-yellow-300 border border-yellow-500 animate-radar-blink' :
             'bg-green-500/20 text-green-300 border border-green-500/40'
           }`}>
             {plane.isEstablished ? `ESTABLISHED ILS ${establishedRunway?.label || ''}` :
              plane.conflict ? 'STCA CONFLICT ALERT' :
              plane.status === 'bad_approach' ? 'UNSTABILIZED APPROACH' :
              plane.type === 'departure' ? 'DEPARTURE CLIMB' :
-             !plane.hasInstructions ? 'UNCONTROLLED' :
+             !plane.hasInstructions ? 'UNCONTROLLED (INITIAL)' :
              'VECTORING ACTIVE'}
           </span>
         </div>

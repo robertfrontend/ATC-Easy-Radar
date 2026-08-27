@@ -586,14 +586,21 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
           const isDeparture = plane.type === 'departure';
+          const isEstablished = plane.isEstablished;
           const isUncontrolled = !plane.hasInstructions;
           
           // Authentic target coloring:
           // 1. Conflict: Flashing Red (#ef4444)
           // 2. Selected: Bright Yellow (#facc15)
-          // 3. Departures: Warm Amber/Orange (#fb923c)
-          // 4. Arrivals: Crisp White (#ffffff)
-          const baseColor = isDeparture ? '#fb923c' : '#ffffff';
+          // 3. Established on ILS Localizer: Vivid Electric Aqua Blue (#00e5ff)
+          // 4. Departures (Outbound): Warm Amber/Orange (#fb923c)
+          // 5. Inbound Arrivals: Crisp White (#ffffff)
+          const baseColor = isEstablished
+            ? '#00e5ff'
+            : isDeparture
+              ? '#fb923c'
+              : '#ffffff';
+
           const targetColor = 
             isConflict ? '#ef4444' :
             isSelected ? '#facc15' : baseColor;
@@ -640,7 +647,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
           const animClass = isConflict
             ? 'animate-conflict-flash'
-            : (isUncontrolled && !isSelected)
+            : (isUncontrolled && !isSelected && !isEstablished)
               ? 'animate-radar-blink'
               : '';
 
@@ -668,8 +675,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   cx={plane.x}
                   cy={plane.y}
                   r={3 * UNITS_PER_NM}
-                  fill={isConflict ? "rgba(239, 68, 68, 0.08)" : isSelected ? "rgba(250, 204, 21, 0.05)" : isDeparture ? "rgba(251, 146, 60, 0.04)" : "rgba(148, 163, 184, 0.04)"}
-                  stroke={isConflict ? "#ef4444" : isSelected ? "rgba(250, 204, 21, 0.5)" : isDeparture ? "rgba(251, 146, 60, 0.4)" : "rgba(148, 163, 184, 0.3)"}
+                  fill={isConflict ? "rgba(239, 68, 68, 0.08)" : isSelected ? "rgba(250, 204, 21, 0.05)" : isEstablished ? "rgba(0, 229, 255, 0.06)" : isDeparture ? "rgba(251, 146, 60, 0.04)" : "rgba(148, 163, 184, 0.04)"}
+                  stroke={isConflict ? "#ef4444" : isSelected ? "rgba(250, 204, 21, 0.5)" : isEstablished ? "rgba(0, 229, 255, 0.45)" : isDeparture ? "rgba(251, 146, 60, 0.4)" : "rgba(148, 163, 184, 0.3)"}
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
@@ -680,9 +687,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 const ratio = (i + 1) / arr.length;
                 const trailFill = isSelected
                   ? "#facc15"
-                  : isDeparture
-                    ? "rgba(251, 146, 60, 0.75)"
-                    : "rgba(226, 232, 240, 0.75)";
+                  : isEstablished
+                    ? "rgba(0, 229, 255, 0.8)"
+                    : isDeparture
+                      ? "rgba(251, 146, 60, 0.75)"
+                      : "rgba(226, 232, 240, 0.75)";
                 return (
                   <rect
                     key={i}
@@ -703,7 +712,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y1={plane.y}
                   x2={vx1}
                   y2={vy1}
-                  stroke={isSelected ? "#facc15" : isDeparture ? "rgba(251, 146, 60, 0.5)" : "rgba(226, 232, 240, 0.45)"}
+                  stroke={isSelected ? "#facc15" : isEstablished ? "rgba(0, 229, 255, 0.6)" : isDeparture ? "rgba(251, 146, 60, 0.5)" : "rgba(226, 232, 240, 0.45)"}
                   strokeWidth={isSelected ? "1.6" : "1"}
                   strokeDasharray={isSelected ? undefined : "2,3"}
                 />
