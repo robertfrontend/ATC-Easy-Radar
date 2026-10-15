@@ -178,15 +178,52 @@ export const GamePage: React.FC<GamePageProps> = ({
   }, [planes, selectedId]);
 
   const [commandInput, setCommandInput] = useState('');
-  const [commandNonce, setCommandNonce] = useState(0);
+  const selectionRef = useRef({ id: null as string | null, plane: null as typeof selectedPlane });
+  selectionRef.current = { id: selectedId, plane: selectedPlane };
+  const airportRef = useRef(airport);
+  airportRef.current = airport;
+  const runwayConfigRef = useRef(runwayConfig);
+  runwayConfigRef.current = runwayConfig;
+  // Ignore a second transmit from keydown + submit in the same keypress.
+  const transmitGuardRef = useRef({ text: '', at: 0 });
 
-  // Keep the console focused when a track is selected and after each transmission.
+  // Keep the console focused when a track is selected.
   useEffect(() => {
     if (selectedId) {
       const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(timer);
     }
-  }, [selectedId, commandNonce]);
+  }, [selectedId]);
+
+  const transmitCommand = (raw: string) => {
+    const text = raw.trim();
+    const { id, plane } = selectionRef.current;
+    if (!id || !plane || !text) return;
+
+    const now = Date.now();
+    if (transmitGuardRef.current.text === text && now - transmitGuardRef.current.at < 400) return;
+    transmitGuardRef.current = { text, at: now };
+
+    const updates = parseAtcCommand(text, {
+      airport: airportRef.current,
+      runwayConfig: runwayConfigRef.current,
+      plane,
+    });
+    if (updates) {
+      updatePlaneTarget(id, updates);
+      try {
+        audioManager.playRadio();
+      } catch {
+        // A sound failure must not discard the clearance or leave the text behind.
+      }
+    }
+    setCommandInput('');
+    const field = inputRef.current;
+    if (field) {
+      field.value = '';
+      field.focus();
+    }
+  };
 
   const handleSaveGame = () => {
     onSave({
@@ -207,7 +244,15 @@ export const GamePage: React.FC<GamePageProps> = ({
     audioManager.setMuted(newMuted);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Own Enter here. Implicit form submit is easy for the browser to swallow
+    // (autofill on a named field, or the input unmounting mid-key), and then
+    // nothing is applied and the text stays.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      transmitCommand(e.currentTarget.value);
+      return;
+    }
     if (e.key === 'Tab') {
       e.preventDefault();
       const tokens = commandInput.trim().toUpperCase().split(/\s+/);
@@ -230,22 +275,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !selectedPlane || !commandInput.trim()) return;
-
-    const updates = parseAtcCommand(commandInput, {
-      airport,
-      runwayConfig,
-      plane: selectedPlane,
-    });
-
-    if (updates) {
-      updatePlaneTarget(selectedId, updates);
-      audioManager.playRadio();
-    }
-
-    // Always clear and keep the caret in the field so the next clearance can be typed.
-    setCommandInput('');
-    setCommandNonce(n => n + 1);
+    transmitCommand(inputRef.current?.value ?? commandInput);
   };
 
   const selectedExit = selectedPlane?.exitWaypointId
@@ -593,16 +623,15 @@ export const GamePage: React.FC<GamePageProps> = ({
                     {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
                   </span>
                   <input
-                    key={commandNonce}
                     ref={inputRef}
                     type="text"
-                    name="atc-command"
                     value={commandInput}
                     onChange={(e) => setCommandInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
+                    enterKeyHint="send"
                     placeholder={
                       !selectedPlane
                         ? "CLICK AIRCRAFT TO COMMAND..."
@@ -615,7 +644,9 @@ export const GamePage: React.FC<GamePageProps> = ({
                   />
                   {commandInput && (
                     <button
-                      type="submit"
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => transmitCommand(inputRef.current?.value ?? commandInput)}
                       className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-[10px] font-bold px-2 py-1 rounded border border-green-500/40 uppercase tracking-wider"
                     >
                       ENTER: TX
