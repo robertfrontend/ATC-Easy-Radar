@@ -80,7 +80,12 @@ export interface Plane {
   assignedRunwayId?: string | null;
   hasInstructions: boolean;
   originFlag: string;
+  /** Active direct-to. Departures leave this empty until the controller clears it. */
   targetWaypoint?: string | null;
+  /** Exit fix assigned at takeoff. Not flown until a direct-to clearance. */
+  exitWaypointId?: string | null;
+  /** Controller has assigned a heading, so the automatic runway track must not override it. */
+  headingAssigned?: boolean;
   markedForRemoval?: boolean;
   goAround?: boolean;
   conflict?: boolean;

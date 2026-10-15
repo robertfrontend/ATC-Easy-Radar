@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plane, Difficulty, GameSpeed, Airport, Runway, RunwayConfig } from '../types';
 import { audioManager } from '../utils/audio';
+import { applyClearance, resolveNavigation } from '../utils/navigation';
 
 export type { Plane, Difficulty, GameSpeed };
 
@@ -134,6 +135,7 @@ export const useGameLoop = (
     const { callsign, flag, model, squawk } = generateCallsignAndDetails(airport);
     
     let x, y, heading, targetHeading, altitude, targetAltitude, speed, targetSpeed, targetWaypoint = null;
+    let exitWaypointId: string | null = null;
     let assignedRunwayId: string | null = null;
 
     if (isDeparture) {
@@ -162,7 +164,9 @@ export const useGameLoop = (
         ? bestWaypoints[Math.floor(Math.random() * bestWaypoints.length)].wp
         : airport.waypoints[0];
       
-      targetWaypoint = selectedWp?.id || null;
+      // Keep the exit for when the controller says DEP / direct. Do not route there yet.
+      exitWaypointId = selectedWp?.id || null;
+      targetWaypoint = null;
       heading = departureHeading;
       targetHeading = heading;
       assignedRunwayId = activeDepRunway.id;
@@ -212,6 +216,8 @@ export const useGameLoop = (
       assignedRunwayId,
       hasInstructions: isDeparture,
       targetWaypoint,
+      exitWaypointId,
+      headingAssigned: false,
       conflict: false
     };
     
@@ -254,42 +260,16 @@ export const useGameLoop = (
         const currentRwyConfig = runwayConfigRef.current;
 
         let nextPlanes = prevPlanes.map(plane => {
-          let currentTargetHeading = plane.targetHeading;
           let currentTargetAltitude = plane.targetAltitude;
           let currentTargetSpeed = plane.targetSpeed;
           let isEstablished = plane.isEstablished;
           let establishedRunwayId = plane.establishedRunwayId;
-          let currentTargetWaypoint = plane.targetWaypoint;
 
-          // 1. Departure Initial Climb Corridor & Waypoint Guidance
-          let markedForRemoval = plane.markedForRemoval;
-
-          // For departures: maintain straight runway heading during initial climb (< 2,500 ft)
-          if (plane.type === 'departure' && plane.altitude < 2500 && plane.assignedRunwayId) {
-            const depRwy = airport.runways.find(r => r.id === plane.assignedRunwayId);
-            if (depRwy) {
-              currentTargetHeading = depRwy.heading;
-            }
-          } else if (currentTargetWaypoint && !isEstablished && plane.status !== 'crashed') {
-            const wp = airport.waypoints.find(w => w.id === currentTargetWaypoint);
-            if (wp) {
-              const distToWp = Math.hypot(wp.x - plane.x, wp.y - plane.y);
-              if (distToWp < 35) {
-                if (plane.type === 'departure') {
-                  markedForRemoval = true;
-                } else {
-                  currentTargetWaypoint = null;
-                }
-              } else {
-                let headingToWp = (Math.atan2(wp.y - plane.y, wp.x - plane.x) * 180 / Math.PI) + 90;
-                headingToWp = (headingToWp + 360) % 360;
-                let angleDiff = headingToWp - plane.targetHeading;
-                while (angleDiff <= -180) angleDiff += 360;
-                while (angleDiff > 180) angleDiff -= 360;
-                if (Math.abs(angleDiff) > 1.0) currentTargetHeading = headingToWp;
-              }
-            }
-          }
+          // 1. Runway track until a direct-to or heading clearance, then waypoint guidance.
+          const nav = resolveNavigation(plane, airport);
+          let currentTargetHeading = nav.targetHeading;
+          let currentTargetWaypoint = nav.targetWaypoint;
+          let markedForRemoval = nav.markedForRemoval;
 
           // 2. Multi-Runway ILS Capture Logic
           if (!isEstablished && !plane.goAround && plane.status !== 'crashed' && plane.type === 'arrival') {
@@ -506,7 +486,7 @@ export const useGameLoop = (
   }, [isPaused, gameSpeed]);
 
   const updatePlaneTarget = (id: string, updates: Partial<Plane>) => {
-    setPlanes(prev => prev.map(p => p.id === id ? { ...p, ...updates, hasInstructions: true, goAround: updates.goAround ?? false } : p));
+    setPlanes(prev => prev.map(p => p.id === id ? applyClearance(p, updates) : p));
   };
 
   const togglePause = () => setIsPaused(p => !p);

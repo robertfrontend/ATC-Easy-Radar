@@ -19,7 +19,7 @@
 
 ### 3. Flight Operations
 - **Arrivals (ARR - Green):** Guide them into the **blue ILS cone** below 10,000ft. Once established, they will auto-land.
-- **Departures (DEP - Purple):** These aircraft spawn at the airport and climb automatically. Their mission is to **reach their assigned exit waypoint** to be handed over to the next sector.
+- **Departures (DEP - Purple):** These aircraft spawn at the airport and climb on runway heading. They do **not** turn toward their exit until you clear them direct (`DEP`, the exit fix name, or DIRECT on the strip).
 
 ---
 
@@ -35,9 +35,9 @@
 ### Departure Mission
 | Parameter | Requirement |
 | :--- | :--- |
-| **Objective** | Reach assigned Waypoint (Triangle icons) |
-| **Automation** | Auto-climb and Auto-navigation (unless overridden) |
-| **Handover** | Automatic removal upon reaching waypoint |
+| **Objective** | Reach the assigned exit waypoint after you clear them direct |
+| **Automation** | Auto-climb on runway heading. No auto-navigation until `DEP` / direct |
+| **Handover** | Removal upon reaching the exit after that clearance |
 
 ### Aircraft Status Colors
 | Color | Status | Meaning |

@@ -7,8 +7,9 @@ import {
 import { useGameLoop } from '../hooks/useGameLoop';
 import { RadarDisplay } from './RadarDisplay';
 import { ControlPanel } from './ControlPanel';
-import { Airport, Difficulty, SavedGame, Plane, RadarLayers, RunwayConfig, GameSpeed } from '../types';
+import { Airport, Difficulty, SavedGame, RadarLayers, RunwayConfig, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
+import { parseAtcCommand } from '../utils/commands';
 
 interface GamePageProps {
   airport: Airport;
@@ -176,12 +177,16 @@ export const GamePage: React.FC<GamePageProps> = ({
     }
   }, [planes, selectedId]);
 
-  // Auto-focus command input on selection
+  const [commandInput, setCommandInput] = useState('');
+  const [commandNonce, setCommandNonce] = useState(0);
+
+  // Keep the console focused when a track is selected and after each transmission.
   useEffect(() => {
     if (selectedId) {
-      setTimeout(() => inputRef.current?.focus(), 10);
+      const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [selectedId]);
+  }, [selectedId, commandNonce]);
 
   const handleSaveGame = () => {
     onSave({
@@ -201,8 +206,6 @@ export const GamePage: React.FC<GamePageProps> = ({
     setIsMuted(newMuted);
     audioManager.setMuted(newMuted);
   };
-
-  const [commandInput, setCommandInput] = useState('');
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Tab') {
@@ -227,92 +230,27 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !commandInput.trim()) return;
+    if (!selectedId || !selectedPlane || !commandInput.trim()) return;
 
-    const fullCmd = commandInput.trim().toUpperCase();
-    const updates: Partial<Plane> = {};
-    let anyValid = false;
-
-    // 1. Check for specific runway ILS approach command (e.g. "ILS 33L", "FINAL 27", "RWY 04R")
-    const rwyMatch = fullCmd.match(/(?:ILS|RWY|FINAL)\s*([0-9]{1,2}[LRC]?)/);
-    if (rwyMatch && selectedPlane) {
-      const label = rwyMatch[1];
-      const rwy = airport.runways.find(r => r.label === label);
-      if (rwy) {
-        const rwyX = airport.x + (rwy.offsetX || 0);
-        const rwyY = airport.y + (rwy.offsetY || 0);
-        const rad = (rwy.heading * Math.PI) / 180;
-        const fafPoint = {
-          x: rwyX - 450 * Math.sin(rad),
-          y: rwyY + 450 * Math.cos(rad)
-        };
-        const angle = (Math.atan2(fafPoint.y - selectedPlane.y, fafPoint.x - selectedPlane.x) * 180 / Math.PI) + 90;
-        updates.targetHeading = Math.round((angle + 360) % 360);
-        updates.targetAltitude = 3000;
-        updates.targetSpeed = 180;
-        updates.targetWaypoint = null;
-        updates.assignedRunwayId = rwy.id;
-        anyValid = true;
-      }
-    } else if ((fullCmd.includes('FINAL') || fullCmd.includes('ILS')) && selectedPlane) {
-      // General FINAL/ILS: vector to the primary/first active ILS runway
-      const activeLanding = airport.runways.find(r => runwayConfig[r.id]?.landing) || airport.runways[0];
-      const rwyX = airport.x + (activeLanding.offsetX || 0);
-      const rwyY = airport.y + (activeLanding.offsetY || 0);
-      const rad = (activeLanding.heading * Math.PI) / 180;
-      const fafPoint = {
-        x: rwyX - 450 * Math.sin(rad),
-        y: rwyY + 450 * Math.cos(rad)
-      };
-      const angle = (Math.atan2(fafPoint.y - selectedPlane.y, fafPoint.x - selectedPlane.x) * 180 / Math.PI) + 90;
-      updates.targetHeading = Math.round((angle + 360) % 360);
-      updates.targetAltitude = 3000;
-      updates.targetSpeed = 180;
-      updates.targetWaypoint = null;
-      updates.assignedRunwayId = activeLanding.id;
-      anyValid = true;
-    }
-
-    // 2. Parse Waypoints
-    const tokens = fullCmd.split(/\s+/);
-    tokens.forEach(token => {
-      const wp = airport.waypoints.find(w => w.label.toUpperCase() === token);
-      if (wp) {
-        updates.targetWaypoint = wp.id;
-        updates.assignedRunwayId = null;
-        anyValid = true;
-      }
+    const updates = parseAtcCommand(commandInput, {
+      airport,
+      runwayConfig,
+      plane: selectedPlane,
     });
 
-    // 3. Parse prefixed commands (e.g. D3000, H090, S210, C10000)
-    const cmdRegex = /([CDHS])\s?(\d+)/g;
-    let match;
-    while ((match = cmdRegex.exec(fullCmd)) !== null) {
-      const prefix = match[1];
-      const val = parseInt(match[2], 10);
-
-      if (!isNaN(val)) {
-        if (prefix === 'C' || prefix === 'D') {
-          updates.targetAltitude = val;
-          anyValid = true;
-        } else if (prefix === 'H') {
-          updates.targetHeading = val % 360;
-          updates.targetWaypoint = null;
-          anyValid = true;
-        } else if (prefix === 'S') {
-          updates.targetSpeed = val;
-          anyValid = true;
-        }
-      }
-    }
-
-    if (anyValid) {
+    if (updates) {
       updatePlaneTarget(selectedId, updates);
       audioManager.playRadio();
-      setCommandInput('');
-      setSelectedId(null);
     }
+
+    // Always clear and keep the caret in the field so the next clearance can be typed.
+    setCommandInput('');
+    setCommandNonce(n => n + 1);
   };
+
+  const selectedExit = selectedPlane?.exitWaypointId
+    ? airport.waypoints.find(w => w.id === selectedPlane.exitWaypointId) || null
+    : null;
 
   const primaryRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
 
@@ -645,7 +583,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
           {/* Authentic ATC Command Console */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4 pointer-events-auto">
-            <form onSubmit={handleCommandSubmit} className="relative group">
+            <form onSubmit={handleCommandSubmit} autoComplete="off" className="relative group">
               <div className="absolute -inset-0.5 bg-green-500/20 rounded blur opacity-75 group-hover:opacity-100 transition duration-500 group-focus-within:bg-green-500/40"></div>
               
               <div className="relative flex flex-col bg-slate-950 border border-green-500/40 rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
@@ -655,12 +593,23 @@ export const GamePage: React.FC<GamePageProps> = ({
                     {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
                   </span>
                   <input
+                    key={commandNonce}
                     ref={inputRef}
                     type="text"
+                    name="atc-command"
                     value={commandInput}
                     onChange={(e) => setCommandInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={selectedPlane ? "e.g. ILS 33L, D3000 H090 S210, HARBR..." : "CLICK AIRCRAFT TO COMMAND..."}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder={
+                      !selectedPlane
+                        ? "CLICK AIRCRAFT TO COMMAND..."
+                        : selectedPlane.type === 'departure' && selectedExit && selectedPlane.targetWaypoint !== selectedExit.id
+                          ? `DEP → ${selectedExit.label}, H090, C11000, S240`
+                          : "e.g. ILS 33L, D3000 H090 S210, HARBR..."
+                    }
                     disabled={!selectedId}
                     className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/60 uppercase tracking-widest text-sm disabled:cursor-not-allowed"
                   />
@@ -676,7 +625,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
                 {/* Micro Syntax Cheat-Sheet */}
                 <div className="mt-1 pt-1 border-t border-green-500/10 flex items-center justify-between text-[10px] text-green-500/60 font-mono">
-                  <span>ILS 33L (Approach) · D3000 (Descend) · H270 (Heading) · S210 (Speed)</span>
+                  <span>DEP (direct exit) · ILS 33L · D3000 · H270 · S210</span>
                   <span>[TAB] Auto-Complete</span>
                 </div>
               </div>

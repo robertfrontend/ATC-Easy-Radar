@@ -32,6 +32,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
     return airport.runways.find(r => r.id === plane.establishedRunwayId) || null;
   }, [airport.runways, plane?.establishedRunwayId]);
 
+  const exitWaypoint = useMemo(() => {
+    if (!plane?.exitWaypointId) return null;
+    return airport.waypoints.find(w => w.id === plane.exitWaypointId) || null;
+  }, [airport.waypoints, plane?.exitWaypointId]);
+
   useEffect(() => {
     if (plane) {
       setHeading(Math.round(plane.targetHeading));
@@ -181,6 +186,35 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
       {/* Main Controls Pedestal */}
       <div className="space-y-4 flex-1">
+        {/* Departure exit: climb on runway heading until the controller clears direct. */}
+        {plane.type === 'departure' && exitWaypoint && (
+          <div className="bg-slate-950/80 border border-orange-500/30 rounded p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-orange-300">
+                <Navigation className="w-4 h-4 text-orange-400" /> Assigned Exit
+              </label>
+              <span className="text-sm font-bold text-white tracking-widest">{exitWaypoint.label}</span>
+            </div>
+            {plane.targetWaypoint === exitWaypoint.id ? (
+              <div className="text-[11px] text-orange-200/90 font-bold tracking-wide">
+                CLEARED DIRECT {exitWaypoint.label}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedWp(exitWaypoint.id);
+                  onCommand(plane.id, { targetWaypoint: exitWaypoint.id });
+                  audioManager.playRadio();
+                }}
+                className="w-full py-2 rounded border border-orange-400 bg-orange-500/20 hover:bg-orange-500/30 text-orange-100 font-bold text-xs tracking-widest transition-colors"
+              >
+                DIRECT {exitWaypoint.label}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Multi-Runway Approach Direct Clearances (For Arrivals) */}
         {plane.type === 'arrival' && activeLandingRunways.length > 0 && (
           <div className="bg-slate-950/80 border border-sky-500/30 rounded p-3.5 space-y-2">

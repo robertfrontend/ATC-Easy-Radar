@@ -37,7 +37,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   onSelect,
   onCommand,
   layers = DEFAULT_LAYERS,
-  gameSpeed = 1
+  gameSpeed = 1 as GameSpeed
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -227,6 +227,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const altAction = altDiff < -150 ? `descending to ${tgtAltStr}` :
                       altDiff > 150 ? `climbing to ${tgtAltStr}` :
                       `maintaining ${altStr}`;
+
+    if (selectedPlane.type === 'departure' && selectedPlane.exitWaypointId) {
+      const exitLabel = airport.waypoints.find(w => w.id === selectedPlane.exitWaypointId)?.label ?? 'FIX';
+      return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}. Exit ${exitLabel} — transmit DEP to proceed direct.`;
+    }
 
     return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}.`;
   }, [selectedPlane, airport]);
