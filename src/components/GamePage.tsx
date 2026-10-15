@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Pause, Play, RotateCcw, Save, Home, Volume2, VolumeX,
   Layers, AlertOctagon, Terminal, CloudSun, Gauge, Settings,
@@ -217,12 +218,16 @@ export const GamePage: React.FC<GamePageProps> = ({
         // A sound failure must not discard the clearance or leave the text behind.
       }
     }
-    setCommandInput('');
-    const field = inputRef.current;
-    if (field) {
-      field.value = '';
-      field.focus();
-    }
+    // Commit the empty value before focusing, so removing the ENTER button
+    // cannot leave the caret on document.body. The field stays focused.
+    const focusField = () => {
+      const field = inputRef.current;
+      if (!field || field.disabled) return;
+      field.focus({ preventScroll: true });
+    };
+    flushSync(() => setCommandInput(''));
+    focusField();
+    requestAnimationFrame(focusField);
   };
 
   const handleSaveGame = () => {
