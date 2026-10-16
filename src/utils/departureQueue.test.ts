@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { describe, expect, it } from 'vitest';
 import { AIRPORTS } from '../config/airports';
 import { Plane, RunwayConfig } from '../types';
 import { parseAtcCommand } from './commands';
@@ -287,83 +287,33 @@ function simulate(options: {
   return stats;
 }
 
-const onRunway = departureLeftSector({
-  id: 'dep',
-  callsign: 'BAW1',
-  model: 'A320',
-  squawk: '1234',
-  type: 'departure',
-  originFlag: '🇬🇧',
-  x: airport.x,
-  y: airport.y,
-  heading: departureRunway.heading,
-  targetHeading: departureRunway.heading,
-  altitude: 500,
-  targetAltitude: 11000,
-  speed: 160,
-  targetSpeed: 240,
-  trail: [],
-  status: 'normal',
-  isEstablished: false,
-  assignedRunwayId: departureRunway.id,
-  hasInstructions: true,
-  targetWaypoint: null,
-  exitWaypointId: 'WP-L5',
-  headingAssigned: false,
-}, airport);
-assert.equal(onRunway, false, 'a departure still on the airport has not left the sector');
-
-const outside = departureLeftSector({
-  id: 'dep',
-  callsign: 'BAW1',
-  model: 'A320',
-  squawk: '1234',
-  type: 'departure',
-  originFlag: '🇬🇧',
-  x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
-  y: airport.y,
-  heading: departureRunway.heading,
-  targetHeading: departureRunway.heading,
-  altitude: 8000,
-  targetAltitude: 11000,
-  speed: 240,
-  targetSpeed: 240,
-  trail: [],
-  status: 'normal',
-  isEstablished: false,
-  assignedRunwayId: departureRunway.id,
-  hasInstructions: true,
-  targetWaypoint: null,
-  exitWaypointId: 'WP-L5',
-  headingAssigned: false,
-}, airport);
-assert.equal(outside, true, 'an uncleared departure past the scope frees its slot');
-
-const clearedOutside = departureLeftSector({
-  id: 'dep',
-  callsign: 'BAW1',
-  model: 'A320',
-  squawk: '1234',
-  type: 'departure',
-  originFlag: '🇬🇧',
-  x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
-  y: airport.y,
-  heading: 90,
-  targetHeading: 90,
-  altitude: 8000,
-  targetAltitude: 11000,
-  speed: 240,
-  targetSpeed: 240,
-  trail: [],
-  status: 'normal',
-  isEstablished: false,
-  assignedRunwayId: departureRunway.id,
-  hasInstructions: true,
-  targetWaypoint: 'WP-L5',
-  exitWaypointId: 'WP-L5',
-  headingAssigned: false,
-}, airport);
-assert.equal(clearedOutside, false, 'a departure cleared direct is not dropped on the way to the exit');
+function sectorTrack(overrides: Partial<Plane>): Plane {
+  return {
+    id: 'dep',
+    callsign: 'BAW1',
+    model: 'A320',
+    squawk: '1234',
+    type: 'departure',
+    originFlag: '🇬🇧',
+    x: airport.x,
+    y: airport.y,
+    heading: departureRunway.heading,
+    targetHeading: departureRunway.heading,
+    altitude: 500,
+    targetAltitude: 11000,
+    speed: 160,
+    targetSpeed: 240,
+    trail: [],
+    status: 'normal',
+    isEstablished: false,
+    assignedRunwayId: departureRunway.id,
+    hasInstructions: true,
+    targetWaypoint: null,
+    exitWaypointId: 'WP-L5',
+    headingAssigned: false,
+    ...overrides,
+  };
+}
 
 function runwayAvailable(plane: Plane) {
   const now = 1_700_000_000_000;
@@ -379,55 +329,6 @@ function runwayAvailable(plane: Plane) {
   });
 }
 
-const rwyX = airport.x + (departureRunway.offsetX || 0);
-const rwyY = airport.y + (departureRunway.offsetY || 0);
-const track = {
-  id: 'dep',
-  callsign: 'BAW1',
-  model: 'A320',
-  squawk: '1234',
-  type: 'departure' as const,
-  originFlag: '🇬🇧',
-  x: rwyX,
-  y: rwyY,
-  heading: departureRunway.heading,
-  targetHeading: departureRunway.heading,
-  altitude: 400,
-  targetAltitude: 11000,
-  speed: 150,
-  targetSpeed: 240,
-  trail: [],
-  status: 'normal' as const,
-  isEstablished: false,
-  assignedRunwayId: departureRunway.id,
-  hasInstructions: true,
-  targetWaypoint: null,
-  exitWaypointId: 'WP-L5',
-  headingAssigned: false,
-};
-assert.equal(runwayAvailable(track), false, 'a departure still on the roll occupies the runway');
-assert.equal(
-  runwayAvailable({ ...track, altitude: 4000, x: rwyX + 50 }),
-  true,
-  'an airborne departure inside the old 5 NM bubble must release the runway'
-);
-
-// The runway stays available whenever it is legally free. This is the path
-// that used to die after a single takeoff, because that aircraft occupied a
-// slot until the 2,500-unit map edge.
-for (const giveDep of [false, true]) {
-  const stats = simulate({ minutes: 6, seed: 1, giveDep, alwaysDepart: true });
-  const departed = giveDep ? stats.reachedExit : stats.leftSector;
-  assert.ok(stats.spawned >= 8, `expected a stream of departures (DEP=${giveDep}), spawned ${stats.spawned}`);
-  assert.ok(departed >= 5, `expected departures to leave (DEP=${giveDep}), departed ${departed}`);
-  if (!giveDep) {
-    assert.equal(stats.reachedExit, 0, 'without DEP a departure must not score the exit');
-    assert.ok(stats.maxHeadingError < 1, `runway heading drifted by ${stats.maxHeadingError}`);
-  }
-}
-
-// Same mix the game uses (about 35% departures). Twelve minutes is enough
-// for several takeoffs; none of the seeds stall after the first one.
 function sample(giveDep: boolean, minutes: number) {
   const spawned: number[] = [];
   const departed: number[] = [];
@@ -446,11 +347,60 @@ function sample(giveDep: boolean, minutes: number) {
   };
 }
 
-for (const giveDep of [false, true]) {
-  const sampleStats = sample(giveDep, 6);
-  assert.ok(sampleStats.minSpawned >= 4, `a session stalled after one departure (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
-  assert.ok(sampleStats.medianSpawned >= 5, `typical session should launch 4-5 departures (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
-  assert.ok(sampleStats.medianDeparted >= 4, `typical departures should leave (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
-}
+describe('departure queue', () => {
+  it('does not treat a departure still on the airport as having left the sector', () => {
+    expect(departureLeftSector(sectorTrack({}), airport)).toBe(false);
+  });
 
-console.log('departure queue checks passed');
+  it('frees the slot once an uncleared departure leaves the scope', () => {
+    const outside = sectorTrack({
+      x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
+      altitude: 8000,
+      speed: 240,
+    });
+    expect(departureLeftSector(outside, airport)).toBe(true);
+  });
+
+  it('does not drop a departure cleared direct on the way to the exit', () => {
+    const clearedOutside = sectorTrack({
+      x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
+      heading: 90,
+      targetHeading: 90,
+      altitude: 8000,
+      speed: 240,
+      targetWaypoint: 'WP-L5',
+    });
+    expect(departureLeftSector(clearedOutside, airport)).toBe(false);
+  });
+
+  it('holds the runway during the takeoff roll and releases it once airborne', () => {
+    const rwyX = airport.x + (departureRunway.offsetX || 0);
+    const rwyY = airport.y + (departureRunway.offsetY || 0);
+    const track = sectorTrack({ x: rwyX, y: rwyY, altitude: 400, speed: 150 });
+    expect(runwayAvailable(track)).toBe(false);
+    expect(runwayAvailable({ ...track, altitude: 4000, x: rwyX + 50 })).toBe(true);
+  });
+
+  // The runway stays available whenever it is legally free. This is the path
+  // that used to die after a single takeoff, because that aircraft occupied a
+  // slot until the 2,500-unit map edge.
+  it.each([false, true])('keeps launching a departure stream (DEP=%s)', (giveDep) => {
+    const stats = simulate({ minutes: 6, seed: 1, giveDep, alwaysDepart: true });
+    const departed = giveDep ? stats.reachedExit : stats.leftSector;
+    expect(stats.spawned, `spawned ${stats.spawned}`).toBeGreaterThanOrEqual(8);
+    expect(departed, `departed ${departed}`).toBeGreaterThanOrEqual(5);
+    if (!giveDep) {
+      expect(stats.reachedExit).toBe(0);
+      expect(stats.maxHeadingError).toBeLessThan(1);
+    }
+  }, 20000);
+
+  // Same mix the game uses (about 35% departures). Six minutes is enough
+  // for several takeoffs; none of the seeds stall after the first one.
+  it.each([false, true])('does not stall a mixed session after the first departure (DEP=%s)', (giveDep) => {
+    const sampleStats = sample(giveDep, 6);
+    expect(sampleStats.minSpawned, JSON.stringify(sampleStats)).toBeGreaterThanOrEqual(4);
+    expect(sampleStats.medianSpawned, JSON.stringify(sampleStats)).toBeGreaterThanOrEqual(5);
+    expect(sampleStats.medianDeparted, JSON.stringify(sampleStats)).toBeGreaterThanOrEqual(4);
+  }, 30000);
+});

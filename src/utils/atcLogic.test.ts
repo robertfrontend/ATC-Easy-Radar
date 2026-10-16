@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { describe, expect, it } from 'vitest';
 import { AIRPORTS } from '../config/airports';
 import { Plane, RunwayConfig } from '../types';
 import { parseAtcCommand } from './commands';
@@ -50,98 +50,101 @@ const headingToExit = (() => {
   return heading;
 })();
 
-assert.ok(
-  Math.abs(headingToExit - runway.heading) > 5,
-  'fixture exit fix must not lie on the runway heading'
-);
+const commandContext = (plane: Plane) => ({ airport: airport!, runwayConfig, plane });
 
-// After takeoff, and after leaving the initial climb, a departure stays on
-// runway heading. The stored exit is not an active route.
-for (const altitude of [400, 2600, 8000]) {
-  const nav = resolveNavigation(departure({ altitude }), airport);
-  assert.equal(nav.targetHeading, runway.heading, `altitude ${altitude} should hold runway heading`);
-  assert.equal(nav.targetWaypoint, null);
-  assert.equal(nav.markedForRemoval, false);
-}
+describe('departure navigation', () => {
+  it('uses an exit fix that is not on the runway heading', () => {
+    expect(Math.abs(headingToExit - runway.heading)).toBeGreaterThan(5);
+  });
 
-// DEP after takeoff routes to the exit immediately, including below 2,500 ft.
-const depClearance = parseAtcCommand('DEP', { airport, runwayConfig, plane: departure() });
-assert.ok(depClearance, 'DEP must be recognized');
-assert.equal(depClearance.targetWaypoint, exitFix.id);
-assert.equal(depClearance.assignedRunwayId, undefined, 'DEP keeps the departure runway for separation');
+  it.each([400, 2600, 8000])('holds runway heading at %i ft until cleared', (altitude) => {
+    const nav = resolveNavigation(departure({ altitude }), airport);
+    expect(nav.targetHeading).toBe(runway.heading);
+    expect(nav.targetWaypoint).toBeNull();
+    expect(nav.markedForRemoval).toBe(false);
+  });
 
-const cleared = applyClearance(departure({ altitude: 900 }), depClearance);
-assert.equal(cleared.targetWaypoint, exitFix.id);
-assert.equal(cleared.headingAssigned, false);
-assert.equal(cleared.assignedRunwayId, runway.id);
+  it('routes DEP to the exit immediately, including below 2,500 ft', () => {
+    const depClearance = parseAtcCommand('DEP', commandContext(departure()));
+    expect(depClearance).not.toBeNull();
+    expect(depClearance!.targetWaypoint).toBe(exitFix.id);
+    expect(depClearance!.assignedRunwayId).toBeUndefined();
 
-const afterDep = resolveNavigation(cleared, airport);
-assert.ok(
-  Math.abs(afterDep.targetHeading - headingToExit) < 1,
-  `DEP should steer toward the exit (${headingToExit}), got ${afterDep.targetHeading}`
-);
+    const cleared = applyClearance(departure({ altitude: 900 }), depClearance!);
+    expect(cleared.targetWaypoint).toBe(exitFix.id);
+    expect(cleared.headingAssigned).toBe(false);
+    expect(cleared.assignedRunwayId).toBe(runway.id);
 
-// The same clearance still works once the aircraft is above the climb gate.
-const afterDepHigh = resolveNavigation(
-  applyClearance(departure({ altitude: 6000 }), depClearance),
-  airport
-);
-assert.ok(Math.abs(afterDepHigh.targetHeading - headingToExit) < 1);
+    const afterDep = resolveNavigation(cleared, airport);
+    expect(Math.abs(afterDep.targetHeading - headingToExit)).toBeLessThan(1);
 
-// Typing the fix name is the same direct-to, and it is not overridden on climb.
-const named = parseAtcCommand(exitFix.label, { airport, runwayConfig, plane: departure() });
-assert.equal(named?.targetWaypoint, exitFix.id);
-const afterNamed = resolveNavigation(applyClearance(departure({ altitude: 500 }), named!), airport);
-assert.ok(Math.abs(afterNamed.targetHeading - headingToExit) < 1);
+    const afterDepHigh = resolveNavigation(
+      applyClearance(departure({ altitude: 6000 }), depClearance!),
+      airport,
+    );
+    expect(Math.abs(afterDepHigh.targetHeading - headingToExit)).toBeLessThan(1);
+  });
 
-// An explicit heading during the climb is kept; the runway track does not steal it back.
-const headingCmd = parseAtcCommand('H090', { airport, runwayConfig, plane: departure() });
-assert.equal(headingCmd?.targetHeading, 90);
-assert.equal(headingCmd?.targetWaypoint, null);
-const vectored = applyClearance(departure({ altitude: 700 }), headingCmd!);
-assert.equal(vectored.headingAssigned, true);
-assert.equal(resolveNavigation(vectored, airport).targetHeading, 90);
+  it('follows a named fix the same way and does not override it on climb', () => {
+    const named = parseAtcCommand(exitFix.label, commandContext(departure()));
+    expect(named?.targetWaypoint).toBe(exitFix.id);
+    const afterNamed = resolveNavigation(applyClearance(departure({ altitude: 500 }), named!), airport);
+    expect(Math.abs(afterNamed.targetHeading - headingToExit)).toBeLessThan(1);
+  });
 
-// Altitude-only clearance does not cancel the runway track.
-const climbCmd = parseAtcCommand('C10000', { airport, runwayConfig, plane: departure() });
-assert.equal(climbCmd?.targetAltitude, 10000);
-assert.equal(climbCmd?.targetHeading, undefined);
-const climbed = applyClearance(departure(), climbCmd!);
-assert.equal(climbed.headingAssigned, false);
-assert.equal(resolveNavigation(climbed, airport).targetHeading, runway.heading);
+  it('keeps an explicit heading during the climb', () => {
+    const headingCmd = parseAtcCommand('H090', commandContext(departure()));
+    expect(headingCmd?.targetHeading).toBe(90);
+    expect(headingCmd?.targetWaypoint).toBeNull();
+    const vectored = applyClearance(departure({ altitude: 700 }), headingCmd!);
+    expect(vectored.headingAssigned).toBe(true);
+    expect(resolveNavigation(vectored, airport).targetHeading).toBe(90);
+  });
 
-// UPWIND cancels a direct and returns to runway heading.
-const onDirect = applyClearance(departure({ altitude: 4000 }), depClearance!);
-const upwind = parseAtcCommand('UPWIND', { airport, runwayConfig, plane: onDirect });
-assert.equal(upwind?.targetHeading, runway.heading);
-assert.equal(upwind?.targetWaypoint, null);
-const backOnRunway = applyClearance(onDirect, upwind!);
-assert.equal(backOnRunway.headingAssigned, true);
-assert.equal(backOnRunway.targetWaypoint, null);
-assert.equal(resolveNavigation(backOnRunway, airport).targetHeading, runway.heading);
+  it('does not cancel the runway track for an altitude-only clearance', () => {
+    const climbCmd = parseAtcCommand('C10000', commandContext(departure()));
+    expect(climbCmd?.targetAltitude).toBe(10000);
+    expect(climbCmd?.targetHeading).toBeUndefined();
+    const climbed = applyClearance(departure(), climbCmd!);
+    expect(climbed.headingAssigned).toBe(false);
+    expect(resolveNavigation(climbed, airport).targetHeading).toBe(runway.heading);
+  });
 
-// Approach clearances still vector, and the runway number is not parsed as a speed.
-const ils = parseAtcCommand('ILS 33L', {
-  airport,
-  runwayConfig,
-  plane: departure({ type: 'arrival', exitWaypointId: null, altitude: 7000 }),
+  it('returns to runway heading when UPWIND cancels a direct', () => {
+    const depClearance = parseAtcCommand('DEP', commandContext(departure()));
+    const onDirect = applyClearance(departure({ altitude: 4000 }), depClearance!);
+    const upwind = parseAtcCommand('UPWIND', commandContext(onDirect));
+    expect(upwind?.targetHeading).toBe(runway.heading);
+    expect(upwind?.targetWaypoint).toBeNull();
+    const backOnRunway = applyClearance(onDirect, upwind!);
+    expect(backOnRunway.headingAssigned).toBe(true);
+    expect(backOnRunway.targetWaypoint).toBeNull();
+    expect(resolveNavigation(backOnRunway, airport).targetHeading).toBe(runway.heading);
+  });
+
+  it('still vectors an approach clearance and does not read the runway as a speed', () => {
+    const ils = parseAtcCommand('ILS 33L', commandContext(departure({
+      type: 'arrival',
+      exitWaypointId: null,
+      altitude: 7000,
+    })));
+    expect(ils?.assignedRunwayId).toBe(runway.id);
+    expect(ils?.targetAltitude).toBe(3000);
+    expect(ils?.targetSpeed).toBe(180);
+    expect(ils?.targetWaypoint).toBeNull();
+    expect(typeof ils?.targetHeading).toBe('number');
+
+    expect(parseAtcCommand('S210', commandContext(departure()))?.targetSpeed).toBe(210);
+    const combined = parseAtcCommand('D3000 H270', commandContext(departure()));
+    expect(combined?.targetHeading).toBe(270);
+    expect(combined?.targetAltitude).toBe(3000);
+  });
+
+  it('does not treat unrecognized text as a clearance', () => {
+    expect(parseAtcCommand('HOLA', commandContext(departure()))).toBeNull();
+    expect(parseAtcCommand('DEP', commandContext(departure({
+      type: 'arrival',
+      exitWaypointId: null,
+    })))).toBeNull();
+  });
 });
-assert.equal(ils?.assignedRunwayId, runway.id);
-assert.equal(ils?.targetAltitude, 3000);
-assert.equal(ils?.targetSpeed, 180);
-assert.equal(ils?.targetWaypoint, null);
-assert.equal(typeof ils?.targetHeading, 'number');
-
-assert.equal(parseAtcCommand('S210', { airport, runwayConfig, plane: departure() })?.targetSpeed, 210);
-assert.equal(parseAtcCommand('D3000 H270', { airport, runwayConfig, plane: departure() })?.targetHeading, 270);
-assert.equal(parseAtcCommand('D3000 H270', { airport, runwayConfig, plane: departure() })?.targetAltitude, 3000);
-
-// Unrecognized text is not a clearance (the console still clears the field).
-assert.equal(parseAtcCommand('HOLA', { airport, runwayConfig, plane: departure() }), null);
-assert.equal(parseAtcCommand('DEP', {
-  airport,
-  runwayConfig,
-  plane: departure({ type: 'arrival', exitWaypointId: null }),
-}), null);
-
-console.log('atc logic checks passed');
