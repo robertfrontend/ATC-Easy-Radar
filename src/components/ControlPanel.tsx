@@ -163,6 +163,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
           </button>
         </div>
 
+        {plane.type === 'departure' && exitWaypoint && (
+          <div className="mt-3 flex items-center justify-between rounded border border-line bg-scope px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-dim">Exit fix</span>
+            <span className="text-lg font-bold tracking-[0.28em] text-ink-bright">{exitWaypoint.label}</span>
+          </div>
+        )}
+
         {/* Status Indicator Bar */}
         <div className="mt-3 flex items-center justify-between text-xs">
           <span className="text-ink-dim text-[10px]">TRACK STATUS:</span>
@@ -176,7 +183,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             {plane.isEstablished ? `ESTABLISHED ILS ${establishedRunway?.label || ''}` :
              plane.conflict ? 'STCA CONFLICT ALERT' :
              plane.status === 'bad_approach' ? 'UNSTABILIZED APPROACH' :
-             plane.type === 'departure' ? 'DEPARTURE CLIMB' :
+             plane.type === 'departure' ? (exitWaypoint ? `DEPARTURE · ${exitWaypoint.label}` : 'DEPARTURE CLIMB') :
              !plane.hasInstructions ? 'UNCONTROLLED (INITIAL)' :
              'VECTORING ACTIVE'}
           </span>

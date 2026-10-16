@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
+import { trackReadout } from '../utils/dataBlock';
 import { scopeColor } from '../theme/radarTheme';
+import { TrackRole, trackRole } from '../theme/trackRole';
 
 interface RadarDisplayProps {
   airport: Airport;
@@ -36,30 +38,6 @@ function themeHex(name: string, fallback: string) {
   if (typeof document === 'undefined') return fallback;
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return value || fallback;
-}
-
-function trackReadout(plane: Plane, airport: Airport) {
-  const curHundreds = Math.round(plane.altitude / 100);
-  const tgtHundreds = Math.round(plane.targetAltitude / 100);
-  const prefix = plane.altitude >= 6000 ? 'F' : 'A';
-  const curAltStr = `${prefix}${curHundreds}`;
-  const altDiff = plane.targetAltitude - plane.altitude;
-  const trendSign = altDiff < -150 ? `↓${tgtHundreds}` :
-    altDiff > 150 ? `↑${tgtHundreds}` :
-    `=${curHundreds}`;
-  const estRwy = airport.runways.find(r => r.id === plane.establishedRunwayId);
-  let statusLine = '';
-  if (plane.isEstablished) {
-    statusLine = `ILS${estRwy ? estRwy.label : 'LOC'}`;
-  } else if (plane.targetWaypoint) {
-    statusLine = airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || 'DIR';
-  } else {
-    statusLine = `${Math.round(plane.heading).toString().padStart(3, '0')}`;
-  }
-  const line3 = plane.isEstablished || plane.targetWaypoint
-    ? `${Math.round(plane.speed)} ${statusLine}`
-    : `${Math.round(plane.speed)}H ${statusLine}`;
-  return { line1: plane.callsign, line2: `${curAltStr} ${trendSign}`, line3 };
 }
 
 function bloomAlpha(plane: Plane, selected: boolean, now: number) {
@@ -98,9 +76,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
   phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
 
-  // Canvas bloom for the range rings, targets, and data blocks.
-  // shadowBlur paints the phosphor halo. SVG text stays sharp on top and
-  // carries the CSS text-shadow as well.
+  // Canvas paints range rings and a faint halo behind target symbols.
+  // Data-block text is SVG only, with no bloom, so the readout stays sharp.
   useEffect(() => {
     const canvas = phosphorRef.current;
     const svg = svgRef.current;
@@ -134,9 +111,15 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       };
 
       const { airport: scope, planes: tracks, selectedId: activeId, showRangeRings } = phosphorState.current;
-      const phosphor = themeHex('--color-target', '#39FF14');
-      const selectedColor = themeHex('--color-selected', '#e8c56a');
-      const conflictColor = themeHex('--color-conflict', '#ef6464');
+      const phosphor = themeHex('--color-target', '#5FD35F');
+      const roleColor: Record<TrackRole, string> = {
+        arrival: phosphor,
+        departure: themeHex('--color-departure', '#62B0DC'),
+        uncontrolled: themeHex('--color-uncontrolled', '#9AA4A8'),
+        selected: themeHex('--color-selected', '#e8c56a'),
+        alert: themeHex('--color-alert', '#e0b04a'),
+        conflict: themeHex('--color-conflict', '#ef6464'),
+      };
       const center = toScreen(scope.x, scope.y);
       const rim = toScreen(scope.x + SCOPE_RADIUS, scope.y);
       const radius = Math.hypot(rim.x - center.x, rim.y - center.y);
@@ -156,56 +139,36 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const rr = Math.hypot(edge.x - center.x, edge.y - center.y);
           ctx.beginPath();
           ctx.arc(center.x, center.y, rr, 0, Math.PI * 2);
-          ctx.shadowColor = phosphor;
-          ctx.shadowBlur = nm === 25 ? 16 : 9;
+          ctx.shadowBlur = 0;
           ctx.strokeStyle = phosphor;
-          ctx.globalAlpha = nm === 25 ? 0.9 : 0.72;
-          ctx.lineWidth = nm === 25 ? 1.35 : 1;
+          ctx.globalAlpha = nm === 25 ? 0.85 : 0.62;
+          ctx.lineWidth = nm === 25 ? 1.25 : 1;
           ctx.setLineDash(nm === 25 ? [] : [3 * scale, 6 * scale]);
           ctx.stroke();
-          ctx.shadowBlur = 0;
           ctx.setLineDash([]);
           const label = toScreen(scope.x + ringR * 0.707 + 4, scope.y - ringR * 0.707 - 4);
           ctx.font = `bold ${Math.max(9, 10 * scale)}px ui-monospace, monospace`;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = phosphor;
-          ctx.shadowColor = phosphor;
-          ctx.shadowBlur = 8;
-          ctx.globalAlpha = 0.9;
+          ctx.globalAlpha = 0.8;
           ctx.fillText(`${nm}NM`, label.x, label.y);
-          ctx.shadowBlur = 0;
         }
       }
 
       ctx.textBaseline = 'alphabetic';
       for (const plane of tracks) {
         const selected = plane.id === activeId;
-        const conflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
-        const color = conflict ? conflictColor : selected ? selectedColor : phosphor;
+        const color = roleColor[trackRole(plane, selected)];
         const alpha = bloomAlpha(plane, selected, now);
         const symbol = toScreen(plane.x, plane.y + 4.5);
         ctx.font = `bold ${16 * scale}px ui-monospace, monospace`;
         ctx.textAlign = 'center';
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
-        ctx.globalAlpha = alpha * 0.85;
+        ctx.shadowBlur = 3;
+        ctx.globalAlpha = alpha * 0.28;
         ctx.fillText('✳', symbol.x, symbol.y);
-
-        const readout = trackReadout(plane, scope);
-        const lines = [
-          { text: readout.line1, y: 0, size: 11.5 },
-          { text: readout.line2, y: 12, size: 11 },
-          { text: readout.line3, y: 23, size: 11 },
-        ];
-        ctx.textAlign = 'left';
-        ctx.shadowBlur = 10;
-        for (const line of lines) {
-          const pos = toScreen(plane.x + 24, plane.y - 24 + line.y);
-          ctx.font = `bold ${line.size * scale}px ui-monospace, monospace`;
-          ctx.fillText(line.text, pos.x, pos.y);
-        }
         ctx.shadowBlur = 0;
       }
 
@@ -739,15 +702,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
           const isUncontrolled = !plane.hasInstructions;
-
-          // One scope color for every track. Gold marks the selected target.
-          // Red is reserved for a conflict or crash. Arrival, departure, and
-          // localizer status stay in the data-block text.
-          const targetColor = isConflict
-            ? scopeColor.conflict
-            : isSelected
-              ? scopeColor.selected
-              : scopeColor.target;
+          const role = trackRole(plane, isSelected);
+          const targetColor = scopeColor[role];
 
           // Velocity Vector Projections (1 min = 60s)
           const isReal = gameSpeed === 'real';
@@ -800,8 +756,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   cx={plane.x}
                   cy={plane.y}
                   r={3 * UNITS_PER_NM}
-                  fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : scopeColor.halo}
-                  stroke={isConflict ? scopeColor.conflict : isSelected ? scopeColor.selected : scopeColor.haloStroke}
+                  fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : targetColor}
+                  fillOpacity={isConflict || isSelected ? 1 : 0.08}
+                  stroke={targetColor}
+                  strokeOpacity={isConflict || isSelected ? 1 : 0.45}
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
@@ -831,7 +789,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y1={plane.y}
                   x2={vx1}
                   y2={vy1}
-                  stroke={isSelected || isConflict ? targetColor : scopeColor.targetDim}
+                  stroke={targetColor}
                   strokeWidth={isSelected ? "1.6" : "1"}
                   strokeDasharray={isSelected ? undefined : "2,3"}
                 />
@@ -846,7 +804,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 fontFamily="monospace"
                 fontWeight="bold"
                 textAnchor="middle"
-                className="crt-glow"
+                className="symbol-glow"
               >
                 ✳
               </text>
@@ -870,11 +828,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   x="0"
                   y="0"
                   fill={targetColor}
-                  fontSize="11.5"
+                  stroke="#000000"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                  fontSize="13"
                   fontFamily="monospace"
                   fontWeight="bold"
-                  letterSpacing="0.5"
-                  className="crt-glow"
+                  letterSpacing="0.4"
                 >
                   {readout.line1}
                 </text>
@@ -882,25 +843,31 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 {/* Line 2: Altitude Actual + Trend Target (e.g. A36 ↓30) */}
                 <text
                   x="0"
-                  y="12"
+                  y="14"
                   fill={targetColor}
-                  fontSize="11"
+                  stroke="#000000"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                  fontSize="12.5"
                   fontFamily="monospace"
                   fontWeight="bold"
-                  className="crt-glow"
                 >
                   {readout.line2}
                 </text>
 
-                {/* Line 3: Speed + Heading / Fix / LOC (e.g. 200 ILS09L, 254H 265) */}
+                {/* Line 3: Speed + exit fix / heading / LOC (e.g. 160 OCKHM, 200 ILS27L) */}
                 <text
                   x="0"
-                  y="23"
+                  y="27"
                   fill={targetColor}
-                  fontSize="11"
+                  stroke="#000000"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                  fontSize="12.5"
                   fontFamily="monospace"
                   fontWeight="bold"
-                  className="crt-glow"
                 >
                   {readout.line3}
                 </text>
@@ -912,7 +879,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
       {/* Scope readback line */}
       <div className="absolute bottom-2 left-4 right-28 z-20 pointer-events-none select-none">
-        <div className="crt-glow text-xs font-mono font-bold text-phosphor truncate">
+        <div className="text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>
