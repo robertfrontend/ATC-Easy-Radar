@@ -1,5 +1,75 @@
 @import "tailwindcss";
 
+/*
+ * STARS / ERAM radar theme.
+ * Pure black scope, dim gray map, gray airspace and pavement.
+ * Targets and range rings use P1 phosphor green (#39FF14 / #33FF33).
+ * Gold, amber, and red are reserved for the selected track, alerts, and conflicts.
+ */
+@theme {
+  --color-scope: #000000;
+  --color-scope-disk: #000000;
+  --color-panel: #111412;
+  --color-panel-raised: #181c19;
+  --color-inset: #0d0f0d;
+  --color-header: #0d0f0d;
+
+  --color-line: #2c332e;
+  --color-line-strong: #414942;
+
+  --color-map: #6a9470;
+  --color-map-dim: #456348;
+  --color-map-label: #7f917f;
+  --color-airspace: #6d7770;
+  --color-airspace-dim: #515a54;
+  --color-runway: #9aa39c;
+  --color-runway-idle: #5a635d;
+  --color-centerline: #d5dbd6;
+  --color-fix: #9aa39c;
+  --color-fix-label: #b7c0b8;
+  --color-azimuth: #8b948c;
+
+  --color-target: #39ff14;
+  --color-target-dim: #2bdb22;
+
+  --color-selected: #e8c56a;
+  --color-selected-soft: #e8c56a33;
+  --color-alert: #e0b04a;
+  --color-alert-soft: #e0b04a2b;
+  --color-conflict: #ef6464;
+  --color-conflict-soft: #ef646433;
+  --color-conflict-banner: #2c1515;
+
+  --color-ink: #d7dfd8;
+  --color-ink-bright: #f5f7f5;
+  --color-ink-dim: #939c94;
+  --color-ink-faint: #646d65;
+  --color-phosphor: #33ff33;
+
+  --color-scrim: #000000c2;
+  --color-block: #000000d0;
+  --color-tooltip: #000000f0;
+  --color-halo: #39ff1418;
+  --color-halo-stroke: #39ff1466;
+}
+
+html,
+body,
+#root {
+  background: var(--color-scope);
+  color: var(--color-ink);
+  min-height: 100%;
+}
+
+input[type="checkbox"],
+input[type="range"] {
+  accent-color: var(--color-phosphor);
+}
+
+* {
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
 @keyframes radarBlink {
   0%, 100% {
     opacity: 1;
@@ -24,4 +94,12 @@
 
 .animate-conflict-flash {
   animation: conflictFlash 0.45s ease-in-out infinite;
+}
+
+/* P1 phosphor bloom for scope readouts. SVG text also carries this;
+   the canvas layer paints the same bloom with shadowBlur. */
+.crt-glow {
+  text-shadow:
+    0 0 4px currentColor,
+    0 0 10px currentColor;
 }
