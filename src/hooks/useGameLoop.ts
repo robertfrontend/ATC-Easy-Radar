@@ -83,7 +83,8 @@ export const useGameLoop = (
     });
   }, [airport]);
 
-  const spawnPlane = useCallback(() => {
+  const spawnPlane = useCallback((options?: { arrivals?: boolean }) => {
+    const allowArrival = options?.arrivals !== false;
     const now = Date.now();
     const allPlanes = planesRef.current;
 
@@ -92,8 +93,11 @@ export const useGameLoop = (
       runwayIsSafe(r, allPlanes, now, gameSpeed)
     );
 
-    // Only allow departure if at least one runway is 100% clear and legal
+    // Only allow departure if at least one runway is 100% clear and legal.
+    // Once the board is full of arrivals, a missed roll must not be replaced
+    // by another arrival — that used to end the departure queue for good.
     const isDeparture = safeDepartureRunways.length > 0 && (allPlanes.length === 0 ? true : Math.random() < 0.35);
+    if (!isDeparture && !allowArrival) return;
     const { callsign, flag, model, squawk } = generateCallsignAndDetails(airport);
     
     let x, y, heading, targetHeading, altitude, targetAltitude, speed, targetSpeed, targetWaypoint = null;
@@ -212,8 +216,11 @@ export const useGameLoop = (
         ? (difficulty === 'easy' ? 80000 : difficulty === 'medium' ? 50000 : 30000)
         : (config.spawnRate / numSpeed);
       
-      if (timeSinceLast > minSpawnInterval && (currentCount < config.minPlanes || (currentCount < config.maxPlanes && timeSinceLast > effectiveSpawnRate))) {
-        spawnPlane();
+      const spawnDue = timeSinceLast > minSpawnInterval
+        && (currentCount < config.minPlanes || timeSinceLast > effectiveSpawnRate);
+      if (spawnDue) {
+        // At the traffic cap, still roll for a departure. Arrivals need a free slot.
+        spawnPlane({ arrivals: currentCount < config.maxPlanes });
         lastSpawnRef.current = now;
       }
 

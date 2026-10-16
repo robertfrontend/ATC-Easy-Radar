@@ -168,7 +168,7 @@ function simulate(options: {
   const t0 = 1_700_000_000_000;
   const ticks = Math.round((options.minutes * 60 * 1000) / TICK_MS);
 
-  const spawn = (now: number) => {
+  const spawn = (now: number, allowArrival = true) => {
     const safe = airport!.runways.filter(runway => isRunwaySafeForDeparture({
       airport: airport!,
       runway,
@@ -180,6 +180,7 @@ function simulate(options: {
       lastDepartureAt,
     }));
     const isDeparture = safe.length > 0 && (planes.length === 0 || options.alwaysDepart || rnd() < 0.35);
+    if (!isDeparture && !allowArrival) return;
     const rwy = isDeparture ? safe[0] : null;
     let x = 0;
     let y = 0;
@@ -252,11 +253,8 @@ function simulate(options: {
       lastSpawn = now;
     }
     const since = now - lastSpawn;
-    if (
-      since > 4000 &&
-      (planes.length < EASY.minPlanes || (planes.length < EASY.maxPlanes && since > EASY.spawnRate))
-    ) {
-      spawn(now);
+    if (since > 4000 && (planes.length < EASY.minPlanes || since > EASY.spawnRate)) {
+      spawn(now, planes.length < EASY.maxPlanes);
       lastSpawn = now;
     }
 
@@ -430,11 +428,11 @@ for (const giveDep of [false, true]) {
 
 // Same mix the game uses (about 35% departures). Twelve minutes is enough
 // for several takeoffs; none of the seeds stall after the first one.
-function sample(giveDep: boolean) {
+function sample(giveDep: boolean, minutes: number) {
   const spawned: number[] = [];
   const departed: number[] = [];
   for (let seed = 1; seed <= 20; seed++) {
-    const stats = simulate({ minutes: 12, seed, giveDep });
+    const stats = simulate({ minutes, seed, giveDep });
     spawned.push(stats.spawned);
     departed.push(giveDep ? stats.reachedExit : stats.leftSector);
   }
@@ -449,8 +447,8 @@ function sample(giveDep: boolean) {
 }
 
 for (const giveDep of [false, true]) {
-  const sampleStats = sample(giveDep);
-  assert.ok(sampleStats.minSpawned >= 2, `a session stalled after one departure (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
+  const sampleStats = sample(giveDep, 6);
+  assert.ok(sampleStats.minSpawned >= 4, `a session stalled after one departure (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
   assert.ok(sampleStats.medianSpawned >= 5, `typical session should launch 4-5 departures (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
   assert.ok(sampleStats.medianDeparted >= 4, `typical departures should leave (DEP=${giveDep}): ${JSON.stringify(sampleStats)}`);
 }
