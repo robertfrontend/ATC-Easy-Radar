@@ -367,6 +367,53 @@ const clearedOutside = departureLeftSector({
 }, airport);
 assert.equal(clearedOutside, false, 'a departure cleared direct is not dropped on the way to the exit');
 
+function runwayAvailable(plane: Plane) {
+  const now = 1_700_000_000_000;
+  return isRunwaySafeForDeparture({
+    airport: airport!,
+    runway: departureRunway,
+    runwayConfig,
+    planes: [plane],
+    now,
+    gameSpeed: 1,
+    lastDepartureByRunway: { [departureRunway.id]: now - 25000 },
+    lastDepartureAt: now - 25000,
+  });
+}
+
+const rwyX = airport.x + (departureRunway.offsetX || 0);
+const rwyY = airport.y + (departureRunway.offsetY || 0);
+const track = {
+  id: 'dep',
+  callsign: 'BAW1',
+  model: 'A320',
+  squawk: '1234',
+  type: 'departure' as const,
+  originFlag: '🇬🇧',
+  x: rwyX,
+  y: rwyY,
+  heading: departureRunway.heading,
+  targetHeading: departureRunway.heading,
+  altitude: 400,
+  targetAltitude: 11000,
+  speed: 150,
+  targetSpeed: 240,
+  trail: [],
+  status: 'normal' as const,
+  isEstablished: false,
+  assignedRunwayId: departureRunway.id,
+  hasInstructions: true,
+  targetWaypoint: null,
+  exitWaypointId: 'WP-L5',
+  headingAssigned: false,
+};
+assert.equal(runwayAvailable(track), false, 'a departure still on the roll occupies the runway');
+assert.equal(
+  runwayAvailable({ ...track, altitude: 4000, x: rwyX + 50 }),
+  true,
+  'an airborne departure inside the old 5 NM bubble must release the runway'
+);
+
 // The runway stays available whenever it is legally free. This is the path
 // that used to die after a single takeoff, because that aircraft occupied a
 // slot until the 2,500-unit map edge.

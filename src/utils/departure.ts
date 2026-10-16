@@ -19,9 +19,11 @@ export interface DepartureSeparationState {
 
 /**
  * Whether another aircraft may roll on this runway right now.
- * A previous departure only blocks the runway while it is still in the
- * takeoff corridor (close in, or still below 2,000 ft) — not for the rest
- * of its life.
+ * A previous departure blocks the strip only during the takeoff roll
+ * (still over the pavement and below 1,500 ft). After liftoff it keeps
+ * runway heading until DEP, but it must not occupy the runway for the
+ * rest of that flight — including while it is still inside 5 NM or below
+ * 2,000 ft, which used to stop the queue after a single takeoff.
  */
 export function isRunwaySafeForDeparture(state: DepartureSeparationState): boolean {
   const { airport, runway, runwayConfig, planes, now, gameSpeed } = state;
@@ -46,7 +48,8 @@ export function isRunwaySafeForDeparture(state: DepartureSeparationState): boole
     const distToRwy = Math.hypot(plane.x - rwyX, plane.y - rwyY);
 
     if (plane.type === 'departure' && plane.assignedRunwayId === runway.id) {
-      if (distToRwy < 110 || plane.altitude < 2000) return false;
+      const pavement = runway.length || 85;
+      if (distToRwy < pavement && plane.altitude < 1500) return false;
     }
 
     if (distToRwy < 75 && plane.altitude < 1200) return false;
