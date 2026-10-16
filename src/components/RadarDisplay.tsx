@@ -37,7 +37,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   onSelect,
   onCommand,
   layers = DEFAULT_LAYERS,
-  gameSpeed = 1
+  gameSpeed = 1 as GameSpeed
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -120,7 +120,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (!hasDraggedRef.current && selectedId && mousePos && onCommand) {
+    const target = e.target instanceof Element ? e.target : null;
+    const clickedAircraft = !!target?.closest('[data-aircraft]');
+    // A click on a track selects it. It must not also be treated as a heading vector,
+    // which would deselect the aircraft before a typed clearance can be entered.
+    if (!hasDraggedRef.current && !clickedAircraft && selectedId && mousePos && onCommand) {
       const plane = planes.find(p => p.id === selectedId);
       if (plane && !plane.isEstablished) {
         let headingToMouse = (Math.atan2(mousePos.y - plane.y, mousePos.x - plane.x) * 180 / Math.PI) + 90;
@@ -227,6 +231,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const altAction = altDiff < -150 ? `descending to ${tgtAltStr}` :
                       altDiff > 150 ? `climbing to ${tgtAltStr}` :
                       `maintaining ${altStr}`;
+
+    if (selectedPlane.type === 'departure' && selectedPlane.exitWaypointId) {
+      const exitLabel = airport.waypoints.find(w => w.id === selectedPlane.exitWaypointId)?.label ?? 'FIX';
+      return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}. Exit ${exitLabel} — transmit DEP to proceed direct.`;
+    }
 
     return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}.`;
   }, [selectedPlane, airport]);
@@ -659,6 +668,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           return (
             <g
               key={plane.id}
+              data-aircraft={plane.id}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!hasDraggedRef.current) {
@@ -749,7 +759,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               />
 
               {/* Authentic 3-Line Data Block (Monospace, Sharp Text) */}
-              <g transform={`translate(${tagX}, ${tagY})`} style={{ pointerEvents: 'none' }}>
+              <g transform={`translate(${tagX}, ${tagY})`}>
                 {/* Subtle dark backdrop for legibility over lines */}
                 <rect
                   x="-2"
