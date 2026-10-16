@@ -750,18 +750,17 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               {/* Click Target Area */}
               <circle cx={plane.x} cy={plane.y} r="24" fill="transparent" />
 
-              {/* 3 NM Separation Halo */}
+              {/* 2 NM Separation Halo. Radius is visual only; STCA distance is unchanged. */}
               {(layers.showHalos || isSelected || isHovered || isConflict) && (
                 <circle
                   cx={plane.x}
                   cy={plane.y}
-                  r={3 * UNITS_PER_NM}
+                  r={2 * UNITS_PER_NM}
                   fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : targetColor}
                   fillOpacity={isConflict || isSelected ? 1 : 0.08}
                   stroke={targetColor}
                   strokeOpacity={isConflict || isSelected ? 1 : 0.45}
                   strokeWidth="1"
-                  strokeDasharray="3,3"
                 />
               )}
 
