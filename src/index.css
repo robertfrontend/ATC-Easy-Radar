@@ -3,7 +3,8 @@
 /*
  * STARS / ERAM radar theme.
  * Pure black scope, dim gray map, gray airspace and pavement.
- * Targets and range rings use P1 phosphor green (#39FF14 / #33FF33).
+ * Targets, data blocks, and range rings use a soft radar green (#5FD35F),
+ * with #4CD964 for the panel accent. Both sit well below neon P1 green.
  * Gold, amber, and red are reserved for the selected track, alerts, and conflicts.
  */
 @theme {
@@ -29,8 +30,8 @@
   --color-fix-label: #b7c0b8;
   --color-azimuth: #8b948c;
 
-  --color-target: #39ff14;
-  --color-target-dim: #2bdb22;
+  --color-target: #5fd35f;
+  --color-target-dim: #3e8f44;
 
   --color-selected: #e8c56a;
   --color-selected-soft: #e8c56a33;
@@ -44,13 +45,13 @@
   --color-ink-bright: #f5f7f5;
   --color-ink-dim: #939c94;
   --color-ink-faint: #646d65;
-  --color-phosphor: #33ff33;
+  --color-phosphor: #4cd964;
 
   --color-scrim: #000000c2;
   --color-block: #000000d0;
   --color-tooltip: #000000f0;
-  --color-halo: #39ff1418;
-  --color-halo-stroke: #39ff1466;
+  --color-halo: #5fd35f18;
+  --color-halo-stroke: #5fd35f55;
 }
 
 html,
@@ -96,10 +97,7 @@ input[type="range"] {
   animation: conflictFlash 0.45s ease-in-out infinite;
 }
 
-/* P1 phosphor bloom for scope readouts. SVG text also carries this;
-   the canvas layer paints the same bloom with shadowBlur. */
-.crt-glow {
-  text-shadow:
-    0 0 4px currentColor,
-    0 0 10px currentColor;
+/* Faint halo for target symbols only. Data-block text stays sharp. */
+.symbol-glow {
+  text-shadow: 0 0 2px color-mix(in srgb, currentColor 45%, transparent);
 }
