@@ -3,8 +3,9 @@
 /*
  * STARS / ERAM radar theme.
  * Pure black scope, dim gray map, gray airspace and pavement.
- * Targets, data blocks, and range rings use a soft radar green (#5FD35F),
- * with #4CD964 for the panel accent. Both sit well below neon P1 green.
+ * Range rings and controlled arrivals use a soft radar green (#5FD35F).
+ * Departures use a muted sky blue. Uncontrolled tracks use a dim gray.
+ * Panel accents use #4CD964. None of these are neon P1 green.
  * Gold, amber, and red are reserved for the selected track, alerts, and conflicts.
  */
 @theme {
@@ -32,6 +33,9 @@
 
   --color-target: #5fd35f;
   --color-target-dim: #3e8f44;
+  --color-arrival: #5fd35f;
+  --color-departure: #62b0dc;
+  --color-uncontrolled: #9aa4a8;
 
   --color-selected: #e8c56a;
   --color-selected-soft: #e8c56a33;

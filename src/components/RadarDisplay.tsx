@@ -3,6 +3,7 @@ import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
 import { scopeColor } from '../theme/radarTheme';
+import { TrackRole, trackRole } from '../theme/trackRole';
 
 interface RadarDisplayProps {
   airport: Airport;
@@ -111,8 +112,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
       const { airport: scope, planes: tracks, selectedId: activeId, showRangeRings } = phosphorState.current;
       const phosphor = themeHex('--color-target', '#5FD35F');
-      const selectedColor = themeHex('--color-selected', '#e8c56a');
-      const conflictColor = themeHex('--color-conflict', '#ef6464');
+      const roleColor: Record<TrackRole, string> = {
+        arrival: phosphor,
+        departure: themeHex('--color-departure', '#62B0DC'),
+        uncontrolled: themeHex('--color-uncontrolled', '#9AA4A8'),
+        selected: themeHex('--color-selected', '#e8c56a'),
+        alert: themeHex('--color-alert', '#e0b04a'),
+        conflict: themeHex('--color-conflict', '#ef6464'),
+      };
       const center = toScreen(scope.x, scope.y);
       const rim = toScreen(scope.x + SCOPE_RADIUS, scope.y);
       const radius = Math.hypot(rim.x - center.x, rim.y - center.y);
@@ -152,8 +159,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       ctx.textBaseline = 'alphabetic';
       for (const plane of tracks) {
         const selected = plane.id === activeId;
-        const conflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
-        const color = conflict ? conflictColor : selected ? selectedColor : phosphor;
+        const color = roleColor[trackRole(plane, selected)];
         const alpha = bloomAlpha(plane, selected, now);
         const symbol = toScreen(plane.x, plane.y + 4.5);
         ctx.font = `bold ${16 * scale}px ui-monospace, monospace`;
@@ -696,15 +702,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
           const isUncontrolled = !plane.hasInstructions;
-
-          // One scope color for every track. Gold marks the selected target.
-          // Red is reserved for a conflict or crash. Arrival, departure, and
-          // localizer status stay in the data-block text.
-          const targetColor = isConflict
-            ? scopeColor.conflict
-            : isSelected
-              ? scopeColor.selected
-              : scopeColor.target;
+          const role = trackRole(plane, isSelected);
+          const targetColor = scopeColor[role];
 
           // Velocity Vector Projections (1 min = 60s)
           const isReal = gameSpeed === 'real';
@@ -757,8 +756,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   cx={plane.x}
                   cy={plane.y}
                   r={3 * UNITS_PER_NM}
-                  fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : scopeColor.halo}
-                  stroke={isConflict ? scopeColor.conflict : isSelected ? scopeColor.selected : scopeColor.haloStroke}
+                  fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : targetColor}
+                  fillOpacity={isConflict || isSelected ? 1 : 0.08}
+                  stroke={targetColor}
+                  strokeOpacity={isConflict || isSelected ? 1 : 0.45}
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
@@ -788,7 +789,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y1={plane.y}
                   x2={vx1}
                   y2={vy1}
-                  stroke={isSelected || isConflict ? targetColor : scopeColor.targetDim}
+                  stroke={targetColor}
                   strokeWidth={isSelected ? "1.6" : "1"}
                   strokeDasharray={isSelected ? undefined : "2,3"}
                 />
