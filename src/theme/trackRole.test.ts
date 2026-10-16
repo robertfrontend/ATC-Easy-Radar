@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { describe, expect, it } from 'vitest';
 import { trackRole } from './trackRole';
 
 const arrival = {
@@ -9,26 +9,38 @@ const arrival = {
   isEstablished: false,
 };
 
-assert.equal(trackRole(arrival, false), 'arrival');
-assert.equal(trackRole({ ...arrival, isEstablished: true }, false), 'arrival', 'landing stays in the arrival hue');
-assert.equal(trackRole({ ...arrival, hasInstructions: false }, false), 'uncontrolled');
-assert.equal(
-  trackRole({ ...arrival, type: 'departure', hasInstructions: true }, false),
-  'departure',
-);
-assert.equal(trackRole(arrival, true), 'selected');
-assert.equal(trackRole({ ...arrival, conflict: true }, true), 'conflict');
-assert.equal(trackRole({ ...arrival, status: 'warning' }, false), 'conflict');
-assert.equal(trackRole({ ...arrival, status: 'bad_approach' }, false), 'alert');
-assert.equal(
-  trackRole({ ...arrival, type: 'departure', hasInstructions: true, status: 'bad_approach' }, false),
-  'departure',
-  'a climbing departure is not an alert',
-);
-assert.equal(
-  trackRole({ ...arrival, hasInstructions: false, isEstablished: true }, false),
-  'arrival',
-  'an established track is landing, not uncontrolled',
-);
+describe('track role', () => {
+  it('paints a controlled arrival in the arrival hue, including one on the localizer', () => {
+    expect(trackRole(arrival, false)).toBe('arrival');
+    expect(trackRole({ ...arrival, isEstablished: true }, false)).toBe('arrival');
+  });
 
-console.log('track role checks passed');
+  it('paints an arrival with no clearance as uncontrolled', () => {
+    expect(trackRole({ ...arrival, hasInstructions: false }, false)).toBe('uncontrolled');
+  });
+
+  it('paints a departure in its own hue', () => {
+    expect(trackRole({ ...arrival, type: 'departure', hasInstructions: true }, false)).toBe('departure');
+  });
+
+  it('lets selection win over the arrival hue', () => {
+    expect(trackRole(arrival, true)).toBe('selected');
+  });
+
+  it('lets a conflict win over selection', () => {
+    expect(trackRole({ ...arrival, conflict: true }, true)).toBe('conflict');
+    expect(trackRole({ ...arrival, status: 'warning' }, false)).toBe('conflict');
+  });
+
+  it('flags a bad approach and leaves a climbing departure alone', () => {
+    expect(trackRole({ ...arrival, status: 'bad_approach' }, false)).toBe('alert');
+    expect(trackRole(
+      { ...arrival, type: 'departure', hasInstructions: true, status: 'bad_approach' },
+      false,
+    )).toBe('departure');
+  });
+
+  it('treats an established track as landing even without a clearance', () => {
+    expect(trackRole({ ...arrival, hasInstructions: false, isEstablished: true }, false)).toBe('arrival');
+  });
+});

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { describe, expect, it } from 'vitest';
 import { AIRPORTS } from '../config/airports';
 import { Plane } from '../types';
 import { trackReadout } from './dataBlock';
@@ -34,39 +34,49 @@ function plane(overrides: Partial<Plane> = {}): Plane {
   };
 }
 
-const climbing = trackReadout(plane(), airport);
-assert.equal(climbing.line1, 'BAW123');
-assert.equal(climbing.line2, 'A16 ↑110');
-assert.equal(climbing.line3, '160 OCKHM', 'an uncleared departure shows its exit fix');
-assert.ok(climbing.line3.length <= 12, 'the exit fix stays on the existing third line');
+describe('data block', () => {
+  it('shows the exit fix on an uncleared departure', () => {
+    const climbing = trackReadout(plane(), airport);
+    expect(climbing.line1).toBe('BAW123');
+    expect(climbing.line2).toBe('A16 ↑110');
+    expect(climbing.line3).toBe('160 OCKHM');
+    expect(climbing.line3.length).toBeLessThanOrEqual(12);
+  });
 
-const cleared = trackReadout(plane({ targetWaypoint: ockhm.id, altitude: 6400, speed: 220 }), airport);
-assert.equal(cleared.line3, '220 OCKHM', 'a departure cleared direct still shows the exit');
+  it('keeps the exit after a direct clearance', () => {
+    const cleared = trackReadout(plane({ targetWaypoint: ockhm.id, altitude: 6400, speed: 220 }), airport);
+    expect(cleared.line3).toBe('220 OCKHM');
+  });
 
-const vectored = trackReadout(plane({ heading: 310, headingAssigned: true, speed: 180 }), airport);
-assert.equal(vectored.line3, '180 OCKHM', 'a heading assignment does not hide the exit fix');
+  it('keeps the exit after a heading assignment', () => {
+    const vectored = trackReadout(plane({ heading: 310, headingAssigned: true, speed: 180 }), airport);
+    expect(vectored.line3).toBe('180 OCKHM');
+  });
 
-const arrival = trackReadout(plane({
-  type: 'arrival',
-  callsign: 'AAL45',
-  exitWaypointId: null,
-  heading: 90,
-  speed: 240,
-  altitude: 8000,
-  targetAltitude: 8000,
-}), airport);
-assert.equal(arrival.line3, '240H 090');
-assert.equal(arrival.line3.includes('OCKHM'), false);
+  it('shows heading for an arrival and does not borrow a departure fix', () => {
+    const arrival = trackReadout(plane({
+      type: 'arrival',
+      callsign: 'AAL45',
+      exitWaypointId: null,
+      heading: 90,
+      speed: 240,
+      altitude: 8000,
+      targetAltitude: 8000,
+    }), airport);
+    expect(arrival.line3).toBe('240H 090');
+    expect(arrival.line3.includes('OCKHM')).toBe(false);
+  });
 
-const onFinal = trackReadout(plane({
-  type: 'arrival',
-  exitWaypointId: null,
-  isEstablished: true,
-  establishedRunwayId: 'egll-27l',
-  speed: 155,
-  altitude: 2200,
-  targetAltitude: 0,
-}), airport);
-assert.equal(onFinal.line3, '155 ILS27L');
-
-console.log('data block checks passed');
+  it('shows the localizer on final', () => {
+    const onFinal = trackReadout(plane({
+      type: 'arrival',
+      exitWaypointId: null,
+      isEstablished: true,
+      establishedRunwayId: 'egll-27l',
+      speed: 155,
+      altitude: 2200,
+      targetAltitude: 0,
+    }), airport);
+    expect(onFinal.line3).toBe('155 ILS27L');
+  });
+});
