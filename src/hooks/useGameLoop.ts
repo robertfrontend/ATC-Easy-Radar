@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plane, Difficulty, GameSpeed, Airport, Runway, RunwayConfig } from '../types';
 import { audioManager } from '../utils/audio';
+import { departureLeftSector, isRunwaySafeForDeparture } from '../utils/departure';
 import { applyClearance, resolveNavigation } from '../utils/navigation';
 
 export type { Plane, Difficulty, GameSpeed };
@@ -69,56 +70,17 @@ export const useGameLoop = (
     planesRef.current = planes;
   }, [planes]);
 
-  // Real-world aviation departure clearance & separation check
-  const isRunwaySafeForDeparture = useCallback((rwy: Runway, allPlanes: Plane[], now: number, spd: GameSpeed) => {
-    // 1. Is this runway configured for departure?
-    if (!runwayConfigRef.current[rwy.id]?.departure) return false;
-
-    const isReal = spd === 'real';
-    const numSpeed = typeof spd === 'number' ? spd : 1;
-
-    // 2. Minimum Time Separation between takeoffs (Wake Turbulence Spacing: 45s for real, 20s/spd for arcade)
-    const lastRwyDep = lastDepartureTimeRef.current[rwy.id] || 0;
-    const timeSinceLastRwy = now - lastRwyDep;
-    const minRwyInterval = isReal ? 45000 : (20000 / numSpeed);
-    if (timeSinceLastRwy < minRwyInterval) return false;
-
-    const timeSinceGlobal = now - globalLastDepartureRef.current;
-    const minGlobalInterval = isReal ? 20000 : (10000 / numSpeed);
-    if (timeSinceGlobal < minGlobalInterval) return false;
-
-    const rwyX = airport.x + (rwy.offsetX || 0);
-    const rwyY = airport.y + (rwy.offsetY || 0);
-
-    for (const p of allPlanes) {
-      if (p.status === 'crashed' || p.markedForRemoval) continue;
-
-      const distToRwy = Math.hypot(p.x - rwyX, p.y - rwyY);
-
-      // 3. Preceding Departure Separation (Downfield distance > 4.5 NM / 100 units & Altitude > 2,000 ft)
-      if (p.type === 'departure' && p.assignedRunwayId === rwy.id) {
-        if (distToRwy < 110 || p.altitude < 2000) {
-          return false; // Preceding departure still in initial takeoff corridor!
-        }
-      }
-
-      // 4. Runway Occupancy Protection (No aircraft on ground or rolling within threshold zone)
-      if (distToRwy < 75 && p.altitude < 1200) {
-        return false; // Runway is occupied
-      }
-
-      // 5. Inbound Arrival Separation (Incursion Protection against short final traffic)
-      if (p.type === 'arrival') {
-        const isApproachingThisRwy = p.establishedRunwayId === rwy.id || (p.assignedRunwayId === rwy.id && p.isEstablished);
-        if (isApproachingThisRwy) {
-          if (distToRwy < 125 || p.altitude < 2800) {
-            return false; // Landing aircraft is on short final!
-          }
-        }
-      }
-    }
-
-    return true;
+  const runwayIsSafe = useCallback((rwy: Runway, allPlanes: Plane[], now: number, spd: GameSpeed) => {
+    return isRunwaySafeForDeparture({
+      airport,
+      runway: rwy,
+      runwayConfig: runwayConfigRef.current,
+      planes: allPlanes,
+      now,
+      gameSpeed: spd,
+      lastDepartureByRunway: lastDepartureTimeRef.current,
+      lastDepartureAt: globalLastDepartureRef.current,
+    });
   }, [airport]);
 
   const spawnPlane = useCallback(() => {
@@ -127,7 +89,7 @@ export const useGameLoop = (
 
     // Find all runways eligible for safe departure right now
     const safeDepartureRunways = airport.runways.filter(r => 
-      isRunwaySafeForDeparture(r, allPlanes, now, gameSpeed)
+      runwayIsSafe(r, allPlanes, now, gameSpeed)
     );
 
     // Only allow departure if at least one runway is 100% clear and legal
@@ -223,7 +185,7 @@ export const useGameLoop = (
     
     setPlanes(prev => [...prev, newPlane]);
     audioManager.playBlip();
-  }, [airport, isRunwaySafeForDeparture, gameSpeed]);
+  }, [airport, runwayIsSafe, gameSpeed]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -436,6 +398,10 @@ export const useGameLoop = (
           }
 
           const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
+
+          // Uncleared departures that leave the scope free their slot. Reaching
+          // the exit (markedForRemoval, handled above) is what scores.
+          if (departureLeftSector(plane, airport)) return false;
 
           // Landing for arrivals
           if (plane.type === 'arrival') {
