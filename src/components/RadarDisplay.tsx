@@ -98,7 +98,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
   phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
 
-  // Canvas bloom for the sweep, range rings, targets, and data blocks.
+  // Canvas bloom for the range rings, targets, and data blocks.
   // shadowBlur paints the phosphor halo. SVG text stays sharp on top and
   // carries the CSS text-shadow as well.
   useEffect(() => {
@@ -177,31 +177,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           ctx.shadowBlur = 0;
         }
       }
-
-      const sweep = ((now % 7000) / 7000) * Math.PI * 2;
-      const leading = -Math.PI / 2 + sweep;
-      ctx.shadowColor = phosphor;
-      ctx.shadowBlur = 26;
-      ctx.fillStyle = phosphor;
-      ctx.globalAlpha = 0.13;
-      ctx.beginPath();
-      ctx.moveTo(center.x, center.y);
-      ctx.arc(center.x, center.y, radius, leading - 0.5, leading, false);
-      ctx.closePath();
-      ctx.fill();
-      ctx.shadowBlur = 18;
-      ctx.strokeStyle = phosphor;
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = 1.6;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(center.x, center.y);
-      ctx.lineTo(
-        center.x + Math.cos(leading) * radius,
-        center.y + Math.sin(leading) * radius
-      );
-      ctx.stroke();
-      ctx.shadowBlur = 0;
 
       ctx.textBaseline = 'alphabetic';
       for (const plane of tracks) {
@@ -449,7 +424,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </defs>
 
         {/* Transparent hit layer. The scope itself is pure black on the parent,
-            so the canvas phosphor sweep can show through. */}
+            so the canvas phosphor bloom can show through. */}
         <rect x="-5000" y="-5000" width="10000" height="10000" fill="transparent" pointerEvents="all" />
 
         {/* Scope Interior (25 NM Radius) */}
@@ -502,7 +477,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             );
           })}
 
-          {/* Range rings and the sweep are drawn on the phosphor canvas. */}
+          {/* Range rings are drawn on the phosphor canvas. */}
 
           {/* Render ALL Airport Runways and their Authentic Tick Ladder ILS Feathers */}
           {airport.runways.map(rwy => {
