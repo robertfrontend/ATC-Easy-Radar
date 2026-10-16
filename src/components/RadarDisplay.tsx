@@ -425,17 +425,17 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   }, [selectedPlane, airport]);
 
   return (
-    <div className="relative w-full h-full select-none bg-scope overflow-hidden">
+    <div className="relative isolate w-full h-full select-none bg-scope overflow-hidden">
       <canvas
         ref={phosphorRef}
-        className="pointer-events-none absolute inset-0 h-full w-full"
+        className="pointer-events-none absolute inset-0 z-0 h-full w-full"
         aria-hidden="true"
       />
       <svg
         ref={svgRef}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         preserveAspectRatio="xMidYMid meet"
-        className="w-full h-full"
+        className="relative z-10 h-full w-full"
         style={{ overflow: 'visible', cursor: hasDraggedRef.current ? 'grabbing' : selectedPlane ? 'crosshair' : 'default' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -936,14 +936,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       </svg>
 
       {/* Scope readback line */}
-      <div className="absolute bottom-2 left-4 right-28 pointer-events-none select-none">
+      <div className="absolute bottom-2 left-4 right-28 z-20 pointer-events-none select-none">
         <div className="crt-glow text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>
 
       {/* Smooth Mini Radar Zoom & Center Widget */}
-      <div className="absolute bottom-3 right-4 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none z-10 text-xs">
+      <div className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
         <button
           onClick={zoomIn}
           disabled={vb.w <= MIN_VB}
