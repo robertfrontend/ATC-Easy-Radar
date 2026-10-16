@@ -20,7 +20,7 @@ export function trackRole(
 ): TrackRole {
   if (plane.conflict || plane.status === 'warning' || plane.status === 'crashed') return 'conflict';
   if (selected) return 'selected';
-  if (plane.status === 'bad_approach') return 'alert';
+  if (plane.status === 'bad_approach' && plane.type !== 'departure') return 'alert';
   if (!plane.hasInstructions && !plane.isEstablished) return 'uncontrolled';
   if (plane.type === 'departure') return 'departure';
   return 'arrival';

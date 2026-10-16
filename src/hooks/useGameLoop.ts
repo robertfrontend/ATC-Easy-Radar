@@ -336,7 +336,9 @@ export const useGameLoop = (
 
           let newStatus: Plane['status'] = plane.status === 'crashed' ? 'crashed' : 'normal';
           const distToCenter = Math.hypot(newX - airport.x, newY - airport.y);
-          if (newStatus === 'normal') {
+          // A departure is supposed to be low and over the field while it climbs.
+          // That is not an unstable approach.
+          if (newStatus === 'normal' && plane.type !== 'departure') {
             if (distToCenter < 100 && newAltitude <= 2500 && !isEstablished) newStatus = 'bad_approach';
             else if (isEstablished && distToCenter < 50 && newSpeed > 160) newStatus = 'bad_approach';
           }
