@@ -290,23 +290,23 @@ export const GamePage: React.FC<GamePageProps> = ({
   const primaryRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
 
   return (
-    <div className="flex h-screen bg-[#00030a] text-slate-200 font-mono overflow-hidden select-none">
+    <div className="flex h-screen bg-scope text-ink font-mono overflow-hidden select-none">
       {/* Main Radar Area */}
       <div className="flex-1 flex flex-col relative">
         {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}
-        <header ref={headerRef} className="h-10 bg-[#02050e] border-b border-slate-800/80 px-4 flex justify-between items-center z-30 select-none text-xs">
+        <header ref={headerRef} className="h-10 bg-header border-b border-line px-4 flex justify-between items-center z-30 select-none text-xs">
           {/* Left: Clean Station Identifier */}
           <div className="flex items-center gap-3">
-            <span className="font-bold text-white tracking-widest text-sm">{airport.icao} APP</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-sky-400 font-semibold">RWY {activeRunwaysSummary.landings}</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">{planes.length} TRACKS</span>
+            <span className="font-bold text-ink-bright tracking-widest text-sm">{airport.icao} APP</span>
+            <span className="text-ink-faint">|</span>
+            <span className="text-ink font-semibold">RWY {activeRunwaysSummary.landings}</span>
+            <span className="text-ink-faint">|</span>
+            <span className="text-ink-dim">{planes.length} TRACKS</span>
             {gameSpeed === 'real' && (
               <>
-                <span className="text-slate-600">|</span>
-                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider animate-pulse flex items-center gap-1.5 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="text-ink-faint">|</span>
+                <span className="bg-inset text-phosphor border border-line px-2 py-0.5 rounded text-[10px] font-bold tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-phosphor"></span>
                   VELOCIDAD REAL (1:1)
                 </span>
               </>
@@ -315,17 +315,17 @@ export const GamePage: React.FC<GamePageProps> = ({
 
           {/* Center: Monospace Zulu Clock & Stats */}
           <div className="flex items-center gap-4 text-xs font-mono">
-            <span className="text-slate-200 font-bold tracking-wider">{utcTime || '00:00:00Z'}</span>
-            <span className="text-slate-700">·</span>
-            <span className="text-green-400 font-semibold">LANDED: {score}</span>
-            <span className="text-slate-700">·</span>
-            <span className={accidents > 0 ? 'text-red-400 font-bold animate-pulse' : 'text-slate-500'}>
+            <span className="text-ink-bright font-bold tracking-wider">{utcTime || '00:00:00Z'}</span>
+            <span className="text-ink-faint">·</span>
+            <span className="text-phosphor font-semibold">LANDED: {score}</span>
+            <span className="text-ink-faint">·</span>
+            <span className={accidents > 0 ? 'text-conflict font-bold animate-pulse' : 'text-ink-faint'}>
               ACCD: {accidents}
             </span>
             {isPaused && (
               <>
-                <span className="text-slate-700">·</span>
-                <span className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider animate-pulse">
+                <span className="text-ink-faint">·</span>
+                <span className="bg-alert-soft text-alert border border-alert px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider animate-pulse">
                   PAUSED
                 </span>
               </>
@@ -340,39 +340,39 @@ export const GamePage: React.FC<GamePageProps> = ({
                 onClick={() => toggleSubmenu('runways')}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
                   activeMenu === 'runways'
-                    ? 'bg-sky-500/20 border-sky-400 text-sky-200'
-                    : 'bg-slate-900/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                    ? 'bg-ink-bright border-ink-bright text-scope'
+                    : 'bg-inset border-line text-ink hover:border-line-strong hover:text-ink-bright'
                 }`}
                 title="Configure Active Runways & ILS"
               >
-                <span>🛬 RWYS ({activeRunwaysSummary.landingCount})</span>
+                <span>RWYS ({activeRunwaysSummary.landingCount})</span>
                 <ChevronDown className="w-3 h-3 opacity-60" />
               </button>
 
               {activeMenu === 'runways' && (
-                <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#060d1d] border border-slate-700 rounded-lg shadow-2xl p-3 z-50 space-y-2.5 backdrop-blur-md text-xs">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                    <span className="font-bold text-sky-300 uppercase tracking-wider text-[11px]">ACTIVE RUNWAYS & ILS</span>
-                    <span className="text-[10px] text-slate-500 font-bold">{airport.icao}</span>
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-panel border border-line-strong rounded-lg shadow-2xl p-3 z-50 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-line">
+                    <span className="font-bold text-phosphor uppercase tracking-wider text-[11px]">ACTIVE RUNWAYS & ILS</span>
+                    <span className="text-[10px] text-ink-faint font-bold">{airport.icao}</span>
                   </div>
 
                   {/* Presets */}
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setRunwayPreset('all-ils')}
-                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-sky-300 transition-colors"
+                      className="flex-1 py-1 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink hover:text-ink-bright transition-colors"
                     >
                       ALL ILS
                     </button>
                     <button
                       onClick={() => setRunwayPreset('all-ops')}
-                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-green-300 transition-colors"
+                      className="flex-1 py-1 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink hover:text-ink-bright transition-colors"
                     >
                       FULL OPS
                     </button>
                     <button
                       onClick={() => setRunwayPreset('single')}
-                      className="flex-1 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-400 transition-colors"
+                      className="flex-1 py-1 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink-dim hover:text-ink-bright transition-colors"
                     >
                       SINGLE
                     </button>
@@ -386,10 +386,10 @@ export const GamePage: React.FC<GamePageProps> = ({
                       return (
                         <div
                           key={rwy.id}
-                          className="bg-slate-900/90 border border-slate-800 rounded p-2 flex items-center justify-between"
+                          className="bg-inset border border-line rounded p-2 flex items-center justify-between"
                         >
-                          <div className="font-bold text-white text-xs">
-                            RWY {rwy.label} <span className="text-[10px] text-slate-500 font-normal">({rwy.heading}°)</span>
+                          <div className="font-bold text-ink-bright text-xs">
+                            RWY {rwy.label} <span className="text-[10px] text-ink-faint font-normal">({rwy.heading}°)</span>
                           </div>
 
                           <div className="flex items-center gap-1">
@@ -397,8 +397,8 @@ export const GamePage: React.FC<GamePageProps> = ({
                               onClick={() => toggleRunwayLanding(rwy.id)}
                               className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
                                 isLanding
-                                  ? 'bg-sky-500 text-slate-950 border-sky-400'
-                                  : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                                  ? 'bg-ink-bright text-scope border-ink-bright'
+                                  : 'bg-scope border-line text-ink-faint hover:text-ink'
                               }`}
                             >
                               ILS
@@ -407,8 +407,8 @@ export const GamePage: React.FC<GamePageProps> = ({
                               onClick={() => toggleRunwayDeparture(rwy.id)}
                               className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
                                 isDep
-                                  ? 'bg-orange-500 text-slate-950 border-orange-400'
-                                  : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                                  ? 'bg-ink-bright text-scope border-ink-bright'
+                                  : 'bg-scope border-line text-ink-faint hover:text-ink'
                               }`}
                             >
                               DEP
@@ -428,8 +428,8 @@ export const GamePage: React.FC<GamePageProps> = ({
                 onClick={() => toggleSubmenu('settings')}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
                   activeMenu === 'settings'
-                    ? 'bg-slate-800 border-slate-500 text-white'
-                    : 'bg-slate-900/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+                    ? 'bg-ink-bright border-ink-bright text-scope'
+                    : 'bg-inset border-line text-ink hover:border-line-strong hover:text-ink-bright'
                 }`}
                 title="Simulation Controls, Overlays & Settings"
               >
@@ -439,13 +439,13 @@ export const GamePage: React.FC<GamePageProps> = ({
               </button>
 
               {activeMenu === 'settings' && (
-                <div className="absolute right-0 top-full mt-1.5 w-72 bg-[#060d1d] border border-slate-700 rounded-lg shadow-2xl p-3.5 z-50 space-y-3 backdrop-blur-md text-xs">
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-panel border border-line-strong rounded-lg shadow-2xl p-3.5 z-50 space-y-3 text-xs">
                   {/* Simulation Controls */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Velocidad / Speed:</div>
+                      <div className="text-[10px] text-ink-dim font-bold uppercase tracking-wider">Velocidad / Speed:</div>
                       {gameSpeed === 'real' && (
-                        <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                        <span className="text-[9px] text-phosphor font-bold bg-inset px-1.5 py-0.5 rounded border border-line">
                           1:1 REAL TIME
                         </span>
                       )}
@@ -456,8 +456,8 @@ export const GamePage: React.FC<GamePageProps> = ({
                       onClick={() => setGameSpeed('real')}
                       className={`w-full py-1.5 px-2.5 rounded font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
                         gameSpeed === 'real'
-                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                          : 'bg-slate-900/90 border-slate-700 text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                          ? 'bg-ink-bright text-scope border-ink-bright'
+                          : 'bg-inset border-line text-ink hover:border-line-strong hover:text-ink-bright'
                       }`}
                       title="Simulación en tiempo real (1:1 ATC scale, giros 3°/s)"
                     >
@@ -474,8 +474,8 @@ export const GamePage: React.FC<GamePageProps> = ({
                           onClick={() => setGameSpeed(spd)}
                           className={`py-1 rounded text-center font-bold border text-xs transition-colors ${
                             gameSpeed === spd
-                              ? 'bg-sky-500 text-slate-950 border-sky-400'
-                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                              ? 'bg-ink-bright text-scope border-ink-bright'
+                              : 'bg-inset border-line text-ink hover:bg-panel-raised hover:text-ink-bright'
                           }`}
                         >
                           {spd}x
@@ -484,7 +484,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                     </div>
 
                     {gameSpeed === 'real' && (
-                      <div className="text-[9.5px] text-emerald-400/90 bg-emerald-950/40 border border-emerald-500/20 rounded p-1.5 leading-tight font-mono">
+                      <div className="text-[9.5px] text-ink-dim bg-inset border border-line rounded p-1.5 leading-tight font-mono">
                         Escala física 1:1, viraje estándar a 3°/s y velocidades reales en nudos (KTS).
                       </div>
                     )}
@@ -494,11 +494,11 @@ export const GamePage: React.FC<GamePageProps> = ({
                         onClick={togglePause}
                         className={`py-1.5 px-2 rounded border font-bold flex items-center justify-center gap-1.5 text-xs transition-colors ${
                           isPaused
-                            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300'
-                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            ? 'bg-alert-soft border-alert text-alert'
+                            : 'bg-inset border-line text-ink hover:bg-panel-raised hover:text-ink-bright'
                         }`}
                       >
-                        {isPaused ? <Play className="w-3 h-3 text-yellow-400" /> : <Pause className="w-3 h-3" />}
+                        {isPaused ? <Play className="w-3 h-3 text-alert" /> : <Pause className="w-3 h-3" />}
                         <span>{isPaused ? 'Resume' : 'Pause'}</span>
                       </button>
 
@@ -506,53 +506,49 @@ export const GamePage: React.FC<GamePageProps> = ({
                         onClick={toggleMute}
                         className={`py-1.5 px-2 rounded border font-bold flex items-center justify-center gap-1.5 text-xs transition-colors ${
                           isMuted
-                            ? 'bg-red-500/20 border-red-500 text-red-400'
-                            : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'
+                            ? 'bg-alert-soft border-alert text-alert'
+                            : 'bg-inset border-line text-ink hover:bg-panel-raised hover:text-ink-bright'
                         }`}
                       >
-                        {isMuted ? <VolumeX className="w-3 h-3 text-red-400" /> : <Volume2 className="w-3 h-3 text-green-400" />}
+                        {isMuted ? <VolumeX className="w-3 h-3 text-alert" /> : <Volume2 className="w-3 h-3 text-phosphor" />}
                         <span>{isMuted ? 'Muted' : 'Audio ON'}</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Overlays / Radar Layers */}
-                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Radar Overlays:</div>
+                  <div className="pt-2 border-t border-line space-y-1.5">
+                    <div className="text-[10px] text-ink-dim font-bold uppercase tracking-wider">Radar Overlays:</div>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-ink hover:text-ink-bright">
                         <input
                           type="checkbox"
                           checked={layers.showRangeRings}
                           onChange={e => setLayers(l => ({ ...l, showRangeRings: e.target.checked }))}
-                          className="accent-sky-500"
                         />
                         <span>Range Rings</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-ink hover:text-ink-bright">
                         <input
                           type="checkbox"
                           checked={layers.showFixes}
                           onChange={e => setLayers(l => ({ ...l, showFixes: e.target.checked }))}
-                          className="accent-sky-500"
                         />
                         <span>Fixes (◎)</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-ink hover:text-ink-bright">
                         <input
                           type="checkbox"
                           checked={layers.showVectors}
                           onChange={e => setLayers(l => ({ ...l, showVectors: e.target.checked }))}
-                          className="accent-sky-500"
                         />
                         <span>Vectors</span>
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-ink hover:text-ink-bright">
                         <input
                           type="checkbox"
                           checked={layers.showHalos}
                           onChange={e => setLayers(l => ({ ...l, showHalos: e.target.checked }))}
-                          className="accent-sky-500"
                         />
                         <span>3 NM Halos</span>
                       </label>
@@ -560,30 +556,30 @@ export const GamePage: React.FC<GamePageProps> = ({
                   </div>
 
                   {/* Weather Info */}
-                  <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-0.5">
-                    <div className="text-[10px] text-slate-500 font-bold uppercase">METAR / ATIS:</div>
-                    <div className="text-slate-300">WIND: {primaryRunway.heading}° / 10KT · QNH: 1013 (29.92)</div>
+                  <div className="pt-2 border-t border-line text-[11px] text-ink-dim space-y-0.5">
+                    <div className="text-[10px] text-ink-faint font-bold uppercase">METAR / ATIS:</div>
+                    <div className="text-ink">WIND: {primaryRunway.heading}° / 10KT · QNH: 1013 (29.92)</div>
                   </div>
 
                   {/* System Actions */}
-                  <div className="pt-2 border-t border-slate-800 flex items-center gap-1.5">
+                  <div className="pt-2 border-t border-line flex items-center gap-1.5">
                     <button
                       onClick={() => { handleSaveGame(); setActiveMenu(null); }}
-                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-300 font-bold text-[11px] flex items-center justify-center gap-1"
+                      className="flex-1 py-1.5 rounded bg-inset hover:bg-panel-raised border border-line text-ink font-bold text-[11px] flex items-center justify-center gap-1"
                     >
                       <Save className="w-3 h-3" />
                       <span>{saveFlash ? 'Saved!' : 'Save'}</span>
                     </button>
                     <button
                       onClick={() => { restart(); setSelectedId(null); setActiveMenu(null); }}
-                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-red-400 font-bold text-[11px] flex items-center justify-center gap-1"
+                      className="flex-1 py-1.5 rounded bg-inset hover:bg-panel-raised border border-line text-alert font-bold text-[11px] flex items-center justify-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Restart</span>
                     </button>
                     <button
                       onClick={onExit}
-                      className="flex-1 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-[11px] flex items-center justify-center gap-1"
+                      className="flex-1 py-1.5 rounded bg-inset hover:bg-panel-raised border border-line text-ink font-bold text-[11px] flex items-center justify-center gap-1"
                     >
                       <Home className="w-3 h-3" />
                       <span>Exit</span>
@@ -597,14 +593,14 @@ export const GamePage: React.FC<GamePageProps> = ({
 
         {/* STCA Conflict Warning Bar (Flashing alert banner) */}
         {hasActiveConflict && (
-          <div className="bg-red-950/90 border-b border-red-500 text-red-300 px-4 py-1.5 text-xs font-bold flex items-center justify-center gap-2 animate-pulse z-20">
-            <AlertOctagon className="w-4 h-4 text-red-400" />
+          <div className="bg-conflict-banner border-b border-conflict text-conflict px-4 py-1.5 text-xs font-bold flex items-center justify-center gap-2 animate-pulse z-20">
+            <AlertOctagon className="w-4 h-4 text-conflict" />
             <span>CA ALARM: LOSS OF SEPARATION (LESS THAN 3 NM / 1000 FT) DETECTED</span>
           </div>
         )}
 
         {/* Main Radar Scope Container */}
-        <div className="flex-1 w-full relative bg-[#020610] overflow-hidden">
+        <div className="flex-1 w-full relative bg-scope overflow-hidden">
           <RadarDisplay
             airport={airport}
             runwayConfig={runwayConfig}
@@ -618,13 +614,11 @@ export const GamePage: React.FC<GamePageProps> = ({
 
           {/* Authentic ATC Command Console */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4 pointer-events-auto">
-            <form onSubmit={handleCommandSubmit} autoComplete="off" className="relative group">
-              <div className="absolute -inset-0.5 bg-green-500/20 rounded blur opacity-75 group-hover:opacity-100 transition duration-500 group-focus-within:bg-green-500/40"></div>
-              
-              <div className="relative flex flex-col bg-slate-950 border border-green-500/40 rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
+            <form onSubmit={handleCommandSubmit} autoComplete="off" className="relative">
+              <div className="relative flex flex-col bg-panel border border-line-strong rounded-lg p-2.5 shadow-2xl">
                 <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-green-400" />
-                  <span className="text-green-400 font-bold text-sm tracking-wider">
+                  <Terminal className="w-4 h-4 text-phosphor" />
+                  <span className="text-phosphor font-bold text-sm tracking-wider">
                     {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
                   </span>
                   <input
@@ -645,14 +639,14 @@ export const GamePage: React.FC<GamePageProps> = ({
                           : "e.g. ILS 33L, D3000 H090 S210, HARBR..."
                     }
                     disabled={!selectedId}
-                    className="bg-transparent border-none outline-none flex-1 text-white placeholder:text-green-900/60 uppercase tracking-widest text-sm disabled:cursor-not-allowed"
+                    className="bg-transparent border-none outline-none flex-1 text-ink-bright placeholder:text-ink-faint uppercase tracking-widest text-sm disabled:cursor-not-allowed"
                   />
                   {commandInput && (
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => transmitCommand(inputRef.current?.value ?? commandInput)}
-                      className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-[10px] font-bold px-2 py-1 rounded border border-green-500/40 uppercase tracking-wider"
+                      className="bg-inset hover:bg-panel-raised text-phosphor hover:text-ink-bright text-[10px] font-bold px-2 py-1 rounded border border-line-strong uppercase tracking-wider"
                     >
                       ENTER: TX
                     </button>
@@ -660,7 +654,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                 </div>
 
                 {/* Micro Syntax Cheat-Sheet */}
-                <div className="mt-1 pt-1 border-t border-green-500/10 flex items-center justify-between text-[10px] text-green-500/60 font-mono">
+                <div className="mt-1 pt-1 border-t border-line flex items-center justify-between text-[10px] text-ink-faint font-mono">
                   <span>DEP (direct exit) · ILS 33L · D3000 · H270 · S210</span>
                   <span>[TAB] Auto-Complete</span>
                 </div>
@@ -671,13 +665,13 @@ export const GamePage: React.FC<GamePageProps> = ({
 
         {/* Paused Overlay (shown when paused and no dropdown menu is open) */}
         {isPaused && !activeMenu && (
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-            <div className="text-5xl font-bold text-yellow-500 tracking-[0.3em] mb-6 drop-shadow-[0_0_20px_rgba(234,179,8,0.5)]">
+          <div className="absolute inset-0 bg-scrim backdrop-blur-sm flex flex-col items-center justify-center z-50">
+            <div className="text-5xl font-bold text-ink-bright tracking-[0.3em] mb-6">
               SIMULATION PAUSED
             </div>
             <button
               onClick={togglePause}
-              className="px-8 py-3.5 bg-yellow-500 text-slate-950 font-bold text-lg rounded border-2 border-yellow-400 hover:bg-yellow-400 transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(234,179,8,0.4)]"
+              className="px-8 py-3.5 bg-alert text-scope font-bold text-lg rounded border border-alert hover:opacity-90 transition-opacity"
             >
               RESUME RADAR
             </button>
@@ -686,7 +680,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       </div>
 
       {/* Side ATC Flight Strip Pedestal */}
-      <div className="w-96 bg-[#030712] border-l border-green-500/20 p-5 flex flex-col z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.6)]">
+      <div className="w-96 bg-panel border-l border-line p-5 flex flex-col z-20">
         <ControlPanel
           airport={airport}
           runwayConfig={runwayConfig}

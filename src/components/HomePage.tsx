@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plane, Radio, Clock, AlertTriangle, Trophy, Trash2, MapPin, CheckCircle2, Play, Compass, Shield, Wind, Sparkles } from 'lucide-react';
 import { Difficulty, SavedGame, Airport, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
+import { scopeColor } from '../theme/radarTheme';
 
 interface HomePageProps {
   savedGames: SavedGame[];
@@ -10,10 +11,10 @@ interface HomePageProps {
   highScore: number;
 }
 
-const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; desc: string; color: string; badge: string }> = {
-  easy:   { label: 'EASY',   desc: 'Light Traffic Flow · 40s Spawn Rate',   color: 'text-green-400 border-green-500/40 bg-green-500/10',   badge: 'bg-green-500/20 text-green-300' },
-  medium: { label: 'MEDIUM', desc: 'Standard Terminal Load · 25s Spawn Rate', color: 'text-sky-400 border-sky-500/40 bg-sky-500/10',       badge: 'bg-sky-500/20 text-sky-300' },
-  hard:   { label: 'HARD',   desc: 'Peak Rush Hour Flow · 14s Spawn Rate',   color: 'text-orange-400 border-orange-500/40 bg-orange-500/10', badge: 'bg-orange-500/20 text-orange-300' },
+const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; desc: string }> = {
+  easy:   { label: 'EASY',   desc: 'Light Traffic Flow · 40s Spawn Rate' },
+  medium: { label: 'MEDIUM', desc: 'Standard Terminal Load · 25s Spawn Rate' },
+  hard:   { label: 'HARD',   desc: 'Peak Rush Hour Flow · 14s Spawn Rate' },
 };
 
 function formatDuration(ts: number) {
@@ -121,26 +122,26 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
   };
 
   return (
-    <div className="min-h-screen bg-[#00030a] text-slate-200 font-mono flex flex-col items-center justify-start p-4 md:p-8 select-none">
+    <div className="min-h-screen bg-scope text-ink font-mono flex flex-col items-center justify-start p-4 md:p-8 select-none">
       {/* Top Slim Station Bar */}
       <div className="w-full max-w-6xl mb-6">
-        <header className="h-12 bg-[#02050e] border border-slate-800 rounded-lg px-5 flex justify-between items-center shadow-2xl">
+        <header className="h-12 bg-header border border-line rounded-lg px-5 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <span className="font-bold text-white tracking-widest text-sm flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="font-bold text-ink-bright tracking-widest text-sm flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-phosphor" />
               ATC RADAR // SECTOR DISPATCH
             </span>
-            <span className="text-slate-700">|</span>
-            <span className="text-slate-400 text-xs">RADAR SIMULATION v2.0</span>
+            <span className="text-ink-faint">|</span>
+            <span className="text-ink-dim text-xs">RADAR SIMULATION v2.0</span>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono">
-            <span className="text-slate-300 font-bold">{utcTime || '00:00:00Z'}</span>
+            <span className="text-ink font-bold">{utcTime || '00:00:00Z'}</span>
             {highScore > 0 && (
               <>
-                <span className="text-slate-700">·</span>
-                <span className="text-yellow-400 font-bold flex items-center gap-1">
-                  <Trophy className="w-3.5 h-3.5" /> HIGH SCORE: {highScore.toString().padStart(4, '0')}
+                <span className="text-ink-faint">·</span>
+                <span className="text-ink-bright font-bold flex items-center gap-1">
+                  <Trophy className="w-3.5 h-3.5 text-phosphor" /> HIGH SCORE: {highScore.toString().padStart(4, '0')}
                 </span>
               </>
             )}
@@ -154,12 +155,12 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
         {/* Left Column — Sector Selection & Parameters (Col 7) */}
         <div className="lg:col-span-7 space-y-5">
           {/* 1. Airport / Sector Selector */}
-          <div className="bg-[#02050e] border border-slate-800 rounded-lg p-5 space-y-3.5 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-              <span className="text-xs font-bold uppercase tracking-widest text-sky-400 flex items-center gap-1.5">
+          <div className="bg-panel border border-line rounded-lg p-5 space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-line">
+              <span className="text-xs font-bold uppercase tracking-widest text-phosphor flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" /> 1. Select Control Sector (Airport)
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">{AIRPORTS.length} SECTORS READY</span>
+              <span className="text-[10px] text-ink-faint font-bold">{AIRPORTS.length} SECTORS READY</span>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -171,16 +172,16 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                     onClick={() => setSelectedAirportId(a.id)}
                     className={`p-3 rounded-lg border text-left transition-all relative group ${
                       isSelected
-                        ? 'bg-sky-500/15 border-sky-400 text-white shadow-[0_0_15px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/50'
-                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        ? 'bg-panel-raised border-phosphor text-ink-bright'
+                        : 'bg-inset border-line text-ink-dim hover:border-line-strong hover:text-ink'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm text-white">{a.icao}</span>
+                      <span className="font-bold text-sm text-ink-bright">{a.icao}</span>
                       <span className="text-base">{a.countryFlag}</span>
                     </div>
-                    <div className="text-xs font-semibold mt-0.5 truncate text-slate-300">{a.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between">
+                    <div className="text-xs font-semibold mt-0.5 truncate text-ink">{a.name}</div>
+                    <div className="text-[10px] text-ink-faint mt-1 flex items-center justify-between">
                       <span>{a.runways.length} RWYS</span>
                       <span>{a.waypoints.length} FIXES</span>
                     </div>
@@ -191,13 +192,13 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
           </div>
 
           {/* 2. Multi-Runway ILS & Departure Configuration */}
-          <div className="bg-[#02050e] border border-slate-800 rounded-lg p-5 space-y-3.5 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+          <div className="bg-panel border border-line rounded-lg p-5 space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-line">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-sky-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-phosphor flex items-center gap-1.5">
                   <Radio className="w-3.5 h-3.5" /> 2. Runway Operations & ILS
                 </span>
-                <span className="text-[10px] text-slate-400 font-bold">
+                <span className="text-[10px] text-ink-dim font-bold">
                   ({landingRunways.length} ILS / {departureRunways.length} DEP)
                 </span>
               </div>
@@ -206,19 +207,19 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setRunwayPreset('all-ils')}
-                  className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-sky-300 transition-colors"
+                  className="px-2 py-0.5 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink transition-colors"
                 >
                   ALL ILS
                 </button>
                 <button
                   onClick={() => setRunwayPreset('all-ops')}
-                  className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-green-300 transition-colors"
+                  className="px-2 py-0.5 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink transition-colors"
                 >
                   FULL OPS
                 </button>
                 <button
                   onClick={() => setRunwayPreset('single')}
-                  className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[10px] font-bold text-slate-400 transition-colors"
+                  className="px-2 py-0.5 rounded bg-inset hover:bg-panel-raised border border-line text-[10px] font-bold text-ink-dim transition-colors"
                 >
                   SINGLE
                 </button>
@@ -234,13 +235,13 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                 return (
                   <div
                     key={r.id}
-                    className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between"
+                    className="bg-inset border border-line rounded-lg p-2.5 flex items-center justify-between"
                   >
                     <div>
-                      <div className="font-bold text-white text-xs">
-                        RWY {r.label} <span className="text-[10px] text-slate-500 font-normal">({r.heading.toString().padStart(3, '0')}°)</span>
+                      <div className="font-bold text-ink-bright text-xs">
+                        RWY {r.label} <span className="text-[10px] text-ink-faint font-normal">({r.heading.toString().padStart(3, '0')}°)</span>
                       </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">
+                      <div className="text-[9px] text-ink-faint mt-0.5">
                         {isLanding && isDep ? 'ILS Landing & Takeoffs' : isLanding ? 'ILS Landing Only' : isDep ? 'Takeoffs Only' : 'Inactive Runway'}
                       </div>
                     </div>
@@ -251,12 +252,12 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                         onClick={() => toggleRunwayLanding(r.id)}
                         className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-all ${
                           isLanding
-                            ? 'bg-sky-500 text-slate-950 border-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.35)]'
-                            : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                            ? 'bg-ink-bright text-scope border-ink-bright'
+                            : 'bg-scope border-line text-ink-faint hover:text-ink'
                         }`}
                         title="Toggle ILS Approach Landing"
                       >
-                        🛬 ILS
+                        ILS
                       </button>
 
                       {/* Toggle Departure */}
@@ -264,12 +265,12 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                         onClick={() => toggleRunwayDeparture(r.id)}
                         className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-all ${
                           isDep
-                            ? 'bg-orange-500 text-slate-950 border-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.35)]'
-                            : 'bg-slate-950 border-slate-700 text-slate-500 hover:text-slate-300'
+                            ? 'bg-ink-bright text-scope border-ink-bright'
+                            : 'bg-scope border-line text-ink-faint hover:text-ink'
                         }`}
                         title="Toggle Departures"
                       >
-                        🛫 DEP
+                        DEP
                       </button>
                     </div>
                   </div>
@@ -279,9 +280,9 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
           </div>
 
           {/* 3. Traffic Density (Difficulty) & Launch */}
-          <div className="bg-[#02050e] border border-slate-800 rounded-lg p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-              <span className="text-xs font-bold uppercase tracking-widest text-sky-400 flex items-center gap-1.5">
+          <div className="bg-panel border border-line rounded-lg p-5 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-line">
+              <span className="text-xs font-bold uppercase tracking-widest text-phosphor flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5" /> 3. Traffic Density & Difficulty
               </span>
             </div>
@@ -296,8 +297,8 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                     onClick={() => setSelectedDifficulty(d)}
                     className={`py-2.5 px-3 rounded-lg border text-left transition-all ${
                       active
-                        ? cfg.color + ' ring-1 ring-current shadow-lg'
-                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                        ? 'bg-ink-bright text-scope border-ink-bright'
+                        : 'bg-inset border-line text-ink-dim hover:border-line-strong hover:text-ink'
                     }`}
                   >
                     <div className="font-bold text-xs flex items-center justify-between">
@@ -313,7 +314,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
             {/* Launch Sector Radar Button */}
             <button
               onClick={handleStartGame}
-              className="w-full py-4 bg-sky-500 hover:bg-sky-400 active:scale-[0.99] text-slate-950 font-bold tracking-widest rounded-lg transition-all text-base flex items-center justify-center gap-2.5 shadow-[0_0_25px_rgba(56,189,248,0.35)] group"
+              className="w-full py-4 bg-ink-bright hover:bg-phosphor active:scale-[0.99] text-scope font-bold tracking-widest rounded-lg transition-colors text-base flex items-center justify-center gap-2.5 group"
             >
               <span>INITIALIZE RADAR SCOPE</span>
               <Play className="w-4 h-4 fill-current group-hover:translate-x-1 transition-transform" />
@@ -324,24 +325,24 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
         {/* Right Column — Live Radar Sector Preview & Log (Col 5) */}
         <div className="lg:col-span-5 space-y-5">
           {/* Authentic Mini Radar Preview Card */}
-          <div className="bg-[#02050e] border border-slate-800 rounded-lg p-5 shadow-xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 text-xs">
-              <span className="font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                <span className="text-sky-400">◉</span> Live Sector Scope Preview
+          <div className="bg-panel border border-line rounded-lg p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-line text-xs">
+              <span className="font-bold text-ink uppercase tracking-widest flex items-center gap-2">
+                <span className="text-phosphor">◉</span> Live Sector Scope Preview
               </span>
-              <span className="text-sky-400 font-bold">{selectedAirport.icao} / {selectedAirport.name}</span>
+              <span className="text-phosphor font-bold">{selectedAirport.icao} / {selectedAirport.name}</span>
             </div>
 
             {/* Mini SVG Radar Display (Dynamic Multi-Runway ILS / DEP) */}
-            <div className="w-full aspect-square bg-[#00030a] rounded-lg border border-slate-800 relative overflow-hidden flex items-center justify-center">
+            <div className="w-full aspect-square bg-scope rounded-lg border border-line relative overflow-hidden flex items-center justify-center">
               <svg viewBox="0 0 1000 1000" className="w-full h-full p-2">
                 {/* Sector Background Circle */}
-                <circle cx="500" cy="500" r="470" fill="#020510" stroke="rgba(51, 65, 85, 0.5)" strokeWidth="1.5" />
+                <circle cx="500" cy="500" r="470" fill={scopeColor.scopeDisk} stroke={scopeColor.line} strokeWidth="1.5" />
                 
                 {/* Range Rings */}
-                <circle cx="500" cy="500" r="160" fill="none" stroke="rgba(51, 65, 85, 0.3)" strokeDasharray="4,6" />
-                <circle cx="500" cy="500" r="320" fill="none" stroke="rgba(51, 65, 85, 0.3)" strokeDasharray="4,6" />
-                <circle cx="500" cy="500" r="470" fill="none" stroke="rgba(51, 65, 85, 0.5)" strokeWidth="1.2" />
+                <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.mapDim} strokeDasharray="4,6" />
+                <circle cx="500" cy="500" r="320" fill="none" stroke={scopeColor.mapDim} strokeDasharray="4,6" />
+                <circle cx="500" cy="500" r="470" fill="none" stroke={scopeColor.map} strokeWidth="1.2" />
 
                 {/* Airspace Boundary Polygons */}
                 {selectedAirport.airspacePolygons?.map(poly => (
@@ -349,7 +350,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                     key={poly.id}
                     points={poly.points}
                     fill="none"
-                    stroke={poly.dashed ? "rgba(100, 116, 139, 0.4)" : "rgba(148, 163, 184, 0.5)"}
+                    stroke={poly.dashed ? scopeColor.airspaceDim : scopeColor.airspace}
                     strokeWidth="1.5"
                     strokeDasharray={poly.dashed ? "4,6" : undefined}
                   />
@@ -366,13 +367,13 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                       rx="20"
                       ry="20"
                       fill="none"
-                      stroke="rgba(100, 116, 139, 0.45)"
+                      stroke={scopeColor.airspace}
                       strokeWidth="1.5"
                     />
                     <text
                       x="0"
                       y="-8"
-                      fill="rgba(203, 213, 225, 0.7)"
+                      fill={scopeColor.fixLabel}
                       fontSize="16"
                       fontFamily="monospace"
                       fontWeight="bold"
@@ -398,32 +399,32 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                       {/* ILS Tick Ladder for Active Landing Runways */}
                       {isLanding && (
                         <>
-                          <line x1="0" y1={halfLen} x2="0" y2="420" stroke="#38bdf8" strokeWidth="2.5" />
+                          <line x1="0" y1={halfLen} x2="0" y2="420" stroke={scopeColor.map} strokeWidth="2.5" />
                           {Array.from({ length: 10 }, (_, i) => {
                             const yPos = halfLen + (i + 1) * 36;
                             return (
-                              <line key={i} x1="-12" y1={yPos} x2="12" y2={yPos} stroke="#38bdf8" strokeWidth="1.8" />
+                              <line key={i} x1="-12" y1={yPos} x2="12" y2={yPos} stroke={scopeColor.map} strokeWidth="1.8" />
                             );
                           })}
-                          <line x1="-24" y1="420" x2="24" y2="420" stroke="#38bdf8" strokeWidth="3" />
+                          <line x1="-24" y1="420" x2="24" y2="420" stroke={scopeColor.map} strokeWidth="3" />
                         </>
                       )}
 
                       {/* Departure Line for Active Departure Runways */}
                       {isDep && (
-                        <line x1="0" y1={-halfLen} x2="0" y2="-380" stroke="#fb923c" strokeWidth="2" strokeDasharray="6,6" opacity="0.6" />
+                        <line x1="0" y1={-halfLen} x2="0" y2="-380" stroke={scopeColor.mapDim} strokeWidth="2" strokeDasharray="6,6" />
                       )}
 
-                      {/* Solid Runway Bar */}
+                      {/* Subdued gray runway bar */}
                       <rect
                         x="-6"
                         y={-halfLen}
                         width="12"
                         height={rwyLength}
-                        fill={isLanding ? "#38bdf8" : isDep ? "#fb923c" : "rgba(148, 163, 184, 0.4)"}
+                        fill={isLanding || isDep ? scopeColor.runway : scopeColor.runwayIdle}
                         rx="1.5"
                       />
-                      <line x1="0" y1={-halfLen + 4} x2="0" y2={halfLen - 4} stroke="#ffffff" strokeWidth="1.5" />
+                      <line x1="0" y1={-halfLen + 4} x2="0" y2={halfLen - 4} stroke={scopeColor.centerline} strokeWidth="1.5" />
                     </g>
                   );
                 })}
@@ -431,9 +432,9 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                 {/* Waypoint Fixes (◎ Double Circle) */}
                 {selectedAirport.waypoints.map(wp => (
                   <g key={wp.id} transform={`translate(${wp.x}, ${wp.y})`}>
-                    <circle cx="0" cy="0" r="7" fill="none" stroke="rgba(203, 213, 225, 0.7)" strokeWidth="1.8" />
-                    <circle cx="0" cy="0" r="2.5" fill="#e2e8f0" />
-                    <text x="12" y="5" fill="rgba(226, 232, 240, 0.85)" fontSize="16" fontFamily="monospace" fontWeight="bold">
+                    <circle cx="0" cy="0" r="7" fill="none" stroke={scopeColor.fix} strokeWidth="1.8" />
+                    <circle cx="0" cy="0" r="2.5" fill={scopeColor.fix} />
+                    <text x="12" y="5" fill={scopeColor.fixLabel} fontSize="16" fontFamily="monospace" fontWeight="bold">
                       {wp.label}
                     </text>
                   </g>
@@ -441,11 +442,11 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               </svg>
 
               {/* Scope Overlay Badge */}
-              <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-slate-400">
-                <span className="text-sky-400 font-bold">
+              <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-ink-dim">
+                <span className="text-phosphor font-bold">
                   ACTIVE ILS: {landingRunways.map(r => r.label).join(', ') || 'NONE'}
                 </span>
-                <span className="text-orange-400 font-bold">
+                <span className="text-ink font-bold">
                   DEP: {departureRunways.map(r => r.label).join(', ') || 'NONE'}
                 </span>
               </div>
@@ -453,16 +454,16 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
           </div>
 
           {/* Logged Sessions History */}
-          <div className="bg-[#02050e] border border-slate-800 rounded-lg p-5 space-y-3 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 text-xs">
-              <span className="font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" /> Previous Sessions
+          <div className="bg-panel border border-line rounded-lg p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-line text-xs">
+              <span className="font-bold text-ink uppercase tracking-widest flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-ink-dim" /> Previous Sessions
               </span>
-              <span className="text-[10px] text-slate-500 font-bold">{savedGames.length} SAVED</span>
+              <span className="text-[10px] text-ink-faint font-bold">{savedGames.length} SAVED</span>
             </div>
 
             {savedGames.length === 0 ? (
-              <div className="text-center text-slate-600 py-6 text-xs uppercase tracking-widest">
+              <div className="text-center text-ink-faint py-6 text-xs uppercase tracking-widest">
                 No session logs recorded
               </div>
             ) : (
@@ -473,31 +474,31 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                   return (
                     <div
                       key={game.id}
-                      className="flex items-center justify-between bg-slate-900/70 border border-slate-800 rounded px-3 py-2 text-xs group hover:border-slate-700 transition-colors"
+                      className="flex items-center justify-between bg-inset border border-line rounded px-3 py-2 text-xs group hover:border-line-strong transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${info.badge}`}>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-panel border border-line text-ink">
                           {info.label}
                         </span>
                         {game.gameSpeed === 'real' && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-panel text-phosphor border border-line">
                             REAL 1:1
                           </span>
                         )}
                         <div>
-                          <div className="font-bold text-white flex items-center gap-2">
+                          <div className="font-bold text-ink-bright flex items-center gap-2">
                             <span>{gameAirport?.icao || 'SECT'}</span>
-                            <span className="text-slate-500 text-[10px]">·</span>
-                            <span className="text-green-400 font-bold">{game.score} LANDED</span>
-                            {game.accidents > 0 && <span className="text-red-400 font-bold">· {game.accidents} ACCD</span>}
+                            <span className="text-ink-faint text-[10px]">·</span>
+                            <span className="text-phosphor font-bold">{game.score} LANDED</span>
+                            {game.accidents > 0 && <span className="text-conflict font-bold">· {game.accidents} ACCD</span>}
                           </div>
-                          <div className="text-[10px] text-slate-500">{formatDuration(game.savedAt)}</div>
+                          <div className="text-[10px] text-ink-faint">{formatDuration(game.savedAt)}</div>
                         </div>
                       </div>
 
                       <button
                         onClick={() => onDeleteGame(game.id)}
-                        className="text-slate-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="text-ink-faint hover:text-conflict p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Delete log"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -512,14 +513,14 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
       </div>
 
       {/* Clean Footer */}
-      <footer className="mt-10 mb-4 text-center text-xs text-slate-600 space-y-1">
+      <footer className="mt-10 mb-4 text-center text-xs text-ink-faint space-y-1">
         <div>
           ATC EASY RADAR · DEVELOPED BY{' '}
           <a
             href="https://github.com/robertfrontend"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-400 font-bold hover:text-sky-400 transition-colors"
+            className="text-ink font-bold hover:text-phosphor transition-colors"
           >
             robertfrontend
           </a>

@@ -1,5 +1,75 @@
 @import "tailwindcss";
 
+/*
+ * STARS / ERAM radar theme.
+ * Near-black scope, dim green map, gray airspace and pavement,
+ * pale green targets. Gold, amber, and red are reserved for the
+ * selected track, alerts, and conflicts.
+ */
+@theme {
+  --color-scope: #070908;
+  --color-scope-disk: #0a0c0a;
+  --color-panel: #111412;
+  --color-panel-raised: #181c19;
+  --color-inset: #0d0f0d;
+  --color-header: #0d0f0d;
+
+  --color-line: #2c332e;
+  --color-line-strong: #414942;
+
+  --color-map: #6a9470;
+  --color-map-dim: #456348;
+  --color-map-label: #7f917f;
+  --color-airspace: #6d7770;
+  --color-airspace-dim: #515a54;
+  --color-runway: #9aa39c;
+  --color-runway-idle: #5a635d;
+  --color-centerline: #d5dbd6;
+  --color-fix: #9aa39c;
+  --color-fix-label: #b7c0b8;
+  --color-azimuth: #8b948c;
+
+  --color-target: #e7f6e4;
+  --color-target-dim: #9dbe9a;
+
+  --color-selected: #e8c56a;
+  --color-selected-soft: #e8c56a33;
+  --color-alert: #e0b04a;
+  --color-alert-soft: #e0b04a2b;
+  --color-conflict: #ef6464;
+  --color-conflict-soft: #ef646433;
+  --color-conflict-banner: #2c1515;
+
+  --color-ink: #d7dfd8;
+  --color-ink-bright: #f5f7f5;
+  --color-ink-dim: #939c94;
+  --color-ink-faint: #646d65;
+  --color-phosphor: #c6e2c3;
+
+  --color-scrim: #070908c2;
+  --color-block: #070908d0;
+  --color-tooltip: #111412f0;
+  --color-halo: #c6e2c314;
+  --color-halo-stroke: #c6e2c340;
+}
+
+html,
+body,
+#root {
+  background: var(--color-scope);
+  color: var(--color-ink);
+  min-height: 100%;
+}
+
+input[type="checkbox"],
+input[type="range"] {
+  accent-color: var(--color-phosphor);
+}
+
+* {
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
 @keyframes radarBlink {
   0%, 100% {
     opacity: 1;

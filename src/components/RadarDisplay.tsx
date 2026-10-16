@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
+import { scopeColor } from '../theme/radarTheme';
 
 interface RadarDisplayProps {
   airport: Airport;
@@ -241,7 +242,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   }, [selectedPlane, airport]);
 
   return (
-    <div className="relative w-full h-full select-none bg-[#00030a] overflow-hidden">
+    <div className="relative w-full h-full select-none bg-scope overflow-hidden">
       <svg
         ref={svgRef}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
@@ -259,11 +260,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           </clipPath>
         </defs>
 
-        {/* Deep midnight base */}
-        <rect x="-5000" y="-5000" width="10000" height="10000" fill="#00030a" />
+        {/* Near-black scope background */}
+        <rect x="-5000" y="-5000" width="10000" height="10000" fill={scopeColor.scope} />
 
         {/* Scope Interior (25 NM Radius) */}
-        <circle cx={airport.x} cy={airport.y} r="560" fill="#020510" />
+        <circle cx={airport.x} cy={airport.y} r="560" fill={scopeColor.scopeDisk} />
 
         {/* Inside Scope Visuals */}
         <g clipPath="url(#radarClip)">
@@ -273,7 +274,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               key={poly.id}
               points={poly.points}
               fill="none"
-              stroke={poly.dashed ? "rgba(100, 116, 139, 0.45)" : "rgba(148, 163, 184, 0.55)"}
+              stroke={poly.dashed ? scopeColor.airspaceDim : scopeColor.airspace}
               strokeWidth="1.2"
               strokeDasharray={poly.dashed ? "4,6" : undefined}
             />
@@ -293,13 +294,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   rx="24"
                   ry="24"
                   fill="none"
-                  stroke="rgba(100, 116, 139, 0.5)"
+                  stroke={scopeColor.airspace}
                   strokeWidth="1.2"
                 />
                 <text
                   x="0"
                   y="-8"
-                  fill="rgba(203, 213, 225, 0.75)"
+                  fill={scopeColor.fixLabel}
                   fontSize="11"
                   fontFamily="monospace"
                   fontWeight="bold"
@@ -320,7 +321,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 cy={airport.y}
                 r={ring.r}
                 fill="none"
-                stroke="rgba(51, 65, 85, 0.45)"
+                stroke={ring.nm === 25 ? scopeColor.map : scopeColor.mapDim}
                 strokeWidth={ring.nm === 25 ? "1.2" : "0.8"}
                 strokeDasharray={ring.nm === 25 ? undefined : "3,6"}
               />
@@ -328,7 +329,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               <text
                 x={airport.x + ring.r * 0.707 + 4}
                 y={airport.y - ring.r * 0.707 - 4}
-                fill="rgba(100, 116, 139, 0.6)"
+                fill={scopeColor.mapLabel}
                 fontSize="10"
                 fontFamily="monospace"
                 fontWeight="bold"
@@ -366,13 +367,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                         width="90"
                         height="440"
                         fill="none"
-                        stroke="rgba(56, 189, 248, 0.22)"
+                        stroke={scopeColor.mapDim}
                         strokeWidth="1"
                         strokeDasharray="4,4"
                       />
 
                       {/* Solid Centerline Line */}
-                      <line x1="0" y1={halfLen} x2="0" y2="440" stroke="#38bdf8" strokeWidth="1.8" />
+                      <line x1="0" y1={halfLen} x2="0" y2="440" stroke={scopeColor.map} strokeWidth="1.8" />
 
                       {/* Perpendicular Ladder Cross-Ticks every 1 NM (22.4 units) */}
                       {Array.from({ length: 11 }, (_, i) => {
@@ -387,7 +388,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                               y1={yPos}
                               x2={tickSpan}
                               y2={yPos}
-                              stroke="#38bdf8"
+                              stroke={scopeColor.map}
                               strokeWidth="1.4"
                             />
                           </g>
@@ -395,27 +396,27 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                       })}
 
                       {/* Outer End-Cap Bar at 11-12 NM */}
-                      <line x1="-24" y1="440" x2="24" y2="440" stroke="#38bdf8" strokeWidth="2.5" />
+                      <line x1="-24" y1="440" x2="24" y2="440" stroke={scopeColor.map} strokeWidth="2.5" />
                     </>
                   )}
 
                   {/* Departure Corridor (if active departure) */}
                   {isDeparture && layers.showExtendedCenterlines && (
-                    <line x1="0" y1={-halfLen} x2="0" y2="-400" stroke="#fb923c" strokeWidth="1.2" strokeDasharray="6,6" opacity="0.4" />
+                    <line x1="0" y1={-halfLen} x2="0" y2="-400" stroke={scopeColor.mapDim} strokeWidth="1.2" strokeDasharray="6,6" />
                   )}
 
-                  {/* Solid Bright Blue Runway Bar */}
+                  {/* Subdued gray runway bar. Active pavement is a step lighter. */}
                   <rect
                     x="-4"
                     y={-halfLen}
                     width="8"
                     height={rwyLength}
-                    fill={isLanding ? "#38bdf8" : isDeparture ? "#fb923c" : "rgba(148, 163, 184, 0.4)"}
+                    fill={isLanding || isDeparture ? scopeColor.runway : scopeColor.runwayIdle}
                     rx="1"
                   />
                   
-                  {/* Centerline white notch */}
-                  <line x1="0" y1={-halfLen + 4} x2="0" y2={halfLen - 4} stroke="#ffffff" strokeWidth="1" opacity="0.9" />
+                  {/* Centerline notch */}
+                  <line x1="0" y1={-halfLen + 4} x2="0" y2={halfLen - 4} stroke={scopeColor.centerline} strokeWidth="1" opacity="0.9" />
                 </g>
 
                 {/* Final Approach Fix (FAF) Marker for active landing runway */}
@@ -437,9 +438,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                       }
                     }}
                   >
-                    <circle cx="0" cy="0" r="4.5" fill="none" stroke="#38bdf8" strokeWidth="1.4" />
-                    <circle cx="0" cy="0" r="1.5" fill="#38bdf8" />
-                    <text x="8" y="3" fill="#38bdf8" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                    <circle cx="0" cy="0" r="4.5" fill="none" stroke={scopeColor.fix} strokeWidth="1.4" />
+                    <circle cx="0" cy="0" r="1.5" fill={scopeColor.fix} />
+                    <text x="8" y="3" fill={scopeColor.fixLabel} fontSize="10" fontFamily="monospace" fontWeight="bold">
                       ILS {rwy.label}
                     </text>
                   </g>
@@ -469,14 +470,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 <circle cx="0" cy="0" r="24" fill="transparent" />
                 
                 {/* Double circle waypoint fix symbol ◎ */}
-                <circle cx="0" cy="0" r="4.5" fill="none" stroke="rgba(203, 213, 225, 0.6)" strokeWidth="1.2" />
-                <circle cx="0" cy="0" r="1.5" fill="#e2e8f0" />
+                <circle cx="0" cy="0" r="4.5" fill="none" stroke={scopeColor.fix} strokeWidth="1.2" />
+                <circle cx="0" cy="0" r="1.5" fill={scopeColor.fix} />
                 
                 {/* Fix Label */}
                 <text
                   x="8"
                   y="3"
-                  fill={isHovered ? "#ffffff" : "rgba(226, 232, 240, 0.85)"}
+                  fill={isHovered ? scopeColor.ink : scopeColor.fixLabel}
                   fontSize="11"
                   fontFamily="monospace"
                   fontWeight="bold"
@@ -489,7 +490,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </g>
 
         {/* Outer 360° Azimuth Scale / Compass Ring */}
-        <circle cx={airport.x} cy={airport.y} r="560" fill="none" stroke="rgba(51, 65, 85, 0.6)" strokeWidth="1.2" />
+        <circle cx={airport.x} cy={airport.y} r="560" fill="none" stroke={scopeColor.line} strokeWidth="1.2" />
         
         {/* Azimuth Ticks every 1°, 5°, 10° */}
         {Array.from({ length: 360 }, (_, deg) => {
@@ -515,7 +516,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               y1={y1}
               x2={x2}
               y2={y2}
-              stroke="rgba(148, 163, 184, 1)"
+              stroke={scopeColor.azimuth}
               strokeWidth={strokeWidth}
               opacity={opacity}
             />
@@ -535,7 +536,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               key={deg}
               x={lx}
               y={ly + 3.5}
-              fill="rgba(148, 163, 184, 0.6)"
+              fill={scopeColor.mapLabel}
               fontSize="9"
               fontFamily="monospace"
               fontWeight="bold"
@@ -553,14 +554,15 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             y1={selectedPlane.y}
             x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)}
             y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)}
-            stroke="rgba(250, 204, 21, 0.4)"
+            stroke={scopeColor.selected}
+            opacity="0.45"
             strokeWidth="1.2"
             strokeDasharray="6,6"
             style={{ pointerEvents: 'none' }}
           />
         )}
 
-        {/* Dynamic Vectoring Cursor Guide (Yellow/Green) */}
+        {/* Vectoring cursor for the selected track */}
         {selectedPlane && !selectedPlane.isEstablished && mousePos && (
           <g style={{ pointerEvents: 'none' }}>
             <line 
@@ -568,22 +570,22 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               y1={selectedPlane.y} 
               x2={mousePos.x} 
               y2={mousePos.y} 
-              stroke="#facc15" 
+              stroke={scopeColor.selected} 
               strokeWidth="1.5" 
               strokeDasharray="4,4"
               opacity="0.85" 
             />
-            <circle cx={mousePos.x} cy={mousePos.y} r="5" fill="none" stroke="#facc15" strokeWidth="1.5" />
-            <circle cx={mousePos.x} cy={mousePos.y} r="1.5" fill="#facc15" />
+            <circle cx={mousePos.x} cy={mousePos.y} r="5" fill="none" stroke={scopeColor.selected} strokeWidth="1.5" />
+            <circle cx={mousePos.x} cy={mousePos.y} r="1.5" fill={scopeColor.selected} />
             
             {/* Live Heading & Distance Tooltip */}
             {selectedMouseVector && (
               <g transform={`translate(${mousePos.x + 12}, ${mousePos.y - 12})`}>
-                <rect x="0" y="-14" width="105" height="28" fill="rgba(6, 12, 24, 0.9)" rx="3" stroke="#facc15" strokeWidth="1" />
-                <text x="6" y="-1" fill="#facc15" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                <rect x="0" y="-14" width="105" height="28" fill={scopeColor.tooltip} rx="3" stroke={scopeColor.selected} strokeWidth="1" />
+                <text x="6" y="-1" fill={scopeColor.selected} fontSize="10" fontFamily="monospace" fontWeight="bold">
                   HDG {selectedMouseVector.heading.toString().padStart(3, '0')}°
                 </text>
-                <text x="6" y="10" fill="#ffffff" fontSize="9" fontFamily="monospace">
+                <text x="6" y="10" fill={scopeColor.ink} fontSize="9" fontFamily="monospace">
                   DIST {selectedMouseVector.distance} NM
                 </text>
               </g>
@@ -596,25 +598,16 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const isSelected = plane.id === selectedId;
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
-          const isDeparture = plane.type === 'departure';
-          const isEstablished = plane.isEstablished;
           const isUncontrolled = !plane.hasInstructions;
-          
-          // Authentic target coloring:
-          // 1. Conflict: Flashing Red (#ef4444)
-          // 2. Selected: Bright Yellow (#facc15)
-          // 3. Established on ILS Localizer: Vivid Electric Aqua Blue (#00e5ff)
-          // 4. Departures (Outbound): Warm Amber/Orange (#fb923c)
-          // 5. Inbound Arrivals: Crisp White (#ffffff)
-          const baseColor = isEstablished
-            ? '#00e5ff'
-            : isDeparture
-              ? '#fb923c'
-              : '#ffffff';
 
-          const targetColor = 
-            isConflict ? '#ef4444' :
-            isSelected ? '#facc15' : baseColor;
+          // One scope color for every track. Gold marks the selected target.
+          // Red is reserved for a conflict or crash. Arrival, departure, and
+          // localizer status stay in the data-block text.
+          const targetColor = isConflict
+            ? scopeColor.conflict
+            : isSelected
+              ? scopeColor.selected
+              : scopeColor.target;
 
           // Velocity Vector Projections (1 min = 60s)
           const isReal = gameSpeed === 'real';
@@ -661,7 +654,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
           const animClass = isConflict
             ? 'animate-conflict-flash'
-            : (isUncontrolled && !isSelected && !isEstablished)
+            : (isUncontrolled && !isSelected && !plane.isEstablished)
               ? 'animate-radar-blink'
               : '';
 
@@ -690,8 +683,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   cx={plane.x}
                   cy={plane.y}
                   r={3 * UNITS_PER_NM}
-                  fill={isConflict ? "rgba(239, 68, 68, 0.08)" : isSelected ? "rgba(250, 204, 21, 0.05)" : isEstablished ? "rgba(0, 229, 255, 0.06)" : isDeparture ? "rgba(251, 146, 60, 0.04)" : "rgba(148, 163, 184, 0.04)"}
-                  stroke={isConflict ? "#ef4444" : isSelected ? "rgba(250, 204, 21, 0.5)" : isEstablished ? "rgba(0, 229, 255, 0.45)" : isDeparture ? "rgba(251, 146, 60, 0.4)" : "rgba(148, 163, 184, 0.3)"}
+                  fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : scopeColor.halo}
+                  stroke={isConflict ? scopeColor.conflict : isSelected ? scopeColor.selected : scopeColor.haloStroke}
                   strokeWidth="1"
                   strokeDasharray="3,3"
                 />
@@ -700,13 +693,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               {/* Phosphor History Trail (Small square/round dots ▪ ▪ ▪) */}
               {layers.showTrails && plane.trail.map((p, i, arr) => {
                 const ratio = (i + 1) / arr.length;
-                const trailFill = isSelected
-                  ? "#facc15"
-                  : isEstablished
-                    ? "rgba(0, 229, 255, 0.8)"
-                    : isDeparture
-                      ? "rgba(251, 146, 60, 0.75)"
-                      : "rgba(226, 232, 240, 0.75)";
+                const trailFill = targetColor;
                 return (
                   <rect
                     key={i}
@@ -720,14 +707,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 );
               })}
 
-              {/* Heading Vector (Yellow line when selected, as in screenshot) */}
+              {/* Heading vector. The selected track uses the selection accent. */}
               {layers.showVectors && (
                 <line
                   x1={plane.x}
                   y1={plane.y}
                   x2={vx1}
                   y2={vy1}
-                  stroke={isSelected ? "#facc15" : isEstablished ? "rgba(0, 229, 255, 0.6)" : isDeparture ? "rgba(251, 146, 60, 0.5)" : "rgba(226, 232, 240, 0.45)"}
+                  stroke={isSelected || isConflict ? targetColor : scopeColor.targetDim}
                   strokeWidth={isSelected ? "1.6" : "1"}
                   strokeDasharray={isSelected ? undefined : "2,3"}
                 />
@@ -766,7 +753,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   y="-11"
                   width="85"
                   height="38"
-                  fill="rgba(0, 3, 10, 0.75)"
+                  fill={scopeColor.block}
                   rx="2"
                 />
 
@@ -812,26 +799,26 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         })}
       </svg>
 
-      {/* Authentic Green Voice Readback Line at Bottom */}
+      {/* Scope readback line */}
       <div className="absolute bottom-2 left-4 right-28 pointer-events-none select-none">
-        <div className="text-xs font-mono font-bold text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.6)] truncate">
+        <div className="text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>
 
       {/* Smooth Mini Radar Zoom & Center Widget */}
-      <div className="absolute bottom-3 right-4 flex items-center gap-1.5 bg-slate-950/90 border border-slate-700/60 rounded px-2.5 py-1 select-none shadow-xl backdrop-blur-sm z-10 text-xs">
+      <div className="absolute bottom-3 right-4 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none z-10 text-xs">
         <button
           onClick={zoomIn}
           disabled={vb.w <= MIN_VB}
-          className="w-6 h-6 flex items-center justify-center text-slate-300 font-bold text-base rounded hover:bg-slate-800 disabled:opacity-30 transition-colors"
+          className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom In (+)"
         >
           +
         </button>
         <button
           onClick={resetView}
-          className="px-2 py-0.5 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded border border-slate-700 transition-colors tracking-wider"
+          className="px-2 py-0.5 text-[10px] font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
           title="Click to Reset View to Center (25 NM)"
         >
           {Math.round(vb.w / UNITS_PER_NM)} NM
@@ -839,7 +826,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         <button
           onClick={zoomOut}
           disabled={vb.w >= MAX_VB}
-          className="w-6 h-6 flex items-center justify-center text-slate-300 font-bold text-base rounded hover:bg-slate-800 disabled:opacity-30 transition-colors"
+          className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom Out (−)"
         >
           −
