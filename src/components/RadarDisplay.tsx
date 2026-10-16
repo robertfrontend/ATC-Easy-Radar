@@ -141,7 +141,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           ctx.arc(center.x, center.y, rr, 0, Math.PI * 2);
           ctx.shadowBlur = 0;
           ctx.strokeStyle = phosphor;
-          ctx.globalAlpha = nm === 25 ? 0.85 : 0.62;
+          ctx.globalAlpha = nm === 25 ? 0.3 : 0.18;
           ctx.lineWidth = nm === 25 ? 1.25 : 1;
           ctx.setLineDash(nm === 25 ? [] : [3 * scale, 6 * scale]);
           ctx.stroke();
@@ -151,7 +151,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = phosphor;
-          ctx.globalAlpha = 0.8;
+          ctx.globalAlpha = nm === 25 ? 0.42 : 0.32;
           ctx.fillText(`${nm}NM`, label.x, label.y);
         }
       }
