@@ -2,13 +2,13 @@
 
 /*
  * STARS / ERAM radar theme.
- * Near-black scope, dim green map, gray airspace and pavement,
- * pale green targets. Gold, amber, and red are reserved for the
- * selected track, alerts, and conflicts.
+ * Pure black scope, dim gray map, gray airspace and pavement.
+ * Targets and range rings use P1 phosphor green (#39FF14 / #33FF33).
+ * Gold, amber, and red are reserved for the selected track, alerts, and conflicts.
  */
 @theme {
-  --color-scope: #070908;
-  --color-scope-disk: #0a0c0a;
+  --color-scope: #000000;
+  --color-scope-disk: #000000;
   --color-panel: #111412;
   --color-panel-raised: #181c19;
   --color-inset: #0d0f0d;
@@ -29,8 +29,8 @@
   --color-fix-label: #b7c0b8;
   --color-azimuth: #8b948c;
 
-  --color-target: #e7f6e4;
-  --color-target-dim: #9dbe9a;
+  --color-target: #39ff14;
+  --color-target-dim: #2bdb22;
 
   --color-selected: #e8c56a;
   --color-selected-soft: #e8c56a33;
@@ -44,13 +44,13 @@
   --color-ink-bright: #f5f7f5;
   --color-ink-dim: #939c94;
   --color-ink-faint: #646d65;
-  --color-phosphor: #c6e2c3;
+  --color-phosphor: #33ff33;
 
-  --color-scrim: #070908c2;
-  --color-block: #070908d0;
-  --color-tooltip: #111412f0;
-  --color-halo: #c6e2c314;
-  --color-halo-stroke: #c6e2c340;
+  --color-scrim: #000000c2;
+  --color-block: #000000d0;
+  --color-tooltip: #000000f0;
+  --color-halo: #39ff1418;
+  --color-halo-stroke: #39ff1466;
 }
 
 html,
@@ -94,4 +94,12 @@ input[type="range"] {
 
 .animate-conflict-flash {
   animation: conflictFlash 0.45s ease-in-out infinite;
+}
+
+/* P1 phosphor bloom for scope readouts. SVG text also carries this;
+   the canvas layer paints the same bloom with shadowBlur. */
+.crt-glow {
+  text-shadow:
+    0 0 4px currentColor,
+    0 0 10px currentColor;
 }

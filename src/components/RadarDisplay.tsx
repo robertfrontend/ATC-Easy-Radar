@@ -29,6 +29,53 @@ const MAX_VB = 2600;
 
 // Scale: 560 units = 25 NM -> 1 NM = 22.4 units
 const UNITS_PER_NM = 22.4;
+const SCOPE_RADIUS = 560;
+const RANGE_RING_NM = [5, 10, 15, 20, 25];
+
+function themeHex(name: string, fallback: string) {
+  if (typeof document === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function trackReadout(plane: Plane, airport: Airport) {
+  const curHundreds = Math.round(plane.altitude / 100);
+  const tgtHundreds = Math.round(plane.targetAltitude / 100);
+  const prefix = plane.altitude >= 6000 ? 'F' : 'A';
+  const curAltStr = `${prefix}${curHundreds}`;
+  const altDiff = plane.targetAltitude - plane.altitude;
+  const trendSign = altDiff < -150 ? `↓${tgtHundreds}` :
+    altDiff > 150 ? `↑${tgtHundreds}` :
+    `=${curHundreds}`;
+  const estRwy = airport.runways.find(r => r.id === plane.establishedRunwayId);
+  let statusLine = '';
+  if (plane.isEstablished) {
+    statusLine = `ILS${estRwy ? estRwy.label : 'LOC'}`;
+  } else if (plane.targetWaypoint) {
+    statusLine = airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || 'DIR';
+  } else {
+    statusLine = `${Math.round(plane.heading).toString().padStart(3, '0')}`;
+  }
+  const line3 = plane.isEstablished || plane.targetWaypoint
+    ? `${Math.round(plane.speed)} ${statusLine}`
+    : `${Math.round(plane.speed)}H ${statusLine}`;
+  return { line1: plane.callsign, line2: `${curAltStr} ${trendSign}`, line3 };
+}
+
+function bloomAlpha(plane: Plane, selected: boolean, now: number) {
+  const conflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
+  if (conflict) {
+    const phase = (now % 450) / 450;
+    const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+    return 0.2 + 0.8 * (1 - wave);
+  }
+  if (!plane.hasInstructions && !selected && !plane.isEstablished) {
+    const phase = (now % 900) / 900;
+    const wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+    return 0.3 + 0.7 * (1 - wave);
+  }
+  return 1;
+}
 
 export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   airport,
@@ -41,12 +88,158 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   gameSpeed = 1 as GameSpeed
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
   const [vb, setVb] = useState(INIT_VB);
 
   const panRef = useRef<{ clientX: number; clientY: number; vbX: number; vbY: number } | null>(null);
   const hasDraggedRef = useRef(false);
+  const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
+  phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
+
+  // Canvas bloom for the sweep, range rings, targets, and data blocks.
+  // shadowBlur paints the phosphor halo. SVG text stays sharp on top and
+  // carries the CSS text-shadow as well.
+  useEffect(() => {
+    const canvas = phosphorRef.current;
+    const svg = svgRef.current;
+    if (!canvas || !svg) return;
+    let frame = 0;
+
+    const draw = () => {
+      frame = requestAnimationFrame(draw);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const bounds = svg.getBoundingClientRect();
+      if (bounds.width < 2 || bounds.height < 2) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.round(bounds.width * dpr));
+      const h = Math.max(1, Math.round(bounds.height * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, bounds.width, bounds.height);
+
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      const toScreen = (x: number, y: number) => {
+        const pt = svg.createSVGPoint();
+        pt.x = x;
+        pt.y = y;
+        const sp = pt.matrixTransform(ctm);
+        return { x: sp.x - bounds.left, y: sp.y - bounds.top };
+      };
+
+      const { airport: scope, planes: tracks, selectedId: activeId, showRangeRings } = phosphorState.current;
+      const phosphor = themeHex('--color-target', '#39FF14');
+      const selectedColor = themeHex('--color-selected', '#e8c56a');
+      const conflictColor = themeHex('--color-conflict', '#ef6464');
+      const center = toScreen(scope.x, scope.y);
+      const rim = toScreen(scope.x + SCOPE_RADIUS, scope.y);
+      const radius = Math.hypot(rim.x - center.x, rim.y - center.y);
+      if (!isFinite(radius) || radius < 8) return;
+      const scale = radius / SCOPE_RADIUS;
+      const now = performance.now();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+      ctx.clip();
+
+      if (showRangeRings) {
+        for (const nm of RANGE_RING_NM) {
+          const ringR = nm * UNITS_PER_NM;
+          const edge = toScreen(scope.x + ringR, scope.y);
+          const rr = Math.hypot(edge.x - center.x, edge.y - center.y);
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, rr, 0, Math.PI * 2);
+          ctx.shadowColor = phosphor;
+          ctx.shadowBlur = nm === 25 ? 16 : 9;
+          ctx.strokeStyle = phosphor;
+          ctx.globalAlpha = nm === 25 ? 0.9 : 0.72;
+          ctx.lineWidth = nm === 25 ? 1.35 : 1;
+          ctx.setLineDash(nm === 25 ? [] : [3 * scale, 6 * scale]);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.setLineDash([]);
+          const label = toScreen(scope.x + ringR * 0.707 + 4, scope.y - ringR * 0.707 - 4);
+          ctx.font = `bold ${Math.max(9, 10 * scale)}px ui-monospace, monospace`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillStyle = phosphor;
+          ctx.shadowColor = phosphor;
+          ctx.shadowBlur = 8;
+          ctx.globalAlpha = 0.9;
+          ctx.fillText(`${nm}NM`, label.x, label.y);
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      const sweep = ((now % 7000) / 7000) * Math.PI * 2;
+      const leading = -Math.PI / 2 + sweep;
+      ctx.shadowColor = phosphor;
+      ctx.shadowBlur = 26;
+      ctx.fillStyle = phosphor;
+      ctx.globalAlpha = 0.13;
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.arc(center.x, center.y, radius, leading - 0.5, leading, false);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = phosphor;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(
+        center.x + Math.cos(leading) * radius,
+        center.y + Math.sin(leading) * radius
+      );
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.textBaseline = 'alphabetic';
+      for (const plane of tracks) {
+        const selected = plane.id === activeId;
+        const conflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
+        const color = conflict ? conflictColor : selected ? selectedColor : phosphor;
+        const alpha = bloomAlpha(plane, selected, now);
+        const symbol = toScreen(plane.x, plane.y + 4.5);
+        ctx.font = `bold ${16 * scale}px ui-monospace, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.fillText('✳', symbol.x, symbol.y);
+
+        const readout = trackReadout(plane, scope);
+        const lines = [
+          { text: readout.line1, y: 0, size: 11.5 },
+          { text: readout.line2, y: 12, size: 11 },
+          { text: readout.line3, y: 23, size: 11 },
+        ];
+        ctx.textAlign = 'left';
+        ctx.shadowBlur = 10;
+        for (const line of lines) {
+          const pos = toScreen(plane.x + 24, plane.y - 24 + line.y);
+          ctx.font = `bold ${line.size * scale}px ui-monospace, monospace`;
+          ctx.fillText(line.text, pos.x, pos.y);
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.restore();
+    };
+
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const getSvgPoint = useCallback((clientX: number, clientY: number) => {
     if (!svgRef.current) return null;
@@ -184,16 +377,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     setVb(INIT_VB);
   };
 
-
-  // Range rings (5, 10, 15, 20, 25 NM)
-  const rangeRings = [
-    { nm: 5, r: 5 * UNITS_PER_NM },
-    { nm: 10, r: 10 * UNITS_PER_NM },
-    { nm: 15, r: 15 * UNITS_PER_NM },
-    { nm: 20, r: 20 * UNITS_PER_NM },
-    { nm: 25, r: 25 * UNITS_PER_NM }
-  ];
-
   // Mouse vector calculations for selected aircraft
   const selectedMouseVector = useMemo(() => {
     if (!selectedPlane || !mousePos || selectedPlane.isEstablished) return null;
@@ -243,6 +426,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
   return (
     <div className="relative w-full h-full select-none bg-scope overflow-hidden">
+      <canvas
+        ref={phosphorRef}
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      />
       <svg
         ref={svgRef}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
@@ -260,11 +448,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           </clipPath>
         </defs>
 
-        {/* Near-black scope background */}
-        <rect x="-5000" y="-5000" width="10000" height="10000" fill={scopeColor.scope} />
+        {/* Transparent hit layer. The scope itself is pure black on the parent,
+            so the canvas phosphor sweep can show through. */}
+        <rect x="-5000" y="-5000" width="10000" height="10000" fill="transparent" pointerEvents="all" />
 
         {/* Scope Interior (25 NM Radius) */}
-        <circle cx={airport.x} cy={airport.y} r="560" fill={scopeColor.scopeDisk} />
+        <circle cx={airport.x} cy={airport.y} r="560" fill="none" />
 
         {/* Inside Scope Visuals */}
         <g clipPath="url(#radarClip)">
@@ -313,31 +502,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             );
           })}
 
-          {/* Concentric Range Rings */}
-          {layers.showRangeRings && rangeRings.map(ring => (
-            <g key={ring.nm}>
-              <circle
-                cx={airport.x}
-                cy={airport.y}
-                r={ring.r}
-                fill="none"
-                stroke={ring.nm === 25 ? scopeColor.map : scopeColor.mapDim}
-                strokeWidth={ring.nm === 25 ? "1.2" : "0.8"}
-                strokeDasharray={ring.nm === 25 ? undefined : "3,6"}
-              />
-              {/* Range Distance Label */}
-              <text
-                x={airport.x + ring.r * 0.707 + 4}
-                y={airport.y - ring.r * 0.707 - 4}
-                fill={scopeColor.mapLabel}
-                fontSize="10"
-                fontFamily="monospace"
-                fontWeight="bold"
-              >
-                {ring.nm}NM
-              </text>
-            </g>
-          ))}
+          {/* Range rings and the sweep are drawn on the phosphor canvas. */}
 
           {/* Render ALL Airport Runways and their Authentic Tick Ladder ILS Feathers */}
           {airport.runways.map(rwy => {
@@ -626,30 +791,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
           // Altitude formatting matching reference:
           // A20 =20 (level at 2000ft), A36 ↓30 (at 3600ft descending to 3000ft), F120 ↑140 (climbing to FL140)
-          const curHundreds = Math.round(plane.altitude / 100);
-          const tgtHundreds = Math.round(plane.targetAltitude / 100);
-          const prefix = plane.altitude >= 6000 ? 'F' : 'A';
-          const curAltStr = `${prefix}${curHundreds}`;
-          
-          const altDiff = plane.targetAltitude - plane.altitude;
-          const trendSign = altDiff < -150 ? `↓${tgtHundreds}` :
-                            altDiff > 150 ? `↑${tgtHundreds}` :
-                            `=${curHundreds}`;
-
-          // Line 3: Speed + Status/LOC/Heading/Fix (e.g. "196 LOC", "254H 265", "214 MAYFI")
-          const estRwy = airport.runways.find(r => r.id === plane.establishedRunwayId);
-          let statusLine = '';
-          if (plane.isEstablished) {
-            statusLine = `ILS${estRwy ? estRwy.label : 'LOC'}`;
-          } else if (plane.targetWaypoint) {
-            statusLine = airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || 'DIR';
-          } else {
-            statusLine = `${Math.round(plane.heading).toString().padStart(3, '0')}`;
-          }
-
-          const line3Text = plane.isEstablished || plane.targetWaypoint
-            ? `${Math.round(plane.speed)} ${statusLine}`
-            : `${Math.round(plane.speed)}H ${statusLine}`;
+          const readout = trackReadout(plane, airport);
 
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
           const animClass = isConflict
@@ -729,6 +871,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 fontFamily="monospace"
                 fontWeight="bold"
                 textAnchor="middle"
+                className="crt-glow"
               >
                 ✳
               </text>
@@ -747,17 +890,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
               {/* Authentic 3-Line Data Block (Monospace, Sharp Text) */}
               <g transform={`translate(${tagX}, ${tagY})`}>
-                {/* Subtle dark backdrop for legibility over lines */}
-                <rect
-                  x="-2"
-                  y="-11"
-                  width="85"
-                  height="38"
-                  fill={scopeColor.block}
-                  rx="2"
-                />
-
-                {/* Line 1: Callsign + (DEP indicator if departure) */}
+                {/* Line 1: Callsign */}
                 <text
                   x="0"
                   y="0"
@@ -766,8 +899,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   fontFamily="monospace"
                   fontWeight="bold"
                   letterSpacing="0.5"
+                  className="crt-glow"
                 >
-                  {plane.callsign}
+                  {readout.line1}
                 </text>
 
                 {/* Line 2: Altitude Actual + Trend Target (e.g. A36 ↓30) */}
@@ -778,8 +912,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   fontSize="11"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  className="crt-glow"
                 >
-                  {curAltStr} {trendSign}
+                  {readout.line2}
                 </text>
 
                 {/* Line 3: Speed + Heading / Fix / LOC (e.g. 200 ILS09L, 254H 265) */}
@@ -790,8 +925,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   fontSize="11"
                   fontFamily="monospace"
                   fontWeight="bold"
+                  className="crt-glow"
                 >
-                  {line3Text}
+                  {readout.line3}
                 </text>
               </g>
             </g>
@@ -801,7 +937,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
       {/* Scope readback line */}
       <div className="absolute bottom-2 left-4 right-28 pointer-events-none select-none">
-        <div className="text-xs font-mono font-bold text-phosphor truncate">
+        <div className="crt-glow text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>

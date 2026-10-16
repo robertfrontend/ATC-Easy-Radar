@@ -340,9 +340,9 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                 <circle cx="500" cy="500" r="470" fill={scopeColor.scopeDisk} stroke={scopeColor.line} strokeWidth="1.5" />
                 
                 {/* Range Rings */}
-                <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.mapDim} strokeDasharray="4,6" />
-                <circle cx="500" cy="500" r="320" fill="none" stroke={scopeColor.mapDim} strokeDasharray="4,6" />
-                <circle cx="500" cy="500" r="470" fill="none" stroke={scopeColor.map} strokeWidth="1.2" />
+                <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" />
+                <circle cx="500" cy="500" r="320" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" />
+                <circle cx="500" cy="500" r="470" fill="none" stroke={scopeColor.phosphor} strokeWidth="1.2" />
 
                 {/* Airspace Boundary Polygons */}
                 {selectedAirport.airspacePolygons?.map(poly => (

@@ -618,7 +618,7 @@ export const GamePage: React.FC<GamePageProps> = ({
               <div className="relative flex flex-col bg-panel border border-line-strong rounded-lg p-2.5 shadow-2xl">
                 <div className="flex items-center gap-2">
                   <Terminal className="w-4 h-4 text-phosphor" />
-                  <span className="text-phosphor font-bold text-sm tracking-wider">
+                  <span className="crt-glow text-phosphor font-bold text-sm tracking-wider">
                     {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
                   </span>
                   <input

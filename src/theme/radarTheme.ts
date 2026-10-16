@@ -19,6 +19,7 @@ export const scopeColor = {
   azimuth: 'var(--color-azimuth)',
   target: 'var(--color-target)',
   targetDim: 'var(--color-target-dim)',
+  phosphor: 'var(--color-phosphor)',
   selected: 'var(--color-selected)',
   selectedSoft: 'var(--color-selected-soft)',
   alert: 'var(--color-alert)',
