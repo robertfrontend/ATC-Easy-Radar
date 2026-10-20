@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import { HomePage } from './components/HomePage';
 import { GamePage } from './components/GamePage';
+import { LearningPage } from './learning/LearningPage';
 import { SavedGame, Difficulty, RunwayConfig } from './types';
 import { AIRPORTS } from './config/airports';
 import { SessionMode } from './hooks/useGameLoop';
@@ -146,6 +147,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/learning/*" element={<LearningPage />} />
         <Route
           path="/"
           element={
