@@ -64,8 +64,8 @@ export const scenarios: Partial<Record<ModuleId, PracticeStep[]>> = {
     },
     {
       phase: 'Concluir', prompt: 'Con la correlación establecida en este supuesto, ¿qué comunicas?',
-      choices: ['N731KB, radar contact', 'N713KB, radar contact'], answer: 'N731KB, radar contact', ident: true,
-      feedback: 'Indicativo correcto y asociación comprobada. Si hay duda real, debe resolverse; no sirve adivinar.',
+      choices: ['N731KB, radar contact, over NORDO', 'N713KB, radar contact, over NORDO'], answer: 'N731KB, radar contact, over NORDO', ident: true,
+      feedback: 'Indicativo correcto, asociación comprobada e información de posición: sobre NORDO, punto ficticio. Si hay duda real, debe resolverse; no sirve adivinar.',
     },
   ],
   readback: [

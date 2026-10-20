@@ -20,3 +20,22 @@ and applicable notices for real operations. Existing game thresholds are not uni
 Delivery boundaries: content/progress → deterministic practice → Home/Learning integration.
 Each can be reverted independently in reverse order without altering the game engine.
 Foundation validation: progress tests and TypeScript; no runtime UI exists in this slice.
+
+## Verification receipt (2026-10-20)
+
+- `npm test`: 180 tests passed across 19 files, including 11 Learning tests.
+- `npm run typecheck` and `npm run build`: passed.
+- Chrome local flow: Home → Learning → modules 1–3, all practices completed, wrong
+  callsign and wrong readback rejected, IDENT observation, delayed turn 060/075/090.
+- Reload retained 3/3 demonstrations; interrupted attempts restart deterministically.
+  Automated integration checks additionally cover corrupt/quota storage, direct practice
+  prerequisites, wrong selected aircraft, repeated practice and Back/Forward focus.
+- Browser Back/Forward and reload verified on Fundamentos. Mobile 393px: collapsible
+  seven-section menu, radar and controls usable. Visible keyboard focus and labels checked.
+- Chrome Console: zero visible messages/errors and no issues during Learning navigation.
+- Existing tutorial opens and advances after selecting TRN101; free play spawns live
+  traffic; Caribbean challenge opens a five-minute shift with its six-operation goal.
+- Review found and corrected the completion display reverting assigned heading to 060,
+  wrong-aircraft selection validation, and IDENT position reporting (FAA 5-3-6).
+- Runtime path is entirely browser → versioned localStorage → evidence UI. No API,
+  credentials, database or external service is required for Learning.

@@ -26,8 +26,8 @@ export const lessons: Lesson[] = [
     id: 'identify', title: 'Interpretar e identificar tráfico', section: 'Control radar', practice: true,
     explanation: 'Un símbolo es una detección; una etiqueta visible no establece por sí sola la identificación radar. Debes correlacionar la aeronave y el blanco usando un método autorizado y mantener esa asociación. En la práctica observarás una respuesta IDENT previamente solicitada. Un clic sobre la etiqueta solo selecciona: no identifica.',
     example: 'N731KB y N713KB se parecen. Comprueba el indicativo completo y observa qué blanco responde a IDENT. Si dos blancos responden o la asociación resulta dudosa, no adivines: hace falta resolver la duda y restablecer la identificación.',
-    takeaway: 'Lee posición, tendencia y datos; verifica identidad antes de ordenar. “Radar contact” comunica identificación establecida, no solo recepción de radio.',
-    source: `${atc}chap5_section_3.html`, paragraphs: '5-3-1, 5-3-3, 5-3-4, 5-3-5, 5-3-7, 5-3-9',
+    takeaway: 'Lee posición, tendencia y datos; verifica identidad antes de ordenar. “Radar contact” comunica identificación establecida. Tras identificar mediante IDENT, informa de la posición según 5-3-6; aquí el blanco está sobre el punto ficticio NORDO.',
+    source: `${atc}chap5_section_3.html`, paragraphs: '5-3-1, 5-3-3, 5-3-4, 5-3-5, 5-3-6, 5-3-7, 5-3-9',
   },
   {
     id: 'readback', title: 'Comunicar y comprobar readback', section: 'Comunicaciones', practice: true,

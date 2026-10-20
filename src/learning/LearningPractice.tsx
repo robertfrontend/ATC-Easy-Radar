@@ -56,6 +56,7 @@ export function LearningPractice({ id, onComplete }: { id: ModuleId; onComplete:
         <path d="M300 10V350M20 180H580" />
         <path className="learning-runway" d="M300 235V275" />
         <text x="310" y="265">18</text><text x="300" y="25">N ↑</text>
+        {id === 'identify' && <text x="95" y="125">NORDO</text>}
         {tracks.map(track => <line key={track.callsign} className="learning-track-line"
           x1={track.x} y1={track.y} x2={track.x + Math.sin(track.heading * Math.PI / 180) * 70}
           y2={track.y - Math.cos(track.heading * Math.PI / 180) * 70} />)}
