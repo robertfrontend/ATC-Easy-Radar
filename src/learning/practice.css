@@ -1,0 +1,46 @@
+.learning-practice {
+  border: 1px solid #414942;
+  padding: clamp(1rem, 3vw, 2rem);
+  margin-top: 2rem;
+  background: #111412;
+}
+.learning-practice-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; }
+.learning-practice-heading h2 { margin: 0; }
+.learning-practice p { line-height: 1.65; }
+.learning-practice button {
+  border: 1px solid #7f917f;
+  border-radius: .3rem;
+  padding: .7rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  color: #f5f7f5;
+  background: #181c19;
+}
+.learning-practice button:hover:not(:disabled) { background: #29382e; }
+.learning-practice button:focus-visible { outline: 3px solid #e8c56a; outline-offset: 3px; }
+.learning-practice button:disabled { cursor: default; }
+.learning-choices { display: grid; gap: .75rem; }
+.learning-choices button:disabled { opacity: .6; }
+.learning-practice h3 { margin: 1.25rem 0; font-weight: 600; }
+.learning-radar { position: relative; aspect-ratio: 5 / 3; background: #000; border: 1px solid #6d7770; margin: 1.5rem 0; }
+.learning-radar svg { width: 100%; height: 100%; fill: none; stroke: #456348; stroke-width: 1; }
+.learning-radar text { fill: #b7c0b8; stroke: none; font: 14px monospace; }
+.learning-radar .learning-runway { stroke: #d5dbd6; stroke-width: 6; }
+.learning-radar .learning-track-line { stroke: #5fd35f; stroke-dasharray: 5 4; }
+.learning-radar .learning-target {
+  position: absolute;
+  transform: translate(-15%, -10%);
+  padding: .3rem;
+  font: clamp(.6rem, 1.5vw, .8rem)/1.5 monospace;
+  color: #8fe18f;
+  background: #000e;
+  border: 1px solid transparent;
+}
+.learning-target span:not(:first-child), .learning-target strong { display: block; }
+.learning-radar .learning-target[aria-pressed="true"] { color: #e8c56a; border-color: #e8c56a; }
+.learning-strip { font-family: monospace; color: #e8c56a; }
+.learning-practice [role="status"] { min-height: 1.5em; }
+.learning-practice button.learning-primary { background: #244c30; border-color: #8fe18f; }
+@media (max-width: 480px) {
+  .learning-radar .learning-target { font-size: .6rem; }
+}
