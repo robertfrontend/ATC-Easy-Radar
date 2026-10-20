@@ -8,7 +8,9 @@
 .learning-header span { margin-left: auto; font-size: .85rem; }
 .learning-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); max-width: 1280px; margin: auto; }
 .learning-sidebar { padding: 2rem 1rem; border-right: 1px solid #414942; }
-.learning-sidebar nav { display: grid; position: sticky; top: 1rem; }
+/* Keep links and their note in one scrolling box; sticky nav alone overlaps the note. */
+.learning-sidebar-content { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+.learning-sidebar nav { display: grid; }
 .learning-sidebar a { padding: .65rem 1rem; color: #d7dfd8; border-left: 3px solid transparent; }
 .learning-sidebar a[aria-current] { border-color: #91d7aa; background: #1b2920; color: #fff; font-weight: 600; }
 .learning-sidebar p { font-size: .85rem; color: #a7b3a9; margin: 2rem 1rem; }
@@ -37,6 +39,7 @@
 @media (max-width: 760px) {
   .learning-layout { grid-template-columns: 1fr; }
   .learning-sidebar { padding: 1rem; border-right: 0; border-bottom: 1px solid #414942; }
+  .learning-sidebar-content { position: static; max-height: none; overflow-y: visible; }
   .learning-menu { display: block; padding: .6rem 1rem; border: 1px solid #91d7aa; border-radius: .3rem; }
   .learning-sidebar nav { display: none; position: static; margin-top: 1rem; }
   .learning-sidebar nav.is-open { display: grid; }
