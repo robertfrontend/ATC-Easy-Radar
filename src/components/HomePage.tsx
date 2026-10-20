@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Plane, Radio, Clock, AlertTriangle, Trophy, Trash2, MapPin, CheckCircle2, Play, Compass, Shield, Wind, Sparkles } from 'lucide-react';
 import { Difficulty, SavedGame, Airport, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
@@ -160,6 +161,10 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
         </header>
       </div>
 
+      <Link to="/learning" className="w-full max-w-6xl mb-6 p-5 border border-line-strong rounded-lg bg-panel focus-visible:outline-2 focus-visible:outline-selected hover:border-phosphor">
+        <span className="block text-lg font-bold text-ink-bright">Learning</span>
+        <span className="block text-sm text-ink mt-1">Fundamentos del control radar, desde cero. Explicaciones en español y práctica guiada integrada.</span>
+      </Link>
       <section aria-label="Choose your session" className="w-full max-w-6xl mb-6 grid gap-3 md:grid-cols-3">
         {([
           ['tutorial', '01 / LEARN THE RADAR', 'Guide one arrival, then practice separating two aircraft. No traffic rush while learning.'],
