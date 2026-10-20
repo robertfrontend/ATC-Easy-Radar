@@ -1,97 +1,73 @@
 # ATC Easy Radar
 
-**ATC Easy Radar** is a high-performance Air Traffic Control (ATC) simulation built with React and TypeScript. Take command of the skies, managing both incoming arrivals and departing traffic in a high-stakes environment where every degree and foot of altitude matters.
+ATC Easy Radar is a React and TypeScript air-traffic-control game. Manage arrivals and departures with heading, altitude, speed, ILS and direct-to clearances across six airports.
 
-<img width="1465" height="832" alt="Screenshot 2026-03-07 at 11 33 00 PM" src="https://github.com/user-attachments/assets/ee206919-19a8-4cf1-b399-71dda2543bf6" />
+## Choose a session
 
----
+- **Guided tutorial:** one arrival teaches selection, heading, descent, speed and ILS capture. Time is stopped while you enter each instruction. After landing, a two-aircraft exercise teaches actual vertical separation, not just cleared altitude. Restart training at any time.
+- **Five-minute shift:** complete the selected number of safe operations before five minutes of active running time expire. Menus, pause and tutorial instructions do not consume that time. The default goal is 10; airport challenges range from 6 to 12.
+- **Free play:** open-ended practice with your chosen airport, runway setup, difficulty and speed. Existing game links without a mode remain free play.
 
-## 🎮 How to Play
+Airport challenges reuse London Heathrow, Boston Logan, Las Américas, Dubai, Amsterdam Schiphol and Panama Tocumen. The presets choose an airport, goal and traffic ceiling; you can configure runways before starting.
 
-### 1. Selection & Command
-- **Select an aircraft** by clicking its icon on the radar.
-- **Issue orders** via the **Control Panel** (Heading, Altitude, Speed) and press **TRANSMIT COMMANDS**.
-- **Keyboard Shortcuts:** Use the Command Console at the bottom for professional ATC inputs (e.g., `H250` for heading, `A5000` for altitude).
+### Scoring and progression
 
-### 2. Mouse Interaction (Advanced)
-- **Direct Heading:** With a plane selected, simply **click anywhere on the radar** to instantly set its heading towards that point. The plane will automatically deselect after the command, allowing for rapid-fire sequencing.
-- **Visual Preview:** A dotted guide line follows your mouse when a plane is selected, showing the intended flight path.
+A landing or cleared departure handoff earns 100 points. Each additional clean operation adds 10 bonus points, capped at 50 per operation. A new separation-alert episode costs 25 points and resets the streak; an aircraft leaving without a successful operation costs 50. Points never go below zero. An accident ends a shift. The debrief shows recent events, conflict onset when recorded, the last clearance and practical advice. Use **SAVE RESULT** to retain the operation count and shift points in Previous Sessions.
 
-### 3. Flight Operations
-- **Arrivals (ARR - Green):** Guide them into the **blue ILS cone** below 10,000ft. Once established, they will auto-land.
-- **Departures (DEP - Purple):** These aircraft spawn at the airport and climb on runway heading. They do **not** turn toward their exit until you clear them direct (`DEP`, the exit fix name, or DIRECT on the strip).
+Shift traffic begins easy, rises to medium after 3 safe operations and hard after 6, never above the difficulty you chose. That also changes the ILS cone width. Free play uses the selected difficulty immediately. Game speed changes aircraft motion and traffic cadence; the shift timer always measures active running time.
 
----
+## Controls
 
-## 🛠️ Flight Mechanics & Requirements
+1. Select an aircraft by clicking its symbol/data block or focusing it with Tab and pressing Enter/Space.
+2. The side panel **prepares** heading, altitude, speed and approach instructions. Press **TRANSMIT CLEARANCE** to apply them. A draft badge distinguishes planned changes from the active clearance.
+3. The console sends immediately on Enter: `H270`, `D3000`, `C5000`, `S180`, or combined `H270 D3000 S180`. `DEP` clears a departure to its assigned exit. A named fix clears direct to that fix.
+4. Clicking empty radar space with an aircraft selected transmits a heading to that point. Clicking a fix transmits direct-to; clicking the ILS marker assigns that runway and vectors toward its outer fix without changing altitude/speed.
+5. **PLAN ILS** stages a heading to the outer fix with 3,000 ft and 180 kt. It is not an automatic final intercept: transmit, then turn toward the runway heading inside the cone.
+6. Use the visible Pause control or the menu. Opening/closing a menu does not clear a manual pause. Zoom with the radar controls and pan by dragging.
 
-### Landing Requirements (Runway 36)
-| Parameter | Requirement |
-| :--- | :--- |
-| **Heading** | Aligned with Runway (approx. 360°/000°) |
-| **Altitude** | ≤ 3,000 ft |
-| **Speed** | ≤ 200 kts |
+### Approach help and prediction
 
-### Departure Mission
-| Parameter | Requirement |
-| :--- | :--- |
-| **Objective** | Reach the assigned exit waypoint after you clear them direct |
-| **Automation** | Auto-climb on runway heading. No auto-navigation until `DEP` / direct |
-| **Handover** | Removal upon reaching the exit after that clearance |
+Select an arrival to see the exact ILS capture checklist: an active eligible runway, position inside its cone, actual altitude at or below 10,000 ft, and heading less than 50° from runway heading. The cone is 20–520 radar units behind the runway and narrows with difficulty. Once established, the simulation provides automatic heading, descent and speed guidance.
 
-### Aircraft Status Colors
-| Color | Status | Meaning |
-| :--- | :--- | :--- |
-| 🟢 **Green** | ARR - Controlled | Arrival with active instructions. |
-| 🟡 **Yellow** | ARR - Uncontrolled | Arrival awaiting initial instructions. |
-| 🟣 **Purple** | DEP - Departure | Aircraft taking off and climbing. |
-| 🔵 **Blue** | Established | Aircraft locked onto the ILS glideslope. |
-| 🟠 **Orange** | Warning | Proximity alert or unstable approach. |
-| 🔴 **Red** | Emergency | Collision or crash occurred. |
+With vectors enabled, the selected track shows a **30-second running-time forecast** based on the actual turn, speed, direct-to and ILS simulation. It refreshes twice per second and immediately after a new clearance. The forecast excludes other traffic, collision effects, later commands and later runway changes; it is not a separation guarantee.
 
----
+Departures initially climb on runway heading. They do not turn toward their assigned exit until you transmit `DEP`, the exit fix name or the strip’s **TRANSMIT DIRECT** button. The operation counts on handoff at a fix, not just on leaving the radar.
 
-## ⚙️ Technical Specifications
+### Separation rules
 
-- **Physics Engine:** Custom 50ms tick-rate loop with realistic turn rates (0.5°/tick), climb rates (15ft/tick), and acceleration.
-- **Separation Standards:** 
-  - **Warning:** < 40px lateral + < 1,500ft vertical.
-  - **Collision:** < 20px lateral + < 1,000ft vertical.
-- **Responsive Radar:** SVG-based display with smooth zooming and panning.
+The game uses radar units, not regulatory ATC separation standards:
 
----
+- Alert: less than 55 units laterally **and** less than 1,000 ft vertically.
+- Collision: less than 20 units laterally **and** less than 1,000 ft vertically.
+- A pair with both aircraft below 1,000 ft is exempt.
 
-## 🚀 Getting Started
+The scope’s map scale is 22.4 units per NM. The 2-NM visual halo is only a reference, not the alert threshold. Training and the debrief use the simulation’s real thresholds.
 
-1. **Clone the repo**
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-3. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
-4. **Open your browser:** `http://localhost:5173` (or your local Vite port).
+## Development
 
----
+Use Node 22 (current patch release) or newer.
 
-## 📂 Project Architecture
-
-```text
-src/
-├── components/
-│   ├── RadarDisplay.tsx    # SVG Engine & Mouse Interactions
-│   ├── ControlPanel.tsx    # Manual Command Interface
-│   └── GamePage.tsx        # Command Parsing & State Management
-├── hooks/
-│   └── useGameLoop.ts      # Core Engine: Physics, Collisions, Spawning
-├── types/
-│   └── index.ts            # Type definitions for Planes, Airports, etc.
-└── utils/
-    └── audio.ts            # Sound effects manager
+```sh
+npm ci
+npm run dev
 ```
 
----
+Open the Vite address printed by the command (default `http://localhost:3000`).
 
-*Good luck, Controller. Keep the skies safe.*
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+`lint` currently runs the TypeScript check, not a separate style linter. Tests cover physics, capture/separation boundaries, spawn/departure rules, commands, scoring, all-airport tutorial trajectories, path prediction and session UI/loop regressions. CI runs typecheck, tests and build for pull requests and pushes to main.
+
+## Architecture
+
+- `src/components`: session chooser, radar, flight controls and game UI.
+- `src/hooks/useGameLoop.ts`: active-time simulation, spawning, event history and session lifecycle.
+- `src/utils`: motion, navigation, approach, separation, prediction, tutorial and scoring rules.
+- `src/config`: shared airport geometry and challenge presets.
+
+Weather and emergencies are deliberately left for later. This game is for entertainment, not operational ATC training.

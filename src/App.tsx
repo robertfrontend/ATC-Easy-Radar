@@ -4,6 +4,7 @@ import { HomePage } from './components/HomePage';
 import { GamePage } from './components/GamePage';
 import { SavedGame, Difficulty, RunwayConfig } from './types';
 import { AIRPORTS } from './config/airports';
+import { SessionMode } from './hooks/useGameLoop';
 
 const SAVED_GAMES_KEY = 'atc_saved_games';
 
@@ -31,12 +32,14 @@ function HomePageWrapper({
 }) {
   const navigate = useNavigate();
 
-  const handleStartNewGame = (diff: Difficulty, selectedAirportId: string, runwayConfig: RunwayConfig) => {
-    navigate(`/game?airport=${selectedAirportId}&diff=${diff}`, {
+  const handleStartNewGame = (diff: Difficulty, selectedAirportId: string, runwayConfig: RunwayConfig, mode: SessionMode = 'shift', goal = 10) => {
+    navigate(`/game?airport=${selectedAirportId}&diff=${diff}&mode=${mode}&goal=${goal}`, {
       state: {
         difficulty: diff,
         airportId: selectedAirportId,
         runwayConfig,
+        mode,
+        goal,
       }
     });
   };
@@ -68,10 +71,17 @@ function GamePageWrapper({
     difficulty?: Difficulty;
     airportId?: string;
     runwayConfig?: RunwayConfig;
+    mode?: SessionMode;
+    goal?: number;
   } | null;
 
   const airportId = state?.airportId || searchParams.get('airport') || AIRPORTS[0].id;
-  const difficulty = (state?.difficulty || searchParams.get('diff') || 'easy') as Difficulty;
+  const rawDifficulty = state?.difficulty || searchParams.get('diff');
+  const difficulty: Difficulty = rawDifficulty === 'medium' || rawDifficulty === 'hard' ? rawDifficulty : 'easy';
+  const rawMode = state?.mode || searchParams.get('mode');
+  const mode: SessionMode = rawMode === 'tutorial' || rawMode === 'shift' ? rawMode : 'free';
+  const rawGoal = Number(state?.goal ?? searchParams.get('goal') ?? 10);
+  const goal = Number.isInteger(rawGoal) && rawGoal >= 1 && rawGoal <= 30 ? rawGoal : 10;
   const airport = AIRPORTS.find(a => a.id === airportId) || AIRPORTS[0];
 
   const initialRunwayConfig: RunwayConfig = useMemo(() => {
@@ -87,7 +97,10 @@ function GamePageWrapper({
 
   return (
     <GamePage
+      key={`${airport.id}-${difficulty}-${mode}-${goal}`}
       airport={airport}
+      mode={mode}
+      goal={goal}
       initialRunwayConfig={initialRunwayConfig}
       difficulty={difficulty}
       highScore={highScore}

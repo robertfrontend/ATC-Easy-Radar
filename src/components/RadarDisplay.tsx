@@ -4,6 +4,8 @@ import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
 import { scopeColor } from '../theme/radarTheme';
 import { TrackRole, trackRole } from '../theme/trackRole';
+import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
+import { inspectIlsReadiness } from '../utils/approach';
 
 interface RadarDisplayProps {
   airport: Airport;
@@ -14,6 +16,7 @@ interface RadarDisplayProps {
   onCommand?: (id: string, updates: Partial<Plane>) => void;
   layers?: RadarLayers;
   gameSpeed?: GameSpeed;
+  ilsWidth?: number;
 }
 
 const DEFAULT_LAYERS: RadarLayers = {
@@ -63,13 +66,18 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   onSelect,
   onCommand,
   layers = DEFAULT_LAYERS,
-  gameSpeed = 1 as GameSpeed
+  gameSpeed = 1 as GameSpeed,
+  ilsWidth = 0.4,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
   const [vb, setVb] = useState(INIT_VB);
+  const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
+  const predictionContextRef = useRef<{
+    planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; at: number;
+  } | null>(null);
 
   const panRef = useRef<{ clientX: number; clientY: number; vbX: number; vbY: number } | null>(null);
   const hasDraggedRef = useRef(false);
@@ -254,9 +262,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const handleMouseUp = (e: React.MouseEvent) => {
     const target = e.target instanceof Element ? e.target : null;
     const clickedAircraft = !!target?.closest('[data-aircraft]');
+    const clickedAction = !!target?.closest('[data-radar-action]');
     // A click on a track selects it. It must not also be treated as a heading vector,
     // which would deselect the aircraft before a typed clearance can be entered.
-    if (!hasDraggedRef.current && !clickedAircraft && selectedId && mousePos && onCommand) {
+    if (!hasDraggedRef.current && !clickedAircraft && !clickedAction && selectedId && mousePos && onCommand) {
       const plane = planes.find(p => p.id === selectedId);
       if (plane && !plane.isEstablished) {
         let headingToMouse = (Math.atan2(mousePos.y - plane.y, mousePos.x - plane.x) * 180 / Math.PI) + 90;
@@ -279,6 +288,52 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   };
 
   const selectedPlane = planes.find(p => p.id === selectedId);
+  const captureRunwayId = selectedPlane?.type === 'arrival'
+    ? inspectIlsReadiness(selectedPlane, airport, runwayConfig, ilsWidth).check?.runway.id
+    : undefined;
+
+  useEffect(() => {
+    if (!selectedPlane || !layers.showVectors) {
+      predictionContextRef.current = null;
+      setPrediction(null);
+      return;
+    }
+    const clearanceKey = [selectedPlane.targetWaypoint, selectedPlane.assignedRunwayId, selectedPlane.isEstablished,
+      selectedPlane.targetWaypoint || selectedPlane.isEstablished ? 'auto' : selectedPlane.targetHeading,
+      selectedPlane.targetAltitude, selectedPlane.targetSpeed, selectedPlane.goAround].join(':');
+    const previous = predictionContextRef.current;
+    const now = performance.now();
+    const sameContext = previous?.planeId === selectedPlane.id
+      && previous.airport === airport && previous.runwayConfig === runwayConfig
+      && previous.gameSpeed === gameSpeed && previous.ilsWidth === ilsWidth && previous.clearanceKey === clearanceKey;
+    // Replaying up to 2,400 ticks is only useful for the selected aircraft,
+    // and never needs to run at the live simulation's 20–80 Hz frequency.
+    if (sameContext && now - previous.at < 500) return;
+    predictionContextRef.current = { planeId: selectedPlane.id, airport, runwayConfig, gameSpeed, ilsWidth, clearanceKey, at: now };
+    setPrediction({ planeId: selectedPlane.id, result: predictFlightPath(selectedPlane, airport, runwayConfig, ilsWidth, gameSpeed) });
+  }, [selectedPlane, airport, runwayConfig, gameSpeed, ilsWidth, layers.showVectors]);
+
+  const activePrediction = prediction?.planeId === selectedId && layers.showVectors ? prediction.result : null;
+  const predictionEnd = activePrediction?.points.at(-1);
+
+  const transmitIlsFix = (runwayId: string, point: { x: number; y: number }) => {
+    if (!selectedPlane || !onCommand || selectedPlane.isEstablished || selectedPlane.type !== 'arrival') return;
+    const angle = (Math.atan2(point.y - selectedPlane.y, point.x - selectedPlane.x) * 180 / Math.PI) + 90;
+    onCommand(selectedPlane.id, {
+      targetHeading: Math.round((angle + 360) % 360),
+      targetWaypoint: null,
+      assignedRunwayId: runwayId,
+    });
+    audioManager.playRadio();
+    onSelect(null);
+  };
+
+  const transmitDirect = (waypointId: string) => {
+    if (!selectedPlane || !onCommand || selectedPlane.isEstablished) return;
+    onCommand(selectedPlane.id, { targetWaypoint: waypointId });
+    audioManager.playRadio();
+    onSelect(null);
+  };
 
   // Smooth zoom actions
   const zoomIn = () => {
@@ -331,7 +386,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   // Authentic live radio phraseology line at the bottom
   const liveVoiceReadback = useMemo(() => {
     if (!selectedPlane) {
-      return `STANDBY ON RADAR FREQUENCY 119.725 MHz · SECTOR ACTIVE · ALL TRACKS NORMAL`;
+      const alerts = planes.filter(plane => plane.conflict || plane.status === 'warning' || plane.status === 'crashed' || plane.status === 'bad_approach').length;
+      return `STANDBY ON RADAR FREQUENCY 119.725 MHz · SECTOR ACTIVE${alerts ? ` · ${alerts} TRACK ALERT${alerts === 1 ? '' : 'S'}` : ''}`;
     }
     const curAltHundreds = Math.round(selectedPlane.altitude / 100);
     const tgtAltHundreds = Math.round(selectedPlane.targetAltitude / 100);
@@ -341,7 +397,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     if (selectedPlane.isEstablished) {
       const estRwy = airport.runways.find(r => r.id === selectedPlane.establishedRunwayId);
       const dist = (Math.hypot(selectedPlane.x - airport.x, selectedPlane.y - airport.y) / UNITS_PER_NM).toFixed(1);
-      return `${selectedPlane.callsign} (${selectedPlane.model}), maintaining ${Math.round(selectedPlane.altitude)} feet till the glide, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.heading)}. On the loc, ${dist} miles.`;
+      return `${selectedPlane.callsign} (${selectedPlane.model}), established ILS ${estRwy?.label ?? ''}, automatic descent, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.heading)}. ${dist} NM from field.`;
     }
 
     if (selectedPlane.targetWaypoint) {
@@ -360,7 +416,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     }
 
     return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}.`;
-  }, [selectedPlane, airport]);
+  }, [selectedPlane, airport, planes]);
 
   return (
     <div className="relative isolate w-full h-full select-none bg-scope overflow-hidden">
@@ -460,6 +516,20 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             return (
               <g key={rwy.id}>
                 <g transform={`translate(${rwyX}, ${rwyY}) rotate(${rwy.heading})`}>
+                  {isLanding && layers.showExtendedCenterlines && captureRunwayId === rwy.id && (
+                    <polygon
+                      points={`${-20 * ilsWidth},20 ${20 * ilsWidth},20 ${520 * ilsWidth},520 ${-520 * ilsWidth},520`}
+                      fill={scopeColor.selected}
+                      fillOpacity="0.045"
+                      stroke={scopeColor.selected}
+                      strokeOpacity="0.5"
+                      strokeWidth="1"
+                      strokeDasharray="3,6"
+                      pointerEvents="none"
+                    >
+                      <title>Actual ILS capture cone for the current difficulty; heading and altitude must also match</title>
+                    </polygon>
+                  )}
                   {/* ILS Localizer Tick Ladder (Authentic British/European ATC Style) */}
                   {isLanding && layers.showExtendedCenterlines && (
                     <>
@@ -526,21 +596,25 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 {isLanding && (
                   <g
                     transform={`translate(${fafPoint.x}, ${fafPoint.y})`}
-                    style={{ cursor: 'pointer' }}
+                    data-radar-action="ils-fix"
+                    role="button"
+                    tabIndex={selectedPlane?.type === 'arrival' && !selectedPlane.isEstablished ? 0 : -1}
+                    aria-label={`Transmit heading toward ILS ${rwy.label} fix and assign runway; altitude and speed unchanged`}
+                    style={{ cursor: selectedPlane?.type === 'arrival' && !selectedPlane.isEstablished ? 'pointer' : 'default' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (selectedId && onCommand && selectedPlane) {
-                        const angle = (Math.atan2(fafPoint.y - selectedPlane.y, fafPoint.x - selectedPlane.x) * 180 / Math.PI) + 90;
-                        onCommand(selectedId, {
-                          targetHeading: Math.round((angle + 360) % 360),
-                          targetWaypoint: null,
-                          assignedRunwayId: rwy.id
-                        });
-                        audioManager.playRadio();
-                        onSelect(null);
+                      if (!hasDraggedRef.current) transmitIlsFix(rwy.id, fafPoint);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        transmitIlsFix(rwy.id, fafPoint);
                       }
                     }}
                   >
+                    <title>Transmit heading to ILS {rwy.label}; altitude and speed stay unchanged</title>
+                    <circle cx="0" cy="0" r="18" fill="transparent" />
                     <circle cx="0" cy="0" r="4.5" fill="none" stroke={scopeColor.fix} strokeWidth="1.4" />
                     <circle cx="0" cy="0" r="1.5" fill={scopeColor.fix} />
                     <text x="8" y="3" fill={scopeColor.fixLabel} fontSize="10" fontFamily="monospace" fontWeight="bold">
@@ -559,16 +633,24 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               <g
                 key={wp.id}
                 transform={`translate(${wp.x}, ${wp.y})`}
-                style={{ cursor: 'pointer' }}
+                data-radar-action="direct-fix"
+                role="button"
+                tabIndex={selectedPlane && !selectedPlane.isEstablished ? 0 : -1}
+                aria-label={`Transmit direct to ${wp.label}`}
+                style={{ cursor: selectedPlane && !selectedPlane.isEstablished ? 'pointer' : 'default' }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (selectedId && onCommand) {
-                    onCommand(selectedId, { targetWaypoint: wp.id });
-                    audioManager.playRadio();
-                    onSelect(null);
+                  if (!hasDraggedRef.current) transmitDirect(wp.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    transmitDirect(wp.id);
                   }
                 }}
               >
+                <title>Transmit direct to {wp.label}</title>
                 {/* Hit area */}
                 <circle cx="0" cy="0" r="24" fill="transparent" />
                 
@@ -650,19 +732,31 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           );
         })}
 
-        {/* Target Heading Line from Selected Aircraft */}
-        {selectedPlane && (
-          <line
-            x1={selectedPlane.x}
-            y1={selectedPlane.y}
-            x2={selectedPlane.x + 2000 * Math.sin(selectedPlane.targetHeading * Math.PI / 180)}
-            y2={selectedPlane.y - 2000 * Math.cos(selectedPlane.targetHeading * Math.PI / 180)}
-            stroke={scopeColor.selected}
-            opacity="0.45"
-            strokeWidth="1.2"
-            strokeDasharray="6,6"
-            style={{ pointerEvents: 'none' }}
-          />
+        {/* Forecast follows the actual turn, acceleration and navigation math. */}
+        {activePrediction && predictionEnd && activePrediction.points.length > 1 && (
+          <g style={{ pointerEvents: 'none' }} aria-label={`${PREDICTION_SECONDS}-second forecast using active clearance, not other traffic`}>
+            <polyline
+              points={activePrediction.points.map(point => `${point.x},${point.y}`).join(' ')}
+              fill="none"
+              stroke={scopeColor.selected}
+              opacity="0.8"
+              strokeWidth="1.8"
+              strokeDasharray="7,4"
+            />
+            <circle cx={predictionEnd.x} cy={predictionEnd.y} r="4" fill="none" stroke={scopeColor.selected} strokeWidth="1.5" />
+            <text
+              x={predictionEnd.x + 8}
+              y={predictionEnd.y + 14}
+              fill={scopeColor.selected}
+              stroke="#000000"
+              strokeWidth="3"
+              paintOrder="stroke"
+              fontSize="10"
+              fontFamily="monospace"
+            >
+              +{Math.round(predictionEnd.seconds)}s{activePrediction.ended ? ' END' : ` · ${Math.round(predictionEnd.altitude / 100) * 100} FT`}
+            </text>
+          </g>
         )}
 
         {/* Vectoring cursor for the selected track */}
@@ -705,7 +799,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const role = trackRole(plane, isSelected);
           const targetColor = scopeColor[role];
 
-          // Velocity Vector Projections (1 min = 60s)
+          // Existing short velocity vectors are heading cues, not the forecast.
           const isReal = gameSpeed === 'real';
           const vectorLen1Min = isReal
             ? ((plane.speed * UNITS_PER_NM) / 60)
@@ -735,9 +829,21 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             <g
               key={plane.id}
               data-aircraft={plane.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`Select ${plane.callsign}, ${plane.type}, ${Math.round(plane.altitude)} feet, heading ${Math.round(plane.heading)} degrees, ${Math.round(plane.speed)} knots${isConflict ? ', conflict alert' : ''}`}
+              aria-pressed={isSelected}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!hasDraggedRef.current) {
+                  onSelect(plane.id);
+                  audioManager.playSelect();
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
                   onSelect(plane.id);
                   audioManager.playSelect();
                 }
@@ -876,6 +982,15 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         })}
       </svg>
 
+      {selectedPlane && layers.showVectors && (
+        <div className="absolute top-3 left-3 z-20 max-w-[270px] rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
+          <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
+          Active clearance only · refreshes twice/sec.
+          <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
+          {captureRunwayId && layers.showExtendedCenterlines && <><br />Tinted cone: current ILS capture area.</>}
+        </div>
+      )}
+
       {/* Scope readback line */}
       <div className="absolute bottom-2 left-4 right-28 z-20 pointer-events-none select-none">
         <div className="text-xs font-mono font-bold text-phosphor truncate">
@@ -890,6 +1005,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           disabled={vb.w <= MIN_VB}
           className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom In (+)"
+          aria-label="Zoom radar in"
         >
           +
         </button>
@@ -897,6 +1013,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           onClick={resetView}
           className="px-2 py-0.5 text-[10px] font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
           title="Click to Reset View to Center (25 NM)"
+          aria-label="Reset radar view"
         >
           {Math.round(vb.w / UNITS_PER_NM)} NM
         </button>
@@ -905,6 +1022,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           disabled={vb.w >= MAX_VB}
           className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom Out (−)"
+          aria-label="Zoom radar out"
         >
           −
         </button>
