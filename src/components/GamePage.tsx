@@ -5,7 +5,9 @@ import {
   Layers, AlertOctagon, Terminal, CloudSun, Gauge, Settings,
   ChevronDown, Check, Compass, Radio, Wind
 } from 'lucide-react';
-import { useGameLoop } from '../hooks/useGameLoop';
+import { useGameLoop, SessionMode, SHIFT_DURATION_MS } from '../hooks/useGameLoop';
+import { DIFFICULTY_CONFIG } from '../utils/spawn';
+import { createTutorialScenario, isTutorialHeadingCleared, isTutorialDescentCleared, isTutorialSpeedCleared, isTutorialSeparationCleared, hasTutorialSeparation } from '../utils/tutorial';
 import { RadarDisplay } from './RadarDisplay';
 import { ControlPanel } from './ControlPanel';
 import { Airport, Difficulty, SavedGame, RadarLayers, RunwayConfig, GameSpeed } from '../types';
@@ -14,6 +16,8 @@ import { parseAtcCommand } from '../utils/commands';
 
 interface GamePageProps {
   airport: Airport;
+  mode?: SessionMode;
+  goal?: number;
   initialRunwayConfig?: RunwayConfig;
   activeRunwayIndex?: number;
   difficulty: Difficulty;
@@ -25,6 +29,8 @@ interface GamePageProps {
 
 export const GamePage: React.FC<GamePageProps> = ({
   airport,
+  mode = 'free' as SessionMode,
+  goal = 10,
   initialRunwayConfig,
   activeRunwayIndex,
   difficulty,
@@ -33,11 +39,16 @@ export const GamePage: React.FC<GamePageProps> = ({
   onSave,
   onScoreUpdate
 }) => {
+  const [tutorialPhase, setTutorialPhase] = useState<'arrival' | 'separation'>('arrival');
+  const [tutorialStep, setTutorialStep] = useState('select');
+  const separationSinceRef = useRef<number | null>(null);
+  const tutorialScenario = useMemo(() => createTutorialScenario(airport, tutorialPhase), [airport, tutorialPhase]);
   const [gameSpeed, setGameSpeed] = useState<GameSpeed>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saveFlash, setSaveFlash] = useState(false);
   const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>(() => {
+    if (mode === 'tutorial') return tutorialScenario.runwayConfig;
     if (initialRunwayConfig && Object.keys(initialRunwayConfig).length > 0) {
       return initialRunwayConfig;
     }
@@ -88,7 +99,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       const next: RunwayConfig = {};
       airport.runways.forEach((r, idx) => {
         if (preset === 'single') {
-          const isDefault = idx === activeRunwayIndex;
+          const isDefault = idx === (activeRunwayIndex ?? 0);
           next[r.id] = { landing: isDefault, departure: isDefault };
         } else if (preset === 'all-ils') {
           next[r.id] = { landing: true, departure: idx === 0 };
@@ -115,12 +126,38 @@ export const GamePage: React.FC<GamePageProps> = ({
     showExtendedCenterlines: true,
   });
 
-  const { planes, score, accidents, isPaused, togglePause, setPaused, updatePlaneTarget, restart } = useGameLoop(
-    airport,
-    runwayConfig,
-    difficulty,
-    gameSpeed
+  const tutorialFrozen = mode === 'tutorial' && !['capture', 'landed', 'separation'].includes(tutorialStep);
+  const { planes, score, accidents, session, events, elapsedMs, effectiveDifficulty, hasEnded, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
+    airport, runwayConfig, difficulty, gameSpeed,
+    { mode, goal, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen }
   );
+  const resetSession = () => {
+    setSelectedId(null);
+    setCommandInput('');
+    setCommandFeedback('');
+    setActiveMenu(null);
+    separationSinceRef.current = null;
+    transmitGuardRef.current = { text: '', at: 0 };
+    if (mode === 'tutorial') {
+      const scenario = createTutorialScenario(airport, 'arrival');
+      setTutorialPhase('arrival');
+      setTutorialStep('select');
+      setRunwayConfig(scenario.runwayConfig);
+      restart(scenario.planes);
+    } else restart();
+  };
+  const startSeparationLesson = () => {
+    const scenario = createTutorialScenario(airport, 'separation');
+    setTutorialPhase('separation');
+    setTutorialStep('separation-select');
+    setRunwayConfig(scenario.runwayConfig);
+    setSelectedId(null);
+    setCommandInput('');
+    setCommandFeedback('');
+    separationSinceRef.current = null;
+    transmitGuardRef.current = { text: '', at: 0 };
+    restart(scenario.planes);
+  };
 
   // Real-time UTC / Zulu Clock
   useEffect(() => {
@@ -147,15 +184,6 @@ export const GamePage: React.FC<GamePageProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Auto-pause game when opening any menu, and resume when closing
-  useEffect(() => {
-    if (activeMenu !== null) {
-      setPaused(true);
-    } else {
-      setPaused(false);
-    }
-  }, [activeMenu, setPaused]);
-
   const toggleSubmenu = (menu: 'runways' | 'settings') => {
     setActiveMenu(prev => prev === menu ? null : menu);
   };
@@ -165,6 +193,24 @@ export const GamePage: React.FC<GamePageProps> = ({
   }, [score, onScoreUpdate]);
 
   const selectedPlane = planes.find(p => p.id === selectedId) || null;
+  const tutorialPlane = planes.find(p => p.id === tutorialScenario.primaryPlaneId);
+  useEffect(() => {
+    if (mode !== 'tutorial' || hasEnded) return;
+    if (tutorialStep === 'select' && selectedId === tutorialScenario.primaryPlaneId) setTutorialStep('heading');
+    else if (tutorialStep === 'heading' && isTutorialHeadingCleared(tutorialPlane, tutorialScenario)) setTutorialStep('descent');
+    else if (tutorialStep === 'descent' && isTutorialDescentCleared(tutorialPlane, tutorialScenario)) setTutorialStep('speed');
+    else if (tutorialStep === 'speed' && isTutorialSpeedCleared(tutorialPlane, tutorialScenario)) setTutorialStep('capture');
+    else if (tutorialStep === 'capture' && tutorialPlane?.isEstablished) setTutorialStep('landed');
+    else if (['capture', 'landed'].includes(tutorialStep) && score >= 1) setTutorialStep('briefing');
+    else if (tutorialStep === 'separation-select' && selectedId === tutorialScenario.primaryPlaneId) setTutorialStep('separation-clearance');
+    else if (tutorialStep === 'separation-clearance' && isTutorialSeparationCleared(planes, tutorialScenario)) setTutorialStep('separation');
+    else if (tutorialStep === 'separation') {
+      if (hasTutorialSeparation(planes, tutorialScenario)) {
+        if (separationSinceRef.current === null) separationSinceRef.current = elapsedMs;
+        if (elapsedMs - separationSinceRef.current >= 3000) setTutorialStep('complete');
+      } else separationSinceRef.current = null;
+    }
+  }, [mode, tutorialStep, tutorialPlane, tutorialScenario, selectedId, score, planes, elapsedMs, hasEnded]);
 
   // Check if any aircraft is currently in STCA conflict alert
   const hasActiveConflict = useMemo(() => {
@@ -179,6 +225,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   }, [planes, selectedId]);
 
   const [commandInput, setCommandInput] = useState('');
+  const [commandFeedback, setCommandFeedback] = useState('');
   const selectionRef = useRef({ id: null as string | null, plane: null as typeof selectedPlane });
   selectionRef.current = { id: selectedId, plane: selectedPlane };
   const airportRef = useRef(airport);
@@ -190,6 +237,8 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Keep the console focused when a track is selected.
   useEffect(() => {
+    setCommandInput('');
+    setCommandFeedback('');
     if (selectedId) {
       const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(timer);
@@ -211,12 +260,17 @@ export const GamePage: React.FC<GamePageProps> = ({
       plane,
     });
     if (updates) {
+      setCommandFeedback(`${plane.callsign}: clearance transmitted.`);
       updatePlaneTarget(id, updates);
       try {
         audioManager.playRadio();
       } catch {
         // A sound failure must not discard the clearance or leave the text behind.
       }
+    }
+    else {
+      setCommandFeedback('Command not recognized. Try H270, D3000, S180 or DEP.');
+      return;
     }
     // Commit the empty value before focusing, so removing the ENTER button
     // cannot leave the caret on document.body. The field stays focused.
@@ -238,6 +292,8 @@ export const GamePage: React.FC<GamePageProps> = ({
       airportId: airport.id,
       planesActive: planes.length,
       gameSpeed,
+      mode,
+      ...(mode === 'shift' ? { points: session.points, goal } : {}),
     });
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 1500);
@@ -287,14 +343,32 @@ export const GamePage: React.FC<GamePageProps> = ({
     ? airport.waypoints.find(w => w.id === selectedPlane.exitWaypointId) || null
     : null;
 
-  const primaryRunway = airport.runways[activeRunwayIndex] || airport.runways[0];
+  const primaryRunway = airport.runways[activeRunwayIndex ?? 0] || airport.runways[0];
+  const tutorialHeading = tutorialScenario.targets.heading.toString().padStart(3, '0');
+  const tutorialCallsign = tutorialScenario.planes.find(p => p.id === tutorialScenario.primaryPlaneId)?.callsign ?? 'TRAIN1';
+  const tutorialMessages: Record<string, [string, string]> = {
+    select: ['1 / SELECT ONE AIRCRAFT', `Click ${tutorialCallsign} on the radar. Time is stopped, so you can explore without pressure.`],
+    heading: ['2 / TURN ONTO FINAL', `Send H${tutorialHeading} in the console, or choose Runway Heading and TRANSMIT CLEARANCE. A slider change alone is only a draft.`],
+    descent: ['3 / DESCEND', 'Send D3000, or choose 3k and transmit. ILS capture requires actual altitude at or below 10,000 ft, not just a clearance.'],
+    speed: ['4 / SLOW DOWN', 'Send S180, or choose 180kt and transmit. Then watch the turn and descent. The dotted forecast follows your active clearance.'],
+    capture: ['5 / WATCH ILS CAPTURE', 'The simulation is running. The aircraft must reach the cone, turn within 50° of the runway and descend below 10,000 ft. Select it to see the capture checklist.'],
+    landed: ['6 / FIRST LANDING', 'ILS captured! Automatic guidance handles the final descent and landing. Watch the operation counter.'],
+    briefing: ['FIRST ARRIVAL COMPLETE', 'Next: two converging aircraft. You will create vertical spacing before they meet.'],
+    'separation-select': ['7 / SELECT THE CROSSING TRAFFIC', `Click ${tutorialCallsign}. Both aircraft are at 4,000 ft. We have stopped time so you can plan.`],
+    'separation-clearance': ['8 / CREATE VERTICAL SPACING', 'Send C5000 to the selected aircraft (or choose 5k and transmit). Its partner stays at 4,000 ft.'],
+    separation: ['9 / WATCH THE CLIMB', 'A cleared altitude is not the same as separation. Wait until the aircraft is actually 1,000 ft above its partner and holds that spacing.'],
+    complete: ['TRAINING COMPLETE', 'You guided an arrival and created safe spacing. Choose a five-minute shift to put both skills together.'],
+  };
+  const tutorialCopy = tutorialMessages[tutorialStep];
+  const remainingSeconds = Math.max(0, Math.ceil((SHIFT_DURATION_MS - elapsedMs) / 1000));
+  const debriefEvent = [...events].reverse().find(event => event.kind === 'accident') ?? [...events].reverse().find(event => event.kind === 'warning' || event.kind === 'missed');
 
   return (
-    <div className="flex h-screen bg-scope text-ink font-mono overflow-hidden select-none">
+    <div className="flex h-screen min-h-[540px] bg-scope text-ink font-mono overflow-hidden select-none">
       {/* Main Radar Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 min-w-0 flex flex-col relative">
         {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}
-        <header ref={headerRef} className="h-10 bg-header border-b border-line px-4 flex justify-between items-center z-30 select-none text-xs">
+        <header ref={headerRef} className="min-h-10 bg-header border-b border-line px-4 py-2 flex flex-wrap gap-x-4 gap-y-2 justify-between items-center z-30 select-none text-xs">
           {/* Left: Clean Station Identifier */}
           <div className="flex items-center gap-3">
             <span className="font-bold text-ink-bright tracking-widest text-sm">{airport.icao} APP</span>
@@ -317,7 +391,7 @@ export const GamePage: React.FC<GamePageProps> = ({
           <div className="flex items-center gap-4 text-xs font-mono">
             <span className="text-ink-bright font-bold tracking-wider">{utcTime || '00:00:00Z'}</span>
             <span className="text-ink-faint">·</span>
-            <span className="text-phosphor font-semibold">LANDED: {score}</span>
+            <span className="text-phosphor font-semibold">OPS: {score}</span>
             <span className="text-ink-faint">·</span>
             <span className={accidents > 0 ? 'text-conflict font-bold animate-pulse' : 'text-ink-faint'}>
               ACCD: {accidents}
@@ -337,6 +411,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             {/* 1. RUNWAYS BUTTON & DROPDOWN */}
             <div className="relative">
               <button
+                disabled={mode === 'tutorial'}
                 onClick={() => toggleSubmenu('runways')}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
                   activeMenu === 'runways'
@@ -571,7 +646,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                       <span>{saveFlash ? 'Saved!' : 'Save'}</span>
                     </button>
                     <button
-                      onClick={() => { restart(); setSelectedId(null); setActiveMenu(null); }}
+                      onClick={resetSession}
                       className="flex-1 py-1.5 rounded bg-inset hover:bg-panel-raised border border-line text-alert font-bold text-[11px] flex items-center justify-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
@@ -591,11 +666,29 @@ export const GamePage: React.FC<GamePageProps> = ({
           </div>
         </header>
 
+        <div className="bg-panel border-b border-line px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-3">
+            <strong className="text-phosphor">{mode === 'tutorial' ? 'GUIDED TRAINING' : mode === 'shift' ? 'FIVE-MINUTE SHIFT' : 'FREE PLAY'}</strong>
+            {mode === 'shift' && <><span>{score}/{goal} safe operations</span><span>{Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')} left</span><span>{session.points} pts · streak {session.streak}</span><span>Traffic: {effectiveDifficulty.toUpperCase()}</span></>}
+          </div>
+          <button onClick={togglePause} disabled={hasEnded || tutorialFrozen} className="border border-line-strong px-3 py-1 rounded text-ink-bright disabled:opacity-40">{isPaused ? 'Resume' : 'Pause'}</button>
+        </div>
+        {mode === 'tutorial' && tutorialCopy && (
+          <section aria-label="Tutorial instruction" className="bg-inset border-b border-phosphor px-4 py-3 text-xs space-y-2">
+            <strong className="text-phosphor block">{tutorialCopy[0]}</strong>
+            <p className="text-ink leading-relaxed max-w-3xl">{tutorialCopy[1]}</p>
+            {tutorialStep === 'briefing' && <button onClick={startSeparationLesson} className="rounded bg-phosphor text-scope px-3 py-2 font-bold">START SEPARATION LESSON</button>}
+            {tutorialStep === 'complete' && <button onClick={onExit} className="rounded bg-phosphor text-scope px-3 py-2 font-bold">CHOOSE A SHIFT</button>}
+            <button onClick={resetSession} className="text-ink-dim underline mr-4">Restart training</button>
+            <button onClick={onExit} className="text-ink-dim underline">Back to sessions</button>
+          </section>
+        )}
+
         {/* STCA Conflict Warning Bar (Flashing alert banner) */}
         {hasActiveConflict && (
           <div className="bg-conflict-banner border-b border-conflict text-conflict px-4 py-1.5 text-xs font-bold flex items-center justify-center gap-2 animate-pulse z-20">
             <AlertOctagon className="w-4 h-4 text-conflict" />
-            <span>CA ALARM: LOSS OF SEPARATION (LESS THAN 3 NM / 1000 FT) DETECTED</span>
+            <span>CA ALARM: LOSS OF SEPARATION (LESS THAN 55 RADAR UNITS / 1000 FT) DETECTED</span>
           </div>
         )}
 
@@ -610,6 +703,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             onCommand={updatePlaneTarget}
             layers={layers}
             gameSpeed={gameSpeed}
+            ilsWidth={DIFFICULTY_CONFIG[effectiveDifficulty].ilsWidth}
           />
 
           {/* Authentic ATC Command Console */}
@@ -655,16 +749,34 @@ export const GamePage: React.FC<GamePageProps> = ({
 
                 {/* Micro Syntax Cheat-Sheet */}
                 <div className="mt-1 pt-1 border-t border-line flex items-center justify-between text-[10px] text-ink-faint font-mono">
-                  <span>DEP (direct exit) · ILS 33L · D3000 · H270 · S210</span>
+                  <span>DEP (exit) · ILS {primaryRunway.label} · D3000 · H{primaryRunway.heading.toString().padStart(3, '0')} · S180</span>
                   <span>[TAB] Auto-Complete</span>
                 </div>
+                {commandFeedback && <p role="status" className="text-[11px] text-phosphor mt-1">{commandFeedback}</p>}
               </div>
             </form>
           </div>
         </div>
 
+        {hasEnded && (
+          <div role="dialog" aria-modal="true" aria-labelledby="debrief-title" className="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center z-50 p-6">
+            <section className="bg-panel border border-line-strong rounded-xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
+              <p className="text-xs text-phosphor tracking-widest">SESSION DEBRIEF</p>
+              <h2 id="debrief-title" className="text-2xl font-bold text-ink-bright">{session.status === 'failed' ? 'Let’s learn from this one' : session.status === 'completed' ? 'Objective complete' : 'Shift complete'}</h2>
+              <p className="text-sm text-ink">{score}/{goal} safe operations · {session.points} points · best streak {session.bestStreak}</p>
+              <p className="text-xs text-ink-dim">{session.warningEpisodes} separation-alert episodes · {session.missedExits} missed operations · {accidents} accident{accidents === 1 ? '' : 's'}</p>
+              {debriefEvent ? <div className="bg-inset border border-line rounded p-3 text-sm space-y-2"><p className="text-alert">{debriefEvent.message}</p><p>{debriefEvent.advice}</p></div> : <p className="text-sm">{score >= goal ? 'Safe sequencing paid off. Try another airport or a higher traffic ceiling.' : 'Build a sequence early: descend arrivals toward the ILS and clear departures to their exit fix.'}</p>}
+              <div className="max-h-40 overflow-y-auto space-y-1 text-xs text-ink-dim" aria-label="Recent flight events">
+                {events.slice(-5).map(event => <p key={event.id}>{Math.floor(event.at / 1000)}s · {event.message}</p>)}
+              </div>
+              <p className="text-[11px] text-ink-faint">Scoring: +100 per operation plus clean-streak bonus; −25 per alert episode; −50 for a missed operation. An accident ends the shift.</p>
+              <div className="flex flex-wrap gap-3"><button onClick={handleSaveGame} disabled={saveFlash} className="rounded border border-line-strong px-4 py-2">{saveFlash ? 'SAVED' : 'SAVE RESULT'}</button><button autoFocus onClick={resetSession} className="rounded bg-phosphor text-scope px-4 py-2 font-bold">TRY AGAIN</button><button onClick={onExit} className="rounded border border-line-strong px-4 py-2">CHOOSE SESSION</button></div>
+            </section>
+          </div>
+        )}
+
         {/* Paused Overlay (shown when paused and no dropdown menu is open) */}
-        {isPaused && !activeMenu && (
+        {isPaused && !activeMenu && !hasEnded && (
           <div className="absolute inset-0 bg-scrim backdrop-blur-sm flex flex-col items-center justify-center z-50">
             <div className="text-5xl font-bold text-ink-bright tracking-[0.3em] mb-6">
               SIMULATION PAUSED
@@ -680,13 +792,14 @@ export const GamePage: React.FC<GamePageProps> = ({
       </div>
 
       {/* Side ATC Flight Strip Pedestal */}
-      <div className="w-96 bg-panel border-l border-line p-5 flex flex-col z-20">
+      <div className="w-80 xl:w-96 shrink-0 bg-panel border-l border-line p-5 flex flex-col z-20">
         <ControlPanel
           airport={airport}
           runwayConfig={runwayConfig}
           plane={selectedPlane}
           onCommand={updatePlaneTarget}
           onDeselect={() => setSelectedId(null)}
+          ilsWidth={DIFFICULTY_CONFIG[effectiveDifficulty].ilsWidth}
         />
       </div>
     </div>

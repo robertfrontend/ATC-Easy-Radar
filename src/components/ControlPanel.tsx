@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plane, Airport, RunwayConfig } from '../types';
 import { Compass, ArrowUpToLine, Gauge, Radio, Send, XCircle, Navigation, AlertTriangle, PlaneLanding } from 'lucide-react';
 import { audioManager } from '../utils/audio';
+import { inspectIlsReadiness } from '../utils/approach';
 
 interface ControlPanelProps {
   airport: Airport;
@@ -9,22 +10,27 @@ interface ControlPanelProps {
   plane: Plane | null;
   onCommand: (id: string, updates: Partial<Plane>) => void;
   onDeselect: () => void;
+  ilsWidth?: number;
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfig, plane, onCommand, onDeselect }) => {
+export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfig, plane, onCommand, onDeselect, ilsWidth = 0.4 }) => {
   const [heading, setHeading] = useState(0);
   const [altitude, setAltitude] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [selectedWp, setSelectedWp] = useState<string | null>(null);
   const [assignedRunwayId, setAssignedRunwayId] = useState<string | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+  const draftRef = useRef(false);
+  const draftPlaneRef = useRef<string | null>(null);
+
+  const markDraft = () => {
+    draftRef.current = true;
+    setHasDraft(true);
+  };
 
   // Active landing and departure runways
   const activeLandingRunways = useMemo(() => {
     return airport.runways.filter(r => runwayConfig[r.id]?.landing);
-  }, [airport.runways, runwayConfig]);
-
-  const activeDepartureRunways = useMemo(() => {
-    return airport.runways.filter(r => runwayConfig[r.id]?.departure);
   }, [airport.runways, runwayConfig]);
 
   const establishedRunway = useMemo(() => {
@@ -38,7 +44,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
   }, [airport.waypoints, plane?.exitWaypointId]);
 
   useEffect(() => {
-    if (plane) {
+    const newSelection = draftPlaneRef.current !== (plane?.id ?? null);
+    if (newSelection) {
+      draftPlaneRef.current = plane?.id ?? null;
+      draftRef.current = false;
+      setHasDraft(false);
+    }
+    // Direct-to guidance changes the live target heading each tick. Do not let
+    // those changes overwrite an altitude, speed or runway being drafted.
+    if (plane && !draftRef.current) {
       setHeading(Math.round(plane.targetHeading));
       setAltitude(plane.targetAltitude);
       setSpeed(plane.targetSpeed);
@@ -47,12 +61,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
     }
   }, [plane?.id, plane?.targetHeading, plane?.targetAltitude, plane?.targetSpeed, plane?.targetWaypoint, plane?.assignedRunwayId]);
 
+  const approach = plane ? inspectIlsReadiness(plane, airport, runwayConfig, ilsWidth) : null;
+  const plannedRunway = activeLandingRunways.find(rwy => rwy.id === assignedRunwayId) ?? activeLandingRunways[0];
+
   // Generate realistic ATC clearance phraseology in real-time
   const radioPhraseology = useMemo(() => {
     if (!plane) return '';
     const parts: string[] = [];
 
-    if (assignedRunwayId) {
+    if (assignedRunwayId && plane.type === 'arrival') {
       const rwy = airport.runways.find(r => r.id === assignedRunwayId);
       if (rwy) parts.push(`cleared ILS runway ${rwy.label} approach`);
     }
@@ -111,15 +128,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
       assignedRunwayId: assignedRunwayId
     });
     audioManager.playRadio();
+    draftRef.current = false;
+    setHasDraft(false);
     onDeselect();
   };
 
   const handleQuickHeadingDelta = (delta: number) => {
+    markDraft();
     setHeading(prev => (prev + delta + 360) % 360);
     setSelectedWp(null);
   };
 
   const handleVectorToRunwayIls = (rwy: (typeof airport.runways)[0]) => {
+    markDraft();
     const rwyX = airport.x + (rwy.offsetX || 0);
     const rwyY = airport.y + (rwy.offsetY || 0);
     const rad = (rwy.heading * Math.PI) / 180;
@@ -158,6 +179,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             onClick={onDeselect}
             className="text-ink-faint hover:text-ink-bright p-1 transition-colors"
             title="Deselect aircraft (Esc)"
+            aria-label={`Deselect ${plane.callsign}`}
           >
             <XCircle className="w-5 h-5" />
           </button>
@@ -188,10 +210,28 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
              'VECTORING ACTIVE'}
           </span>
         </div>
+        <div className="mt-3 text-[10px] leading-relaxed text-ink-dim">
+          <span className="font-bold text-ink">ACTIVE CLEARANCE</span>
+          <div>
+            {plane.isEstablished ? `ILS ${establishedRunway?.label || ''} · automatic guidance` : (
+              <>
+                {plane.targetWaypoint
+                  ? `DIRECT ${airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || plane.targetWaypoint}`
+                  : `HDG ${Math.round(plane.targetHeading).toString().padStart(3, '0')}°`}
+                {' · '}{Math.round(plane.targetAltitude).toLocaleString()} FT · {Math.round(plane.targetSpeed)} KT
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Main Controls Pedestal */}
       <div className="space-y-4 flex-1">
+        {!plane.isEstablished && (
+          <div role="status" className={`rounded border px-3 py-2 text-[11px] leading-relaxed ${hasDraft ? 'border-alert text-alert bg-alert-soft' : 'border-line text-ink-dim bg-inset'}`}>
+            {hasDraft ? 'DRAFT · Not transmitted. Review below, then Transmit Clearance.' : 'Controls prepare a clearance. Aircraft follow the active clearance until you transmit.'}
+          </div>
+        )}
         {/* Departure exit: climb on runway heading until the controller clears direct. */}
         {plane.type === 'departure' && exitWaypoint && (
           <div className="bg-inset border border-line rounded p-3.5 space-y-2">
@@ -209,13 +249,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedWp(exitWaypoint.id);
+                  draftRef.current = false;
+                  setHasDraft(false);
                   onCommand(plane.id, { targetWaypoint: exitWaypoint.id });
                   audioManager.playRadio();
                 }}
                 className="w-full py-2 rounded border border-line-strong bg-panel-raised hover:bg-ink-bright hover:text-scope text-ink-bright font-bold text-xs tracking-widest transition-colors"
               >
-                DIRECT {exitWaypoint.label}
+                TRANSMIT DIRECT {exitWaypoint.label}
               </button>
             )}
           </div>
@@ -226,11 +267,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
           <div className="bg-inset border border-line rounded p-3.5 space-y-2">
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
-                <PlaneLanding className="w-4 h-4 text-phosphor" /> Cleared ILS Approach
+                <PlaneLanding className="w-4 h-4 text-phosphor" /> Plan ILS Approach
               </label>
               {assignedRunwayId && (
                 <button
-                  onClick={() => setAssignedRunwayId(null)}
+                  onClick={() => { markDraft(); setAssignedRunwayId(null); }}
+                  disabled={plane.isEstablished}
                   className="text-[10px] text-ink-faint hover:text-ink underline"
                 >
                   Any Active ILS
@@ -244,25 +286,59 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                   key={rwy.id}
                   onClick={() => handleVectorToRunwayIls(rwy)}
                   disabled={plane.isEstablished}
+                  aria-label={`Plan ILS runway ${rwy.label}: heading toward the approach fix, 3,000 feet, 180 knots`}
+                  aria-pressed={assignedRunwayId === rwy.id}
                   className={`py-1.5 px-2 rounded border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     assignedRunwayId === rwy.id
                       ? 'bg-ink-bright border-ink-bright text-scope'
                       : 'bg-panel-raised border-line text-ink hover:border-line-strong hover:text-ink-bright'
                   }`}
                 >
-                  <span>ILS RWY {rwy.label}</span>
+                  <span>PLAN ILS {rwy.label}</span>
                   <span className="text-[10px] opacity-60">({rwy.heading}°)</span>
                 </button>
               ))}
             </div>
+            {!plane.isEstablished && (
+              <p className="text-[10px] leading-relaxed text-ink-dim">
+                Stages 3,000 FT / 180 KT toward the outer fix. Transmit, then align with the runway heading inside its approach cone. This does not auto-intercept final.
+              </p>
+            )}
+          </div>
+        )}
+
+        {plane.type === 'arrival' && approach && (
+          <div className="bg-inset border border-line rounded p-3.5 space-y-2 text-[11px]">
+            <div className="font-bold uppercase tracking-wider text-phosphor">
+              ILS capture check{approach.check ? ` · RWY ${approach.check.runway.label}` : ''}
+            </div>
+            <p className="text-ink-dim leading-relaxed">{approach.message}</p>
+            {approach.check && (
+              <ul className="space-y-1.5" aria-label="Current ILS capture conditions">
+                <li className={approach.check.inCone ? 'text-phosphor' : 'text-alert'}>
+                  {approach.check.inCone ? '✓' : '○'} Position: {approach.check.inCone
+                    ? 'inside the capture cone'
+                    : !approach.check.inRange
+                      ? 'join final ahead of the runway (about 0.9–23.2 NM)'
+                      : 'move closer to the extended centerline'}
+                </li>
+                <li className={approach.check.altitudeReady ? 'text-phosphor' : 'text-alert'}>
+                  {approach.check.altitudeReady ? '✓' : '○'} Altitude ≤10,000 FT · now {Math.round(plane.altitude).toLocaleString()} FT
+                </li>
+                <li className={approach.check.headingReady ? 'text-phosphor' : 'text-alert'}>
+                  {approach.check.headingReady ? '✓' : '○'} Heading less than 50° off {approach.check.runway.heading.toString().padStart(3, '0')}° · now {approach.check.headingDifference.toFixed(1)}° off
+                </li>
+              </ul>
+            )}
+            <p className="text-[10px] text-ink-faint">Checks actual position, altitude, heading and transmitted runway, not unsent plans. Speed is not an ILS capture requirement.</p>
           </div>
         )}
 
         {/* Heading Section */}
         <div className="bg-inset border border-line rounded p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
-              <Compass className="w-4 h-4 text-phosphor" /> Magnetic Heading
+            <label htmlFor="clearance-heading" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
+              <Compass className="w-4 h-4 text-phosphor" /> Planned Heading
             </label>
             <span className="text-lg font-bold text-ink-bright bg-panel px-2 py-0.5 rounded border border-line">
               {heading.toString().padStart(3, '0')}°
@@ -271,10 +347,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
           <input
             type="range"
+            id="clearance-heading"
+            aria-valuetext={`${heading} degrees`}
             min="0"
             max="359"
             value={heading}
             onChange={(e) => {
+              markDraft();
               setHeading(parseInt(e.target.value, 10));
               setSelectedWp(null);
             }}
@@ -314,17 +393,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             </button>
           </div>
           
-          {activeLandingRunways.length > 0 && (
+          {plannedRunway && (
             <button
               onClick={() => {
-                const rwy = activeLandingRunways[0] || airport.runways[0];
-                setHeading(rwy.heading);
+                markDraft();
+                setHeading(plannedRunway.heading);
                 setSelectedWp(null);
               }}
               disabled={plane.isEstablished}
               className="w-full py-1 text-[11px] font-bold bg-panel hover:bg-panel-raised border border-line rounded text-ink transition-colors disabled:opacity-30 flex items-center justify-center gap-1"
             >
-              <Navigation className="w-3 h-3" /> Runway Heading ({activeLandingRunways[0]?.heading.toString().padStart(3, '0')}°)
+              <Navigation className="w-3 h-3" /> Plan RWY {plannedRunway.label} Heading ({plannedRunway.heading.toString().padStart(3, '0')}°)
             </button>
           )}
         </div>
@@ -332,8 +411,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         {/* Altitude Section */}
         <div className="bg-inset border border-line rounded p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
-              <ArrowUpToLine className="w-4 h-4 text-phosphor" /> Assigned Altitude
+            <label htmlFor="clearance-altitude" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
+              <ArrowUpToLine className="w-4 h-4 text-phosphor" /> Planned Altitude
             </label>
             <span className="text-lg font-bold text-ink-bright bg-panel px-2 py-0.5 rounded border border-line">
               {altitude >= 10000 ? `FL${Math.round(altitude / 100).toString().padStart(3, '0')}` : `${altitude} FT`}
@@ -342,11 +421,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
           <input
             type="range"
+            id="clearance-altitude"
+            aria-valuetext={`${altitude} feet`}
             min="1000"
             max="30000"
             step="1000"
             value={altitude}
-            onChange={(e) => setAltitude(parseInt(e.target.value, 10))}
+            onChange={(e) => { markDraft(); setAltitude(parseInt(e.target.value, 10)); }}
             disabled={plane.isEstablished}
             className="w-full h-2 bg-panel rounded-lg appearance-none cursor-pointer disabled:opacity-40"
           />
@@ -356,7 +437,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             {[2000, 3000, 4000, 5000].map(alt => (
               <button
                 key={alt}
-                onClick={() => setAltitude(alt)}
+                onClick={() => { markDraft(); setAltitude(alt); }}
+                aria-pressed={altitude === alt}
+                aria-label={`Plan altitude ${alt} feet`}
                 disabled={plane.isEstablished}
                 className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
                   altitude === alt ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
@@ -370,7 +453,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             {[8000, 10000, 15000].map(alt => (
               <button
                 key={alt}
-                onClick={() => setAltitude(alt)}
+                onClick={() => { markDraft(); setAltitude(alt); }}
+                aria-pressed={altitude === alt}
+                aria-label={`Plan altitude ${alt} feet`}
                 disabled={plane.isEstablished}
                 className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
                   altitude === alt ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
@@ -385,8 +470,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         {/* Speed Section */}
         <div className="bg-inset border border-line rounded p-3.5 space-y-2.5">
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
-              <Gauge className="w-4 h-4 text-phosphor" /> Target Speed
+            <label htmlFor="clearance-speed" className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-phosphor">
+              <Gauge className="w-4 h-4 text-phosphor" /> Planned Speed
             </label>
             <span className="text-lg font-bold text-ink-bright bg-panel px-2 py-0.5 rounded border border-line">
               {speed} KTS
@@ -395,11 +480,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
           <input
             type="range"
+            id="clearance-speed"
+            aria-valuetext={`${speed} knots`}
             min="140"
             max="350"
             step="10"
             value={speed}
-            onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
+            onChange={(e) => { markDraft(); setSpeed(parseInt(e.target.value, 10)); }}
             disabled={plane.isEstablished}
             className="w-full h-2 bg-panel rounded-lg appearance-none cursor-pointer disabled:opacity-40"
           />
@@ -409,7 +496,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             {[160, 180, 210, 250].map(spd => (
               <button
                 key={spd}
-                onClick={() => setSpeed(spd)}
+                onClick={() => { markDraft(); setSpeed(spd); }}
+                aria-pressed={speed === spd}
+                aria-label={`Plan speed ${spd} knots`}
                 disabled={plane.isEstablished}
                 className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
                   speed === spd ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
@@ -424,10 +513,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         {/* Direct-To Waypoint Routing Chips */}
         <div className="bg-inset border border-line rounded p-3.5 space-y-2">
           <div className="text-xs font-bold uppercase tracking-wider text-phosphor flex items-center justify-between">
-            <span>Direct to Fix (Waypoint)</span>
+            <span>Plan Direct to Fix</span>
             {selectedWp && (
               <button
-                onClick={() => setSelectedWp(null)}
+                onClick={() => { markDraft(); setSelectedWp(null); }}
+                disabled={plane.isEstablished}
                 className="text-[10px] text-ink-faint hover:text-ink underline"
               >
                 Clear Fix
@@ -438,7 +528,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             {airport.waypoints.map(wp => (
               <button
                 key={wp.id}
-                onClick={() => setSelectedWp(wp.id)}
+                onClick={() => { markDraft(); setSelectedWp(wp.id); }}
+                aria-pressed={selectedWp === wp.id}
+                aria-label={`Plan direct to ${wp.label}`}
                 disabled={plane.isEstablished}
                 className={`py-1.5 px-2 text-xs font-bold rounded border text-center transition-colors disabled:opacity-30 ${
                   selectedWp === wp.id
@@ -455,7 +547,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         {/* Radio Phraseology Readback Box */}
         <div className="bg-panel-raised border border-line rounded p-3 text-[11px] space-y-1">
           <div className="text-[10px] text-ink-dim font-bold uppercase tracking-widest flex items-center gap-1">
-            <Radio className="w-3 h-3 text-phosphor" /> Live Clearance Readback
+            <Radio className="w-3 h-3 text-phosphor" /> Clearance Preview · Not Transmitted
           </div>
           <p className="text-phosphor italic font-mono leading-snug">
             "{radioPhraseology}"

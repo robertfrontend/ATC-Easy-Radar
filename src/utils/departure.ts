@@ -32,7 +32,7 @@ export function isRunwaySafeForDeparture(state: DepartureSeparationState): boole
   const isReal = gameSpeed === 'real';
   const numSpeed = typeof gameSpeed === 'number' ? gameSpeed : 1;
 
-  const lastRwyDep = state.lastDepartureByRunway[runway.id] || 0;
+  const lastRwyDep = state.lastDepartureByRunway[runway.id] ?? -Infinity;
   const minRwyInterval = isReal ? 45000 : (20000 / numSpeed);
   if (now - lastRwyDep < minRwyInterval) return false;
 

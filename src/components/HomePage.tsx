@@ -3,18 +3,20 @@ import { Plane, Radio, Clock, AlertTriangle, Trophy, Trash2, MapPin, CheckCircle
 import { Difficulty, SavedGame, Airport, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
 import { scopeColor } from '../theme/radarTheme';
+import { SessionMode } from '../hooks/useGameLoop';
+import { CHALLENGES, Challenge } from '../config/challenges';
 
 interface HomePageProps {
   savedGames: SavedGame[];
-  onNewGame: (difficulty: Difficulty, airportId: string, runwayConfig: RunwayConfig) => void;
+  onNewGame: (difficulty: Difficulty, airportId: string, runwayConfig: RunwayConfig, mode?: SessionMode, goal?: number) => void;
   onDeleteGame: (id: string) => void;
   highScore: number;
 }
 
 const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; desc: string }> = {
-  easy:   { label: 'EASY',   desc: 'Light Traffic Flow · 40s Spawn Rate' },
-  medium: { label: 'MEDIUM', desc: 'Standard Terminal Load · 25s Spawn Rate' },
-  hard:   { label: 'HARD',   desc: 'Peak Rush Hour Flow · 14s Spawn Rate' },
+  easy:   { label: 'EASY',   desc: 'Light traffic · forgiving approach cone' },
+  medium: { label: 'MEDIUM', desc: 'Build up to a busy terminal' },
+  hard:   { label: 'HARD',   desc: 'Build up to peak traffic · narrow ILS' },
 };
 
 function formatDuration(ts: number) {
@@ -28,6 +30,8 @@ function formatDuration(ts: number) {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDeleteGame, highScore }) => {
+  const [selectedGoal, setSelectedGoal] = useState(10);
+  const [selectedMode, setSelectedMode] = useState<SessionMode>('shift');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('easy');
   const [selectedAirportId, setSelectedAirportId] = useState<string>(AIRPORTS[0].id);
   const [utcTime, setUtcTime] = useState('');
@@ -110,6 +114,13 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
     return () => clearInterval(interval);
   }, []);
 
+  const chooseChallenge = (challenge: Challenge) => {
+    setSelectedAirportId(challenge.airportId);
+    setSelectedDifficulty(challenge.difficulty);
+    setSelectedGoal(challenge.goal);
+    setSelectedMode('shift');
+  };
+
   const handleStartGame = () => {
     // Ensure at least one landing and departure runway is active
     let validConfig: RunwayConfig = { ...runwayConfig };
@@ -118,7 +129,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
       const firstRwyId = selectedAirport.runways[0].id;
       validConfig[firstRwyId] = { ...(validConfig[firstRwyId] || {}), landing: true, departure: true };
     }
-    onNewGame(selectedDifficulty, selectedAirportId, validConfig);
+    onNewGame(selectedMode === 'tutorial' ? 'easy' : selectedDifficulty, selectedAirportId, validConfig, selectedMode, selectedGoal);
   };
 
   return (
@@ -141,13 +152,26 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               <>
                 <span className="text-ink-faint">·</span>
                 <span className="text-ink-bright font-bold flex items-center gap-1">
-                  <Trophy className="w-3.5 h-3.5 text-phosphor" /> HIGH SCORE: {highScore.toString().padStart(4, '0')}
+                  <Trophy className="w-3.5 h-3.5 text-phosphor" /> BEST OPS: {highScore.toString().padStart(4, '0')}
                 </span>
               </>
             )}
           </div>
         </header>
       </div>
+
+      <section aria-label="Choose your session" className="w-full max-w-6xl mb-6 grid gap-3 md:grid-cols-3">
+        {([
+          ['tutorial', '01 / LEARN THE RADAR', 'Guide one arrival, then practice separating two aircraft. No traffic rush while learning.'],
+          ['shift', '02 / FIVE-MINUTE SHIFT', `Complete ${selectedGoal} safe operations. Earn clean-streak bonuses as traffic builds to your chosen level.`],
+          ['free', '03 / FREE PLAY', 'Open-ended practice with your own airport, runways and traffic settings.'],
+        ] as const).map(([mode, title, description]) => (
+          <button key={mode} aria-pressed={selectedMode === mode} onClick={() => setSelectedMode(mode)} className={`p-4 rounded-lg border text-left ${selectedMode === mode ? 'border-phosphor bg-panel-raised' : 'border-line bg-panel hover:border-line-strong'}`}>
+            <span className="block text-sm font-bold text-phosphor">{title}</span>
+            <span className="block text-xs text-ink-dim mt-2 leading-relaxed">{description}</span>
+          </button>
+        ))}
+      </section>
 
       {/* Main Grid: Sector Configuration (Left) & Radar Preview (Right) */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -316,7 +340,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               onClick={handleStartGame}
               className="w-full py-4 bg-ink-bright hover:bg-phosphor active:scale-[0.99] text-scope font-bold tracking-widest rounded-lg transition-colors text-base flex items-center justify-center gap-2.5 group"
             >
-              <span>INITIALIZE RADAR SCOPE</span>
+              <span>{selectedMode === 'tutorial' ? 'START GUIDED TUTORIAL' : selectedMode === 'shift' ? 'START FIVE-MINUTE SHIFT' : 'START FREE PLAY'}</span>
               <Play className="w-4 h-4 fill-current group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
@@ -324,6 +348,17 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
 
         {/* Right Column — Live Radar Sector Preview & Log (Col 5) */}
         <div className="lg:col-span-5 space-y-5">
+          <section aria-label="Airport challenges" className="bg-panel border border-line rounded-lg p-5 space-y-3">
+            <h2 className="text-sm font-bold text-phosphor">AIRPORT CHALLENGES</h2>
+            <p className="text-xs text-ink-dim">Choose a goal, then adjust your runway setup below. Every shift starts with light traffic.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {CHALLENGES.map(challenge => <button key={challenge.id} onClick={() => chooseChallenge(challenge)} aria-pressed={selectedMode === 'shift' && selectedAirportId === challenge.airportId && selectedGoal === challenge.goal && selectedDifficulty === challenge.difficulty} className="text-left border border-line rounded p-3 hover:border-phosphor bg-inset">
+                <strong className="block text-xs text-ink-bright">{challenge.title}</strong>
+                <span className="block mt-1 text-[11px] text-ink-dim">{challenge.goal} operations · {challenge.difficulty}</span>
+              </button>)}
+            </div>
+            <p className="text-xs text-phosphor">Current goal: {selectedGoal} safe operations in 5 minutes.</p>
+          </section>
           {/* Authentic Mini Radar Preview Card */}
           <div className="bg-panel border border-line rounded-lg p-5 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-line text-xs">
@@ -489,7 +524,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                           <div className="font-bold text-ink-bright flex items-center gap-2">
                             <span>{gameAirport?.icao || 'SECT'}</span>
                             <span className="text-ink-faint text-[10px]">·</span>
-                            <span className="text-phosphor font-bold">{game.score} LANDED</span>
+                            <span className="text-phosphor font-bold">{game.score} OPS{game.points !== undefined ? ` · ${game.points} PTS` : ''}</span>
                             {game.accidents > 0 && <span className="text-conflict font-bold">· {game.accidents} ACCD</span>}
                           </div>
                           <div className="text-[10px] text-ink-faint">{formatDuration(game.savedAt)}</div>

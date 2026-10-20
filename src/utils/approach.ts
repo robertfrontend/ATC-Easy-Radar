@@ -1,5 +1,102 @@
-import { Airport, Plane, RunwayConfig } from '../types';
+import { Airport, Plane, Runway, RunwayConfig } from '../types';
 import { departureLeftSector } from './departure';
+
+export interface IlsRunwayCheck {
+  runway: Runway;
+  alongTrack: number;
+  crossTrack: number;
+  headingDifference: number;
+  inRange: boolean;
+  inCone: boolean;
+  altitudeReady: boolean;
+  headingReady: boolean;
+  ready: boolean;
+}
+
+/** Shared by the simulation and the UI so capture feedback cannot use looser rules. */
+export function checkIlsRunway(
+  plane: Plane,
+  airport: Airport,
+  runway: Runway,
+  ilsWidth: number,
+): IlsRunwayCheck {
+  const dx = plane.x - (airport.x + (runway.offsetX || 0));
+  const dy = plane.y - (airport.y + (runway.offsetY || 0));
+  const rad = -runway.heading * Math.PI / 180;
+  const crossTrack = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const alongTrack = dx * Math.sin(rad) + dy * Math.cos(rad);
+  const relHeading = (plane.heading - runway.heading + 360) % 360;
+  const inRange = alongTrack > 20 && alongTrack < 520;
+  const inCone = inRange && Math.abs(crossTrack) <= alongTrack * ilsWidth;
+  const altitudeReady = plane.altitude <= 10000;
+  const headingReady = relHeading > 310 || relHeading < 50;
+  return {
+    runway,
+    alongTrack,
+    crossTrack,
+    headingDifference: Math.min(relHeading, 360 - relHeading),
+    inRange,
+    inCone,
+    altitudeReady,
+    headingReady,
+    ready: inCone && altitudeReady && headingReady,
+  };
+}
+
+function captureRunways(plane: Plane, airport: Airport, runwayConfig: RunwayConfig) {
+  return airport.runways.filter(r => {
+    if (plane.assignedRunwayId) return r.id === plane.assignedRunwayId && runwayConfig[r.id]?.landing;
+    return runwayConfig[r.id]?.landing;
+  });
+}
+
+export interface IlsReadiness {
+  status: 'established' | 'unavailable' | 'ready' | 'blocked';
+  message: string;
+  check?: IlsRunwayCheck;
+}
+
+/**
+ * Current-state explanation, not a clearance or a promise of future capture.
+ * For an unassigned arrival, show the closest-to-ready active approach.
+ */
+export function inspectIlsReadiness(
+  plane: Plane,
+  airport: Airport,
+  runwayConfig: RunwayConfig,
+  ilsWidth: number,
+): IlsReadiness {
+  if (plane.status === 'crashed') return { status: 'unavailable', message: 'Track lost. ILS capture is unavailable.' };
+  if (plane.isEstablished) {
+    const label = airport.runways.find(r => r.id === plane.establishedRunwayId)?.label;
+    return { status: 'established', message: `Established${label ? ` on ILS ${label}` : ''}. Automatic heading, descent and speed guidance is active.` };
+  }
+  if (plane.type !== 'arrival') return { status: 'unavailable', message: 'ILS capture is for arrivals only.' };
+  if (plane.goAround) return { status: 'unavailable', message: 'Go-around active. Transmit a new clearance when ready to rejoin an approach.' };
+
+  const candidates = captureRunways(plane, airport, runwayConfig);
+  if (candidates.length === 0) {
+    return {
+      status: 'unavailable',
+      message: plane.assignedRunwayId
+        ? 'Assigned runway is not active for landing. Select an active ILS and transmit, or change runway use.'
+        : 'No landing runway is active. Enable landing in runway settings.',
+    };
+  }
+  const checks = candidates.map(rwy => checkIlsRunway(plane, airport, rwy, ilsWidth));
+  // Keep the same runway order as capture when multiple runways are ready.
+  const ready = checks.find(check => check.ready);
+  const check = ready ?? checks.sort((a, b) => {
+    const failed = (c: IlsRunwayCheck) => Number(!c.inCone) + Number(!c.altitudeReady) + Number(!c.headingReady);
+    return failed(a) - failed(b)
+      || Math.hypot(a.crossTrack, a.alongTrack - 450) - Math.hypot(b.crossTrack, b.alongTrack - 450);
+  })[0];
+  return {
+    status: check.ready ? 'ready' : 'blocked',
+    message: check.ready ? 'Capture conditions met. ILS will engage on the next running tick.' : 'Not captured yet. Meet each condition below.',
+    check,
+  };
+}
 
 export interface IlsCapture {
   isEstablished: boolean;
@@ -22,25 +119,10 @@ export function evaluateIlsCapture(
   let justCaptured = false;
 
   if (!isEstablished && !plane.goAround && plane.status !== 'crashed' && plane.type === 'arrival') {
-    const candidateRunways = airport.runways.filter(r => {
-      if (plane.assignedRunwayId) return r.id === plane.assignedRunwayId && runwayConfig[r.id]?.landing;
-      return runwayConfig[r.id]?.landing;
-    });
+    const candidateRunways = captureRunways(plane, airport, runwayConfig);
 
     for (const rwy of candidateRunways) {
-      const rwyX = airport.x + (rwy.offsetX || 0);
-      const rwyY = airport.y + (rwy.offsetY || 0);
-      const dx = plane.x - rwyX;
-      const dy = plane.y - rwyY;
-      const rad = -rwy.heading * Math.PI / 180;
-      const rotatedX = dx * Math.cos(rad) - dy * Math.sin(rad);
-      const rotatedY = dx * Math.sin(rad) + dy * Math.cos(rad);
-
-      const inILSCone = rotatedY > 20 && rotatedY < 520 && Math.abs(rotatedX) <= rotatedY * ilsWidth;
-      const relHeading = (plane.heading - rwy.heading + 360) % 360;
-      const isHeadingAligned = relHeading > 310 || relHeading < 50;
-
-      if (inILSCone && plane.altitude <= 10000 && isHeadingAligned) {
+      if (checkIlsRunway(plane, airport, rwy, ilsWidth).ready) {
         isEstablished = true;
         establishedRunwayId = rwy.id;
         justCaptured = true;
