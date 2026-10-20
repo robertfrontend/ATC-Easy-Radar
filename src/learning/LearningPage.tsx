@@ -62,12 +62,14 @@ export function LearningPage() {
       <span>{demonstrated}/3 ejercicios demostrados</span></header>
     <div className="learning-layout">
       <aside className="learning-sidebar">
+        <div className="learning-sidebar-content">
         <button className="learning-menu" aria-expanded={menuOpen} aria-controls="learning-nav" onClick={() => setMenuOpen(value => !value)}>Menú Learning</button>
         <nav id="learning-nav" aria-label="Secciones de Learning" className={menuOpen ? 'is-open' : ''}>
           {sections.map((section, index) => <Link key={section} to={`/learning/${pages[index]}`}
             aria-current={index === sectionIndex ? 'page' : undefined}>{section}</Link>)}
         </nav>
         <p>Consulta libre. Las prácticas 2 y 3 requieren demostrar las anteriores.</p>
+        </div>
       </aside>
       <main id="learning-content" className="learning-content">
         <p className="learning-context">Learning{lesson ? ` / Módulo ${moduleIndex + 1} de 8` : ''}</p>

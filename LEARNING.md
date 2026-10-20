@@ -39,3 +39,9 @@ Foundation validation: progress tests and TypeScript; no runtime UI exists in th
   wrong-aircraft selection validation, and IDENT position reporting (FAA 5-3-6).
 - Runtime path is entirely browser → versioned localStorage → evidence UI. No API,
   credentials, database or external service is required for Learning.
+
+Sidebar scroll regression: links and their prerequisite note share one sticky container.
+The container scrolls internally on short desktop viewports and returns to normal flow
+on mobile. Browser QA should open practice, scroll through the lesson and verify that
+the note stays below all seven links. jsdom cannot validate geometric overlap; the Mac
+was locked during this follow-up, so visual confirmation requires the cloud browser.
