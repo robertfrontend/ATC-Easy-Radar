@@ -139,6 +139,70 @@ afterEach(() => {
 });
 
 describe('guided training with the live simulation', () => {
+  it('deselects after a valid typed clearance while preserving its execution and receipt', () => {
+    mount();
+    click('Select TRN101');
+    sendCommand('TRN101 H000');
+    expect(track('tutorial-arrival').targetHeading).toBe(0);
+    expect(container.querySelector('[data-plane-id="tutorial-arrival"]')?.getAttribute('aria-pressed')).toBe('false');
+    expect(text()).toContain('No selected aircraft');
+    expect(consoleInput().value).toBe('');
+    expect(consoleInput().disabled).toBe(true);
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('TRN101: clearance transmitted.');
+    expect(document.activeElement).toBe(container.querySelector('[aria-label="Radar aircraft selection"]'));
+  });
+
+  it('consumes one selection once and ignores held Enter after another aircraft is selected', () => {
+    vi.spyOn(spawn, 'isSpawnDue').mockReturnValue(true);
+    vi.spyOn(spawn, 'spawnAircraft').mockImplementation(request => ({
+      plane: request.planes.length < 2 ? makePlane({
+        id: `test-${request.planes.length}`, callsign: `TST${request.planes.length + 1}00`,
+        x: 250 + request.planes.length * 500, heading: 270, targetHeading: 270,
+      }) : null,
+      lastDepartureAt: request.lastDepartureAt,
+    }));
+    mount('free');
+    advance(100);
+    click('Pause');
+    click('Select TST100');
+    typeCommand('H090');
+    act(() => {
+      consoleInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(track('test-0').targetHeading).toBe(90);
+    expect(track('test-1').targetHeading).toBe(270);
+    expect(audioManager.playRadio).toHaveBeenCalledTimes(1);
+
+    // There is no automatic addressing from an unselected console.
+    sendCommand('TST200 H180');
+    expect(track('test-1').targetHeading).toBe(270);
+    click('Select TST200');
+    typeCommand('H180');
+    act(() => consoleInput().dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', repeat: true, bubbles: true, cancelable: true,
+    })));
+    expect(track('test-1').targetHeading).toBe(270);
+    expect(consoleInput().value).toBe('H180');
+    advance(16);
+    expect(document.activeElement).toBe(consoleInput());
+    sendCommand('H180');
+    expect(track('test-1').targetHeading).toBe(180);
+    expect(consoleInput().disabled).toBe(true);
+    expect(audioManager.playRadio).toHaveBeenCalledTimes(2);
+  });
+
+  it('still clears selection and text if radio audio fails after accepting the clearance', () => {
+    mount();
+    click('Select TRN101');
+    vi.mocked(audioManager.playRadio).mockImplementationOnce(() => { throw new Error('audio unavailable'); });
+    sendCommand('H000', 'submit');
+    expect(track('tutorial-arrival').targetHeading).toBe(0);
+    expect(consoleInput().disabled).toBe(true);
+    expect(consoleInput().value).toBe('');
+    expect(text()).toContain('TRN101: clearance transmitted.');
+  });
+
   it('teaches selection, heading, descent, speed, capture, landing, and actual separation', () => {
     const spawning = vi.spyOn(spawn, 'spawnAircraft');
     mount();
@@ -154,15 +218,18 @@ describe('guided training with the live simulation', () => {
     expect(consoleInput().disabled).toBe(false);
     sendCommand('H090');
     expect(text()).toContain('2 / TURN ONTO FINAL');
+    click('Select TRN101');
     sendCommand('H000');
     expect(text()).toContain('3 / DESCEND');
+    click('Select TRN101');
     sendCommand('D3000', 'submit');
     expect(text()).toContain('4 / SLOW DOWN');
     expect(track('tutorial-arrival').altitude).toBe(11000);
+    click('Select TRN101');
     sendCommand('S180');
     expect(text()).toContain('5 / WATCH ILS CAPTURE');
     expect(consoleInput().value).toBe('');
-    expect(document.activeElement).toBe(consoleInput());
+    expect(document.activeElement).toBe(container.querySelector('[aria-label="Radar aircraft selection"]'));
 
     advanceUntil(() => text().includes('6 / FIRST LANDING'), 20000);
     expect(track('tutorial-arrival').isEstablished).toBe(true);
@@ -213,6 +280,7 @@ describe('guided training with the live simulation', () => {
     sendCommand('BANANAS');
     expect(container.querySelector('[role="status"]')?.textContent).toContain('Command not recognized');
     expect(consoleInput().value).toBe('BANANAS');
+    expect(container.querySelector('[data-plane-id="tutorial-arrival"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(track('tutorial-arrival')).toEqual(original);
     expect(text()).toContain('2 / TURN ONTO FINAL');
     expect(audioManager.playRadio).not.toHaveBeenCalled();

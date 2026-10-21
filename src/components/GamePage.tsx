@@ -46,6 +46,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const [gameSpeed, setGameSpeed] = useState<GameSpeed>(1);
   const [isMuted, setIsMuted] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const radarRef = useRef<HTMLDivElement>(null);
   const [saveFlash, setSaveFlash] = useState(false);
   const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>(() => {
     if (mode === 'tutorial') return tutorialScenario.runwayConfig;
@@ -238,8 +239,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   // Keep the console focused when a track is selected.
   useEffect(() => {
     setCommandInput('');
-    setCommandFeedback('');
     if (selectedId) {
+      setCommandFeedback('');
       const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
       return () => window.clearTimeout(timer);
     }
@@ -272,16 +273,18 @@ export const GamePage: React.FC<GamePageProps> = ({
       setCommandFeedback('Command not recognized. Try H270, D3000, S180 or DEP.');
       return;
     }
-    // Commit the empty value before focusing, so removing the ENTER button
-    // cannot leave the caret on document.body. The field stays focused.
-    const focusField = () => {
-      const field = inputRef.current;
-      if (!field || field.disabled) return;
-      field.focus({ preventScroll: true });
+    // Consume this selection synchronously, including duplicate submit events.
+    // The disabled console hands keyboard focus back to aircraft selection.
+    selectionRef.current = { id: null, plane: null };
+    const focusRadar = () => {
+      if (!selectionRef.current.id) radarRef.current?.focus({ preventScroll: true });
     };
-    flushSync(() => setCommandInput(''));
-    focusField();
-    requestAnimationFrame(focusField);
+    flushSync(() => {
+      setCommandInput('');
+      setSelectedId(null);
+    });
+    focusRadar();
+    requestAnimationFrame(focusRadar);
   };
 
   const handleSaveGame = () => {
@@ -311,6 +314,7 @@ export const GamePage: React.FC<GamePageProps> = ({
     // nothing is applied and the text stays.
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (e.repeat) return;
       transmitCommand(e.currentTarget.value);
       return;
     }
@@ -349,8 +353,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   const tutorialMessages: Record<string, [string, string]> = {
     select: ['1 / SELECT ONE AIRCRAFT', `Click ${tutorialCallsign} on the radar. Time is stopped, so you can explore without pressure.`],
     heading: ['2 / TURN ONTO FINAL', `Send H${tutorialHeading} in the console, or choose Runway Heading and TRANSMIT CLEARANCE. A slider change alone is only a draft.`],
-    descent: ['3 / DESCEND', 'Send D3000, or choose 3k and transmit. ILS capture requires actual altitude at or below 10,000 ft, not just a clearance.'],
-    speed: ['4 / SLOW DOWN', 'Send S180, or choose 180kt and transmit. Then watch the turn and descent. The dotted forecast follows your active clearance.'],
+    descent: ['3 / DESCEND', `Select ${tutorialCallsign} again after a console transmission. Send D3000, or choose 3k and transmit. ILS capture requires actual altitude at or below 10,000 ft, not just a clearance.`],
+    speed: ['4 / SLOW DOWN', `Select ${tutorialCallsign} again after a console transmission. Send S180, or choose 180kt and transmit. Then watch the turn and descent. The dotted forecast follows your active clearance.`],
     capture: ['5 / WATCH ILS CAPTURE', 'The simulation is running. The aircraft must reach the cone, turn within 50° of the runway and descend below 10,000 ft. Select it to see the capture checklist.'],
     landed: ['6 / FIRST LANDING', 'ILS captured! Automatic guidance handles the final descent and landing. Watch the operation counter.'],
     briefing: ['FIRST ARRIVAL COMPLETE', 'Next: two converging aircraft. You will create vertical spacing before they meet.'],
@@ -693,7 +697,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         )}
 
         {/* Main Radar Scope Container */}
-        <div className="flex-1 w-full relative bg-scope overflow-hidden">
+        <div ref={radarRef} role="region" aria-label="Radar aircraft selection" tabIndex={-1} className="flex-1 w-full relative bg-scope overflow-hidden">
           <RadarDisplay
             airport={airport}
             runwayConfig={runwayConfig}
