@@ -29,7 +29,7 @@ function mount(path = '/challenges') {
 }
 function click(label: string) {
   const element = [...container.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>('button,a')]
-    .find(item => item.textContent?.trim() === label);
+    .find(item => item.getAttribute('aria-label') === label || item.textContent?.trim() === label);
   expect(element, label).toBeDefined(); act(() => element!.click());
 }
 const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
@@ -45,7 +45,7 @@ afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimer
 
 describe('airport → intensity level → full turn → persistent unlock', () => {
   it('offers 20 levels for every airport while retaining independent Home/free/Learning links', () => {
-    mount('/'); click('Elegir aeropuerto y nivel');
+    mount('/'); click('Retos');
     for (const item of AIRPORTS) {
       const select = container.querySelector('select')!;
       act(() => { select.value = item.id; select.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -57,7 +57,7 @@ describe('airport → intensity level → full turn → persistent unlock', () =
     }
     expect([...container.querySelectorAll('a')].map(link => link.getAttribute('href'))).toContain('/learning');
     click('Home / modo libre');
-    expect(container.textContent).toContain('FREE PLAY');
+    expect(container.textContent).toContain('Jugar libre');
   });
 
   it('does not unlock on abandon, failure, direct locked URL or unattended timeout', () => {

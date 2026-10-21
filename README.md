@@ -4,6 +4,10 @@ ATC Easy Radar is a React and TypeScript air-traffic-control game. Manage arriva
 
 ## Choose a session
 
+Home offers three destinations: **Jugar libre**, **Retos** and **Learning**, with a separate first-time tutorial link. Choose Jugar libre before configuring airport, runways/ILS and difficulty. Open-ended play is the default; an optional five-minute shift has its own operation goal and does not unlock Retos levels. The launch button stays visible while scrolling preparation.
+
+Cancel, browser Back and returning from a game retain preparation settings for the current app session; reloading the page resets this draft. Learning and Retos keep their existing independent progress storage and URLs. Previous Sessions remains available as a collapsible log, not a saved-game resume action.
+
 - **Guided tutorial:** one arrival teaches selection, heading, descent, speed and ILS capture. Time is stopped while you enter each instruction. After landing, a two-aircraft exercise teaches actual vertical separation, not just cleared altitude. Restart training at any time.
 - **Five-minute shift:** complete the selected number of safe operations before five minutes of active running time expire. Menus, pause and tutorial instructions do not consume that time. The default goal is 10; airport challenges range from 6 to 12.
 - **Free play:** open-ended practice with your chosen airport, runway setup, difficulty and speed. Existing game links without a mode remain free play.
