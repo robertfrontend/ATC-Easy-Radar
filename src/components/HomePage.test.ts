@@ -91,6 +91,7 @@ it('shows an accessible static airport preview after the destinations and tutori
   expect(preview?.getAttribute('aria-labelledby')).toBe(preview?.querySelector('title')?.id);
   expect(preview?.getAttribute('aria-describedby')).toBe(preview?.querySelector('desc')?.id);
   expect(preview?.getAttribute('viewBox')).toBe('0 0 1000 1000');
+  expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('width')).toBe('1000');
   expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
   for (const waypoint of AIRPORTS[0].waypoints) {
     expect(preview?.textContent).toContain(waypoint.label);
