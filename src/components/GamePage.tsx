@@ -130,7 +130,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   // Radar scope layer toggles
   const [layers, setLayers] = useState<RadarLayers>({
-    showRangeRings: true,
+    showRangeRings: false,
     showFixes: true,
     showVectors: true,
     showTrails: true,

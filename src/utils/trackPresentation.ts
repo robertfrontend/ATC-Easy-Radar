@@ -43,3 +43,20 @@ export function nearestTrack<T extends Point>(tracks: T[], point: Point, radius:
   }
   return nearest;
 }
+
+/** Keep a short screen-space heading glyph visible without moving the track or rotating its bearing. */
+export function headingArrowOffset(point: Point, heading: number, view: View, inverseScale: number) {
+  const angle = heading * Math.PI / 180;
+  const vertices = [[0, -6], [0, -20], [-2.5, -16], [2.5, -16]];
+  const xs = vertices.map(([x, y]) => x * Math.cos(angle) - y * Math.sin(angle));
+  const ys = vertices.map(([x, y]) => x * Math.sin(angle) + y * Math.cos(angle));
+  if (point.x < view.x || point.x > view.x + view.w || point.y < view.y || point.y > view.y + view.h) return { x: 0, y: 0 };
+  const left = (view.x - point.x) / inverseScale + 0.5;
+  const right = (view.x + view.w - point.x) / inverseScale - 0.5;
+  const top = (view.y - point.y) / inverseScale + 0.5;
+  const bottom = (view.y + view.h - point.y) / inverseScale - 0.5;
+  return {
+    x: Math.max(left - Math.min(...xs), Math.min(right - Math.max(...xs), 0)),
+    y: Math.max(top - Math.min(...ys), Math.min(bottom - Math.max(...ys), 0)),
+  };
+}
