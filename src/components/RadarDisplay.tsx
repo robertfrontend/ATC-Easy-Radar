@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo, useId } from 'react';
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
@@ -70,6 +70,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   ilsWidth = 0.4,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
+  const gridId = useId();
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
@@ -458,8 +459,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {/* The rectangular viewport, not a range ring, defines the visible map. */}
-        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="none" pointerEvents="all" />
+        <defs>
+          <pattern id={gridId} width={5 * UNITS_PER_NM} height={5 * UNITS_PER_NM} patternUnits="userSpaceOnUse">
+            <path d={`M ${5 * UNITS_PER_NM} 0 H 0 V ${5 * UNITS_PER_NM}`} fill="none"
+              stroke={scopeColor.map} strokeOpacity="0.28" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          </pattern>
+        </defs>
+        {/* World-unit reference grid makes the full panel visible without inventing map geometry. */}
+        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill={`url(#${gridId})`} pointerEvents="all" />
 
         {/* Range circles are guides only; map geometry remains visible in corners. */}
         <g>

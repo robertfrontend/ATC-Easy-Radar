@@ -278,3 +278,30 @@ it('limits the shortest camera span and resets to the airport center without cha
   expect(y + h / 2).toBe(airport.y);
   expect(w / h).toBe(2);
 });
+
+it('covers the full rectangular viewBox with a quiet world-unit reference grid that follows pan and zoom', () => {
+  radar(makePlane());
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  coords.resize(860, 400);
+  const pattern = svg.querySelector('pattern');
+  expect(pattern).not.toBeNull();
+  expect(pattern?.getAttribute('patternUnits')).toBe('userSpaceOnUse');
+  expect(pattern?.getAttribute('width')).toBe('112');
+  expect(pattern?.getAttribute('height')).toBe('112');
+  expect(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeLessThan(0.4);
+  const grid = svg.querySelector('rect[pointer-events="all"]')!;
+  const assertCoverage = () => {
+    expect(['x', 'y', 'width', 'height'].map(attribute => Number(grid.getAttribute(attribute))))
+      .toEqual(svg.getAttribute('viewBox')!.split(' ').map(Number));
+    expect(grid.getAttribute('fill')).toBe(`url(#${pattern?.id})`);
+  };
+  assertCoverage();
+  clickText('+');
+  act(() => svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 200, clientY: 150 })));
+  act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 240, clientY: 170 })));
+  act(() => svg.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+  assertCoverage();
+  expect(pattern?.getAttribute('width')).toBe('112');
+  expect(svg.querySelector('circle[r="560"]')).toBeNull();
+});
