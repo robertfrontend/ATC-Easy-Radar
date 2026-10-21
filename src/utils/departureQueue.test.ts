@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { AIRPORTS } from '../config/airports';
 import { Plane, RunwayConfig } from '../types';
 import { parseAtcCommand } from './commands';
-import { DEPARTURE_SECTOR_RADIUS, departureLeftSector, isRunwaySafeForDeparture } from './departure';
+import { departureLeftSector, isRunwaySafeForDeparture } from './departure';
 import { applyClearance, resolveNavigation } from './navigation';
+import { DEPARTURE_SECTOR_HALF_EXTENT, DISTANT_WORLD_HALF_EXTENT, squareExtent } from './radarBounds';
 
 const airport = AIRPORTS.find(a => a.id === 'london-lhr');
 if (!airport) throw new Error('Heathrow fixture missing');
@@ -279,7 +280,7 @@ function simulate(options: {
         const distToRwy = Math.hypot(moved.x - rwyX, moved.y - rwyY);
         if (distToRwy < 30 && (moved.isEstablished || moved.altitude <= 2000)) continue;
       }
-      if (Math.hypot(moved.x - airport!.x, moved.y - airport!.y) >= 2500) continue;
+      if (squareExtent(moved, airport!) >= DISTANT_WORLD_HALF_EXTENT) continue;
       next.push(moved);
     }
     planes = next;
@@ -354,7 +355,7 @@ describe('departure queue', () => {
 
   it('frees the slot once an uncleared departure leaves the scope', () => {
     const outside = sectorTrack({
-      x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
+      x: airport.x + DEPARTURE_SECTOR_HALF_EXTENT + 40,
       altitude: 8000,
       speed: 240,
     });
@@ -363,7 +364,7 @@ describe('departure queue', () => {
 
   it('does not drop a departure cleared direct on the way to the exit', () => {
     const clearedOutside = sectorTrack({
-      x: airport.x + DEPARTURE_SECTOR_RADIUS + 40,
+      x: airport.x + DEPARTURE_SECTOR_HALF_EXTENT + 40,
       heading: 90,
       targetHeading: 90,
       altitude: 8000,
