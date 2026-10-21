@@ -3,6 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from '../App';
+import { AIRPORTS } from '../config/airports';
 
 vi.mock('./GamePage', () => ({ GamePage: ({ mode, onExit }) => createElement('button', { onClick: onExit }, `Exit ${mode}`) }));
 let root: Root;
@@ -79,4 +80,39 @@ it('defaults to free play and supports preparation through browser history', () 
   expect(container.textContent).toContain('START FREE PLAY');
   click('START FREE PLAY');
   expect(container.textContent).toContain('Exit free');
+});
+
+
+it('shows an accessible static airport preview after the destinations and tutorial, without launching a game', () => {
+  const preview = container.querySelector('svg[role="img"]');
+  expect(preview).not.toBeNull();
+  expect(preview?.querySelector('title')?.textContent).toBe(`${AIRPORTS[0].icao} radar sector preview`);
+  expect(preview?.querySelector('desc')?.textContent).toContain('Static airport layout');
+  expect(preview?.getAttribute('aria-labelledby')).toBe(preview?.querySelector('title')?.id);
+  expect(preview?.getAttribute('aria-describedby')).toBe(preview?.querySelector('desc')?.id);
+  expect(preview?.getAttribute('viewBox')).toBe('0 0 1000 1000');
+  expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
+  for (const waypoint of AIRPORTS[0].waypoints) {
+    expect(preview?.textContent).toContain(waypoint.label);
+  }
+  const tutorial = [...container.querySelectorAll('button')].find(el => el.textContent?.includes('¿Primera vez?'))!;
+  expect(tutorial.compareDocumentPosition(preview!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.textContent).toContain('Static sector preview');
+  expect(container.textContent).not.toContain('Live Sector');
+  expect(container.textContent).not.toContain('Exit free');
+  expect(container.querySelector('input')).toBeNull();
+});
+
+it('reuses the selected airport preview in preparation and after cancelling without changing the setup', () => {
+  click('Jugar libre');
+  act(() => button('KBOS').click());
+  const title = () => container.querySelector('svg[role="img"] title')?.textContent;
+  expect(title()).toBe('KBOS radar sector preview');
+  expect(container.querySelectorAll('svg[role="img"]').length).toBe(1);
+  click('Cancel');
+  expect(title()).toBe('KBOS radar sector preview');
+  expect(container.querySelectorAll('svg[role="img"]').length).toBe(1);
+  click('Jugar libre');
+  expect(button('KBOS').getAttribute('aria-pressed')).toBe('true');
+  expect(title()).toBe('KBOS radar sector preview');
 });
