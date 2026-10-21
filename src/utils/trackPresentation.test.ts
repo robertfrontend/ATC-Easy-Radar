@@ -35,3 +35,23 @@ describe('screen-space track presentation', () => {
     expect(nearestTrack(tracks, { x: 100, y: 0 }, 22)).toBeUndefined();
   });
 });
+
+
+it('stacks two to four nearby labels into distinct quadrants without changing track centers', () => {
+  const view = { x: 0, y: 0, w: 1180, h: 700 };
+  const centers = [{ x: 500, y: 350 }, { x: 510, y: 350 }, { x: 520, y: 350 }, { x: 530, y: 350 }];
+  const original = structuredClone(centers);
+  const labels = centers.map((point, index) => {
+    const metrics = trackPresentation(point, readout, view, 1, index);
+    return { x: point.x + metrics.labelX, y: point.y + metrics.labelY - 12, w: metrics.labelWidth, h: 42 };
+  });
+  for (let count = 2; count <= 4; count++) {
+    for (let i = 0; i < count; i++) {
+      for (let j = i + 1; j < count; j++) {
+        const a = labels[i], b = labels[j];
+        expect(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y).toBe(true);
+      }
+    }
+  }
+  expect(centers).toEqual(original);
+});

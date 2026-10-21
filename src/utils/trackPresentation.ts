@@ -3,7 +3,7 @@ type View = Point & { w: number; h: number };
 type Readout = { line1: string; line2: string; line3: string };
 
 /** Screen pixels for annotations only; geographic objects stay in world units. */
-export function trackPresentation(point: Point, readout: Readout, view: View, projectionScale: number) {
+export function trackPresentation(point: Point, readout: Readout, view: View, projectionScale: number, nearbyIndex = 0) {
   const scale = Number.isFinite(projectionScale) && projectionScale > 0 ? projectionScale : 1;
   const inverseScale = 1 / scale;
   const labelWidth = Math.max(readout.line1.length * 7.6, readout.line2.length * 6.7, readout.line3.length * 6.7) + 4;
@@ -12,8 +12,12 @@ export function trackPresentation(point: Point, readout: Readout, view: View, pr
   const top = (view.y - point.y) * scale + 15;
   const bottom = (view.y + view.h - point.y) * scale - 33;
   const visible = point.x >= view.x && point.x <= view.x + view.w && point.y >= view.y && point.y <= view.y + view.h;
-  const preferredX = 14 + labelWidth > right ? -14 - labelWidth : 14;
-  const preferredY = -16 < top ? 26 : -16;
+  // Four local quadrants reduce common small-cluster overlap without hiding labels.
+  const quadrant = nearbyIndex % 4;
+  const preferredX = quadrant === 1 || quadrant === 2 ? -14 - labelWidth : 14;
+  const fittedX = preferredX < left ? 14 : preferredX + labelWidth > right ? -14 - labelWidth : preferredX;
+  const preferredY = quadrant === 1 || quadrant === 3 ? 30 : -20;
+  const fittedY = preferredY < top ? 30 : preferredY > bottom ? -20 : preferredY;
   return {
     inverseScale,
     hitRadius: 22 * inverseScale,
@@ -21,8 +25,8 @@ export function trackPresentation(point: Point, readout: Readout, view: View, pr
     callsignSize: 12,
     readoutSize: 11,
     labelWidth,
-    labelX: visible ? Math.max(left, Math.min(right - labelWidth, preferredX)) : 14,
-    labelY: visible ? Math.max(top, Math.min(bottom, preferredY)) : -16,
+    labelX: visible ? Math.max(left, Math.min(right - labelWidth, fittedX)) : 14,
+    labelY: visible ? Math.max(top, Math.min(bottom, fittedY)) : -16,
   };
 }
 

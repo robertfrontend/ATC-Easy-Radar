@@ -159,7 +159,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
   };
 
   return (
-    <div className="flex flex-col h-full text-ink font-mono select-none overflow-y-auto pr-1">
+    <div data-clearance-controls className="flex flex-col h-full text-ink font-mono select-none overflow-y-auto pr-1 [&_button]:min-h-11 [&_button]:min-w-11 [&_input[type=range]]:h-11 [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-selected">
       {/* Flight Progress Strip Header */}
       <div className="bg-panel-raised border border-line rounded p-4 mb-4">
         <div className="flex items-center justify-between pb-2 border-b border-line">
@@ -167,7 +167,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             <span className="text-xl">{plane.originFlag}</span>
             <div>
               <h2 className="text-2xl font-bold text-ink-bright tracking-widest leading-none">{plane.callsign}</h2>
-              <div className="text-[10px] text-ink-dim mt-1 flex items-center gap-2">
+              <div className="text-xs text-ink-dim mt-1 flex items-center gap-2">
                 <span className="bg-inset px-1.5 py-0.5 rounded text-ink-bright font-bold border border-line">{plane.model}</span>
                 <span>SQ: {plane.squawk}</span>
                 <span className="text-phosphor font-bold">IFR</span>
@@ -187,15 +187,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
         {plane.type === 'departure' && exitWaypoint && (
           <div className="mt-3 flex items-center justify-between rounded border border-line bg-scope px-3 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-dim">Exit fix</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-ink-dim">Exit fix</span>
             <span className="text-lg font-bold tracking-[0.28em] text-ink-bright">{exitWaypoint.label}</span>
           </div>
         )}
 
         {/* Status Indicator Bar */}
         <div className="mt-3 flex items-center justify-between text-xs">
-          <span className="text-ink-dim text-[10px]">TRACK STATUS:</span>
-          <span className={`px-2 py-0.5 rounded text-[11px] font-bold tracking-wider ${
+          <span className="text-ink-dim text-xs">TRACK STATUS:</span>
+          <span className={`px-2 py-0.5 rounded text-xs font-bold tracking-wider ${
             plane.status === 'crashed' ? 'bg-conflict-soft text-conflict border border-conflict' :
             plane.conflict || plane.status === 'warning' ? 'bg-conflict-soft text-conflict border border-conflict animate-conflict-flash' :
             plane.status === 'bad_approach' ? 'bg-alert-soft text-alert border border-alert' :
@@ -210,7 +210,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
              'VECTORING ACTIVE'}
           </span>
         </div>
-        <div className="mt-3 text-[10px] leading-relaxed text-ink-dim">
+        <div className="mt-3 text-xs leading-relaxed text-ink-dim">
           <span className="font-bold text-ink">ACTIVE CLEARANCE</span>
           <div>
             {plane.isEstablished ? `ILS ${establishedRunway?.label || ''} · automatic guidance` : (
@@ -228,7 +228,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
       {/* Main Controls Pedestal */}
       <div className="space-y-4 flex-1">
         {!plane.isEstablished && (
-          <div role="status" className={`rounded border px-3 py-2 text-[11px] leading-relaxed ${hasDraft ? 'border-alert text-alert bg-alert-soft' : 'border-line text-ink-dim bg-inset'}`}>
+          <div role="status" className={`rounded border px-3 py-2 text-xs leading-relaxed ${hasDraft ? 'border-alert text-alert bg-alert-soft' : 'border-line text-ink-dim bg-inset'}`}>
             {hasDraft ? 'DRAFT · Not transmitted. Review below, then Transmit Clearance.' : 'Controls prepare a clearance. Aircraft follow the active clearance until you transmit.'}
           </div>
         )}
@@ -242,7 +242,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
               <span className="text-sm font-bold text-ink-bright tracking-widest">{exitWaypoint.label}</span>
             </div>
             {plane.targetWaypoint === exitWaypoint.id ? (
-              <div className="text-[11px] text-ink font-bold tracking-wide">
+              <div className="text-xs text-ink font-bold tracking-wide">
                 CLEARED DIRECT {exitWaypoint.label}
               </div>
             ) : (
@@ -273,7 +273,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 <button
                   onClick={() => { markDraft(); setAssignedRunwayId(null); }}
                   disabled={plane.isEstablished}
-                  className="text-[10px] text-ink-faint hover:text-ink underline"
+                  className="text-xs text-ink-faint hover:text-ink underline"
                 >
                   Any Active ILS
                 </button>
@@ -295,12 +295,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                   }`}
                 >
                   <span>PLAN ILS {rwy.label}</span>
-                  <span className="text-[10px] opacity-60">({rwy.heading}°)</span>
+                  <span className="text-xs opacity-60">({rwy.heading}°)</span>
                 </button>
               ))}
             </div>
             {!plane.isEstablished && (
-              <p className="text-[10px] leading-relaxed text-ink-dim">
+              <p className="text-xs leading-relaxed text-ink-dim">
                 Stages 3,000 FT / 180 KT toward the outer fix. Transmit, then align with the runway heading inside its approach cone. This does not auto-intercept final.
               </p>
             )}
@@ -308,7 +308,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         )}
 
         {plane.type === 'arrival' && approach && (
-          <div className="bg-inset border border-line rounded p-3.5 space-y-2 text-[11px]">
+          <div className="bg-inset border border-line rounded p-3.5 space-y-2 text-xs">
             <div className="font-bold uppercase tracking-wider text-phosphor">
               ILS capture check{approach.check ? ` · RWY ${approach.check.runway.label}` : ''}
             </div>
@@ -330,7 +330,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 </li>
               </ul>
             )}
-            <p className="text-[10px] text-ink-faint">Checks actual position, altitude, heading and transmitted runway, not unsent plans. Speed is not an ILS capture requirement.</p>
+            <p className="text-xs text-ink-faint">Checks actual position, altitude, heading and transmitted runway, not unsent plans. Speed is not an ILS capture requirement.</p>
           </div>
         )}
 
@@ -358,7 +358,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
               setSelectedWp(null);
             }}
             disabled={plane.isEstablished}
-            className="w-full h-2 bg-panel rounded-lg appearance-none cursor-pointer disabled:opacity-40"
+            className="w-full h-11 cursor-pointer disabled:opacity-40"
           />
 
           {/* Quick Heading Presets */}
@@ -366,28 +366,28 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             <button
               onClick={() => handleQuickHeadingDelta(-30)}
               disabled={plane.isEstablished}
-              className="py-1 text-[11px] font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
+              className="py-1 text-xs font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
             >
               -30°
             </button>
             <button
               onClick={() => handleQuickHeadingDelta(-10)}
               disabled={plane.isEstablished}
-              className="py-1 text-[11px] font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
+              className="py-1 text-xs font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
             >
               -10°
             </button>
             <button
               onClick={() => handleQuickHeadingDelta(10)}
               disabled={plane.isEstablished}
-              className="py-1 text-[11px] font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
+              className="py-1 text-xs font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
             >
               +10°
             </button>
             <button
               onClick={() => handleQuickHeadingDelta(30)}
               disabled={plane.isEstablished}
-              className="py-1 text-[11px] font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
+              className="py-1 text-xs font-bold bg-panel-raised hover:bg-panel border border-line rounded text-phosphor transition-colors disabled:opacity-30"
             >
               +30°
             </button>
@@ -401,7 +401,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 setSelectedWp(null);
               }}
               disabled={plane.isEstablished}
-              className="w-full py-1 text-[11px] font-bold bg-panel hover:bg-panel-raised border border-line rounded text-ink transition-colors disabled:opacity-30 flex items-center justify-center gap-1"
+              className="w-full py-1 text-xs font-bold bg-panel hover:bg-panel-raised border border-line rounded text-ink transition-colors disabled:opacity-30 flex items-center justify-center gap-1"
             >
               <Navigation className="w-3 h-3" /> Plan RWY {plannedRunway.label} Heading ({plannedRunway.heading.toString().padStart(3, '0')}°)
             </button>
@@ -429,7 +429,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             value={altitude}
             onChange={(e) => { markDraft(); setAltitude(parseInt(e.target.value, 10)); }}
             disabled={plane.isEstablished}
-            className="w-full h-2 bg-panel rounded-lg appearance-none cursor-pointer disabled:opacity-40"
+            className="w-full h-11 cursor-pointer disabled:opacity-40"
           />
 
           {/* Quick Altitude Presets */}
@@ -441,7 +441,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 aria-pressed={altitude === alt}
                 aria-label={`Plan altitude ${alt} feet`}
                 disabled={plane.isEstablished}
-                className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
+                className={`py-1 text-xs font-bold rounded border transition-colors disabled:opacity-30 ${
                   altitude === alt ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
                 }`}
               >
@@ -457,7 +457,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 aria-pressed={altitude === alt}
                 aria-label={`Plan altitude ${alt} feet`}
                 disabled={plane.isEstablished}
-                className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
+                className={`py-1 text-xs font-bold rounded border transition-colors disabled:opacity-30 ${
                   altitude === alt ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
                 }`}
               >
@@ -488,7 +488,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             value={speed}
             onChange={(e) => { markDraft(); setSpeed(parseInt(e.target.value, 10)); }}
             disabled={plane.isEstablished}
-            className="w-full h-2 bg-panel rounded-lg appearance-none cursor-pointer disabled:opacity-40"
+            className="w-full h-11 cursor-pointer disabled:opacity-40"
           />
 
           {/* Quick Speed Presets */}
@@ -500,7 +500,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                 aria-pressed={speed === spd}
                 aria-label={`Plan speed ${spd} knots`}
                 disabled={plane.isEstablished}
-                className={`py-1 text-[11px] font-bold rounded border transition-colors disabled:opacity-30 ${
+                className={`py-1 text-xs font-bold rounded border transition-colors disabled:opacity-30 ${
                   speed === spd ? 'bg-ink-bright text-scope border-ink-bright' : 'bg-panel-raised border-line text-phosphor hover:border-line-strong hover:text-ink-bright'
                 }`}
               >
@@ -518,7 +518,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
               <button
                 onClick={() => { markDraft(); setSelectedWp(null); }}
                 disabled={plane.isEstablished}
-                className="text-[10px] text-ink-faint hover:text-ink underline"
+                className="text-xs text-ink-faint hover:text-ink underline"
               >
                 Clear Fix
               </button>
@@ -545,8 +545,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
         </div>
 
         {/* Radio Phraseology Readback Box */}
-        <div className="bg-panel-raised border border-line rounded p-3 text-[11px] space-y-1">
-          <div className="text-[10px] text-ink-dim font-bold uppercase tracking-widest flex items-center gap-1">
+        <div className="bg-panel-raised border border-line rounded p-3 text-xs space-y-1">
+          <div className="text-xs text-ink-dim font-bold uppercase tracking-widest flex items-center gap-1">
             <Radio className="w-3 h-3 text-phosphor" /> Clearance Preview · Not Transmitted
           </div>
           <p className="text-phosphor italic font-mono leading-snug">

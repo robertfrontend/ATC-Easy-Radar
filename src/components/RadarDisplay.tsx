@@ -315,6 +315,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     panRef.current = null;
   };
 
+  const trackMetrics = planes.map((plane, index) => {
+    const nearbyIndex = planes.slice(0, index).filter(other =>
+      Math.hypot(other.x - plane.x, other.y - plane.y) * projectionScale < 90).length;
+    return trackPresentation(plane, trackReadout(plane, airport), view, projectionScale, nearbyIndex);
+  });
+
   const selectedPlane = planes.find(p => p.id === selectedId);
   const captureRunwayId = selectedPlane?.type === 'arrival'
     ? inspectIlsReadiness(selectedPlane, airport, runwayConfig, ilsWidth).check?.runway.id
@@ -758,8 +764,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
         {/* Hit areas precede every annotation so they cannot cover a visible callsign. */}
         <g data-track-hit-layer>
-          {planes.map(plane => {
-            const { hitRadius } = trackPresentation(plane, trackReadout(plane, airport), view, projectionScale);
+          {planes.map((plane, index) => {
+            const { hitRadius } = trackMetrics[index];
             return (
               <circle key={plane.id} data-track-hit data-aircraft-hit={plane.id}
                 cx={plane.x} cy={plane.y} r={hitRadius} fill="transparent"
@@ -779,7 +785,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </g>
 
         {/* Aircraft Radar Targets & Authentic 3-Line Data Blocks */}
-        {planes.map(plane => {
+        {planes.map((plane, index) => {
           const isSelected = plane.id === selectedId;
           const isHovered = plane.id === hoveredPlaneId;
           const isConflict = plane.conflict || plane.status === 'warning' || plane.status === 'crashed';
@@ -799,7 +805,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           // Altitude formatting matching reference:
           // A20 =20 (level at 2000ft), A36 ↓30 (at 3600ft descending to 3000ft), F120 ↑140 (climbing to FL140)
           const readout = trackReadout(plane, airport);
-          const metrics = trackPresentation(plane, readout, view, projectionScale);
+          const metrics = trackMetrics[index];
           const { labelX: tagX, labelY: tagY } = metrics;
 
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
@@ -990,7 +996,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         <button
           onClick={zoomIn}
           disabled={vb.w <= MIN_VB}
-          className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
+          className="w-11 h-11 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom In (+)"
           aria-label="Zoom radar in"
         >
@@ -998,7 +1004,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </button>
         <button
           onClick={resetView}
-          className="px-2 py-0.5 text-[10px] font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
+          className="min-h-11 px-2 text-xs font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
           title="Reset to airport center; range shows the shortest panel span"
           aria-label="Reset radar view"
         >
@@ -1007,7 +1013,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         <button
           onClick={zoomOut}
           disabled={vb.w >= MAX_VB}
-          className="w-6 h-6 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
+          className="w-11 h-11 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom Out (−)"
           aria-label="Zoom radar out"
         >
