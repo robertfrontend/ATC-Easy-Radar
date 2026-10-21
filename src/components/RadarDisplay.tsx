@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback, useMemo, useId } from 
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
+import { nearestTrack, trackPresentation } from '../utils/trackPresentation';
 import { scopeColor } from '../theme/radarTheme';
 import { TrackRole, trackRole } from '../theme/trackRole';
 import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
@@ -77,10 +78,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   // Keep camera state as center/shortest span; fit the displayed world to the SVG.
   const initialView = { x: airport.x - DEFAULT_SPAN / 2, y: airport.y - DEFAULT_SPAN / 2, w: DEFAULT_SPAN, h: DEFAULT_SPAN };
   const [vb, setVb] = useState(initialView);
-  const [aspect, setAspect] = useState(1);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const aspect = viewport.width > 0 && viewport.height > 0 ? viewport.width / viewport.height : 1;
   const viewWidth = vb.w * Math.max(1, aspect);
   const viewHeight = vb.h * Math.max(1, 1 / aspect);
   const view = { x: vb.x + (vb.w - viewWidth) / 2, y: vb.y + (vb.h - viewHeight) / 2, w: viewWidth, h: viewHeight };
+  const projectionScale = Math.min(viewport.width / view.w, viewport.height / view.h);
   const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
   const predictionContextRef = useRef<{
     planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; at: number;
@@ -96,7 +99,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     if (!svg) return;
     const measure = () => {
       const { width, height } = svg.getBoundingClientRect();
-      if (width > 0 && height > 0 && Number.isFinite(width / height)) setAspect(width / height);
+      if (width > 0 && height > 0 && Number.isFinite(width / height)) {
+        setViewport(previous => previous.width === width && previous.height === height ? previous : { width, height });
+      }
     };
     measure();
     if (typeof ResizeObserver === 'undefined') {
@@ -192,14 +197,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         const selected = plane.id === activeId;
         const color = roleColor[trackRole(plane, selected)];
         const alpha = bloomAlpha(plane, selected, now);
-        const symbol = toScreen(plane.x, plane.y + 4.5);
-        ctx.font = `bold ${16 * scale}px ui-monospace, monospace`;
+        const symbol = toScreen(plane.x, plane.y);
+        ctx.font = 'bold 10px ui-monospace, monospace';
         ctx.textAlign = 'center';
         ctx.fillStyle = color;
         ctx.shadowColor = color;
         ctx.shadowBlur = 3;
         ctx.globalAlpha = alpha * 0.28;
-        ctx.fillText('✳', symbol.x, symbol.y);
+        ctx.fillText('✳', symbol.x, symbol.y + 3.5);
         ctx.shadowBlur = 0;
       }
 
@@ -284,7 +289,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
   const handleMouseUp = (e: React.MouseEvent) => {
     const target = e.target instanceof Element ? e.target : null;
-    const clickedAircraft = !!target?.closest('[data-aircraft]');
+    const clickedAircraft = !!target?.closest('[data-aircraft], [data-aircraft-hit]');
     const clickedAction = !!target?.closest('[data-radar-action]');
     // A click on a track selects it. It must not also be treated as a heading vector,
     // which would deselect the aircraft before a typed clearance can be entered.
@@ -751,6 +756,28 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           </g>
         )}
 
+        {/* Hit areas precede every annotation so they cannot cover a visible callsign. */}
+        <g data-track-hit-layer>
+          {planes.map(plane => {
+            const { hitRadius } = trackPresentation(plane, trackReadout(plane, airport), view, projectionScale);
+            return (
+              <circle key={plane.id} data-track-hit data-aircraft-hit={plane.id}
+                cx={plane.x} cy={plane.y} r={hitRadius} fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredPlaneId(plane.id)}
+                onMouseLeave={() => setHoveredPlaneId(null)}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (hasDraggedRef.current) return;
+                  const point = svgRef.current?.getScreenCTM?.() ? getCoordinates(e) : null;
+                  onSelect(point ? nearestTrack(planes, point, hitRadius)?.id ?? plane.id : plane.id);
+                  audioManager.playSelect();
+                }}
+              />
+            );
+          })}
+        </g>
+
         {/* Aircraft Radar Targets & Authentic 3-Line Data Blocks */}
         {planes.map(plane => {
           const isSelected = plane.id === selectedId;
@@ -769,15 +796,11 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const vx1 = plane.x + vectorLen1Min * Math.sin(headingRad);
           const vy1 = plane.y - vectorLen1Min * Math.cos(headingRad);
 
-          // Data block position with Leader Line
-          const leaderDx = 24;
-          const leaderDy = -24;
-          const tagX = plane.x + leaderDx;
-          const tagY = plane.y + leaderDy;
-
           // Altitude formatting matching reference:
           // A20 =20 (level at 2000ft), A36 ↓30 (at 3600ft descending to 3000ft), F120 ↑140 (climbing to FL140)
           const readout = trackReadout(plane, airport);
+          const metrics = trackPresentation(plane, readout, view, projectionScale);
+          const { labelX: tagX, labelY: tagY } = metrics;
 
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
           const animClass = isConflict
@@ -814,14 +837,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               style={{ cursor: 'pointer' }}
               className={animClass}
             >
-              {/* Click Target Area */}
-              <circle cx={plane.x} cy={plane.y} r="24" fill="transparent" />
-
               {/* 2 NM Separation Halo. Radius is visual only; STCA distance is unchanged. */}
               {(layers.showHalos || isSelected || isHovered || isConflict) && (
                 <circle
                   cx={plane.x}
                   cy={plane.y}
+                  pointerEvents="none"
                   r={2 * UNITS_PER_NM}
                   fill={isConflict ? scopeColor.conflictSoft : isSelected ? scopeColor.selectedSoft : targetColor}
                   fillOpacity={isConflict || isSelected ? 1 : 0.08}
@@ -838,6 +859,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 return (
                   <rect
                     key={i}
+                    pointerEvents="none"
                     x={p.x - 1}
                     y={p.y - 1}
                     width="2.5"
@@ -851,6 +873,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               {/* Heading vector. The selected track uses the selection accent. */}
               {layers.showVectors && (
                 <line
+                  pointerEvents="none"
                   x1={plane.x}
                   y1={plane.y}
                   x2={vx1}
@@ -861,82 +884,85 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 />
               )}
 
-              {/* Authentic Asterisk Target Symbol (✳) */}
-              <text
-                x={plane.x}
-                y={plane.y + 4.5}
-                fill={targetColor}
-                fontSize="16"
-                fontFamily="monospace"
-                fontWeight="bold"
-                textAnchor="middle"
-                className="symbol-glow"
-              >
-                ✳
-              </text>
-
-              {/* Dotted Leader Line to Data Block */}
-              <line
-                x1={plane.x + (leaderDx > 0 ? 5 : -5)}
-                y1={plane.y + (leaderDy > 0 ? 5 : -5)}
-                x2={tagX}
-                y2={tagY}
-                stroke={targetColor}
-                strokeWidth="1"
-                strokeDasharray="2,2"
-                opacity="0.65"
-              />
-
-              {/* Authentic 3-Line Data Block (Monospace, Sharp Text) */}
-              <g transform={`translate(${tagX}, ${tagY})`}>
-                {/* Line 1: Callsign */}
+              <g data-track-annotation data-inverse-scale={metrics.inverseScale}
+                transform={`translate(${plane.x}, ${plane.y}) scale(${metrics.inverseScale})`}>
+                {/* Screen-space symbol and readout; world position is unchanged. */}
                 <text
                   x="0"
-                  y="0"
+                  y="3.5"
                   fill={targetColor}
-                  stroke="#000000"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                  paintOrder="stroke"
-                  fontSize="13"
+                  fontSize={metrics.symbolSize}
                   fontFamily="monospace"
                   fontWeight="bold"
-                  letterSpacing="0.4"
+                  textAnchor="middle"
+                  className="symbol-glow"
                 >
-                  {readout.line1}
+                  ✳
                 </text>
 
-                {/* Line 2: Altitude Actual + Trend Target (e.g. A36 ↓30) */}
-                <text
-                  x="0"
-                  y="14"
-                  fill={targetColor}
-                  stroke="#000000"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                  paintOrder="stroke"
-                  fontSize="12.5"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  {readout.line2}
-                </text>
+                {/* Dotted Leader Line to Data Block */}
+                <line
+                  x1={tagX > 0 ? 5 : -5}
+                  y1={tagY > 0 ? 5 : -5}
+                  x2={tagX}
+                  y2={tagY}
+                  stroke={targetColor}
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  opacity="0.65"
+                />
 
-                {/* Line 3: Speed + exit fix / heading / LOC (e.g. 160 OCKHM, 200 ILS27L) */}
-                <text
-                  x="0"
-                  y="27"
-                  fill={targetColor}
-                  stroke="#000000"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                  paintOrder="stroke"
-                  fontSize="12.5"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  {readout.line3}
-                </text>
+                {/* Authentic 3-Line Data Block (Monospace, Sharp Text) */}
+                <g transform={`translate(${tagX}, ${tagY})`}>
+                  {/* Line 1: Callsign */}
+                  <text
+                    x="0"
+                    y="0"
+                    fill={targetColor}
+                    stroke="#000000"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
+                    fontSize={metrics.callsignSize}
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                    letterSpacing="0"
+                  >
+                    {readout.line1}
+                  </text>
+
+                  {/* Line 2: Altitude Actual + Trend Target (e.g. A36 ↓30) */}
+                  <text
+                    x="0"
+                    y="14"
+                    fill={targetColor}
+                    stroke="#000000"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
+                    fontSize={metrics.readoutSize}
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                  >
+                    {readout.line2}
+                  </text>
+
+                  {/* Line 3: Speed + exit fix / heading / LOC (e.g. 160 OCKHM, 200 ILS27L) */}
+                  <text
+                    x="0"
+                    y="27"
+                    fill={targetColor}
+                    stroke="#000000"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
+                    fontSize={metrics.readoutSize}
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                  >
+                    {readout.line3}
+                  </text>
+                </g>
               </g>
             </g>
           );

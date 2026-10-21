@@ -305,3 +305,63 @@ it('covers the full rectangular viewBox with a quiet world-unit reference grid t
   expect(pattern?.getAttribute('width')).toBe('112');
   expect(svg.querySelector('circle[r="560"]')).toBeNull();
 });
+
+it('keeps track annotation pixels stable across resize and zoom without scaling geographic halos', () => {
+  radar(makePlane({ x: 500, y: 500 }));
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  for (const [width, height] of [[390, 600], [1180, 650]]) {
+    coords.resize(width, height);
+    for (const zoom of ['+', '−']) {
+      for (let step = 0; step < 12; step++) clickText(zoom);
+      const annotation = container.querySelector('[data-track-annotation]')!;
+      expect(annotation).toBeTruthy();
+      const inverse = Number(annotation.getAttribute('data-inverse-scale'));
+      expect(inverse * svg.getScreenCTM()!.a).toBeCloseTo(1);
+      expect(annotation.getAttribute('transform')).toContain('translate(500, 500)');
+      expect(container.querySelector('[data-track-hit]')?.getAttribute('r')).toBe(String(22 * inverse));
+      expect(container.querySelector('[data-aircraft] circle[stroke]')?.getAttribute('r')).toBe('44.8');
+    }
+  }
+});
+
+it('selects the nearest dense track on hit areas, but keeps callsign and keyboard selection explicit', () => {
+  const planes = [makePlane({ id: 'near', x: 500, y: 500 }), makePlane({ id: 'last', x: 515, y: 500 })];
+  act(() => root.render(createElement(RadarDisplay, { planes, selectedId: null, onSelect: onDeselect, onCommand, airport: field, runwayConfig: fieldRunways })));
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  coords.resize(390, 600);
+  const last = container.querySelector('[data-aircraft="last"]')!;
+  act(() => svg.querySelector('[data-track-hit][data-aircraft-hit="last"]')!.dispatchEvent(new MouseEvent('click', { bubbles: true, ...coords.client(501, 500) })));
+  expect(onDeselect).toHaveBeenLastCalledWith('near');
+  act(() => last.querySelector('[data-track-annotation] text')!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  expect(onDeselect).toHaveBeenLastCalledWith('last');
+  onDeselect.mockClear();
+  act(() => last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  expect(onDeselect).toHaveBeenCalledExactlyOnceWith('last');
+  expect(onCommand).not.toHaveBeenCalled();
+});
+
+it('paints every hit target below every visible label so a later track cannot intercept a callsign', () => {
+  const planes = [makePlane({ id: 'near', x: 500, y: 500 }), makePlane({ id: 'last', x: 535, y: 500 })];
+  act(() => root.render(createElement(RadarDisplay, { planes, selectedId: 'near', onSelect: onDeselect, onCommand, airport: field, runwayConfig: fieldRunways })));
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  coords.resize(390, 600);
+  const hits = [...svg.querySelectorAll('[data-track-hit]')];
+  const annotations = [...svg.querySelectorAll('[data-track-annotation]')];
+  expect(hits).toHaveLength(2);
+  for (const hit of hits) {
+    for (const annotation of annotations) {
+      expect(hit.compareDocumentPosition(annotation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  }
+  const client = coords.client(501, 500);
+  act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...client })));
+  act(() => {
+    hits[1].dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...client }));
+    hits[1].dispatchEvent(new MouseEvent('click', { bubbles: true, ...client }));
+  });
+  expect(onDeselect).toHaveBeenLastCalledWith('near');
+  expect(onCommand).not.toHaveBeenCalled();
+});
