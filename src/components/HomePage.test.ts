@@ -94,10 +94,14 @@ it('shows an accessible static airport preview after the destinations and tutori
   expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('width')).toBe('1000');
   expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
   const rings = [...preview!.querySelectorAll('circle[cx="500"][cy="500"]')];
-  expect(rings).toHaveLength(3);
-  expect(rings.every(ring => ring.getAttribute('stroke-dasharray') === '4,6' && ring.getAttribute('opacity') === '0.25')).toBe(true);
+  expect(rings).toHaveLength(0);
+  const grid = preview!.querySelector('rect[data-sector-grid]')!;
+  expect(['x', 'y', 'width', 'height'].map(key => grid?.getAttribute(key))).toEqual(['0', '0', '1000', '1000']);
+  expect(preview!.querySelector('pattern')?.getAttribute('patternUnits')).toBe('userSpaceOnUse');
+  expect(preview?.querySelector('desc')?.textContent).toContain('rectangular reference grid');
   for (const waypoint of AIRPORTS[0].waypoints) {
     expect(preview?.textContent).toContain(waypoint.label);
+    expect(preview?.querySelector(`g[transform="translate(${waypoint.x}, ${waypoint.y})"] circle[r="7"]`)).not.toBeNull();
   }
   const tutorial = [...container.querySelectorAll('button')].find(el => el.textContent?.includes('¿Primera vez?'))!;
   expect(tutorial.compareDocumentPosition(preview!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

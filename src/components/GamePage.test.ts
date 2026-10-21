@@ -469,3 +469,15 @@ it('blocks random time until first valid measurement and freezes domain through 
   act(() => reportAspect?.(.5));
   expect(capturedDomain).toBe(frozen);
 });
+
+it('starts with range guides off and keeps the explicit overlay toggle available', () => {
+  mount('free');
+  click('MENU');
+  const label = [...container.querySelectorAll('label')].find(el => el.textContent?.trim() === 'Range Rings')!;
+  const input = label.querySelector('input')!;
+  expect(input.checked).toBe(false);
+  act(() => input.click());
+  expect(input.checked).toBe(true);
+  act(() => input.click());
+  expect(input.checked).toBe(false);
+});

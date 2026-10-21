@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback, useMemo, useId } from 
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
-import { nearestTrack, trackPresentation } from '../utils/trackPresentation';
+import { headingArrowOffset, nearestTrack, trackPresentation } from '../utils/trackPresentation';
 import { scopeColor } from '../theme/radarTheme';
 import { TrackRole, trackRole } from '../theme/trackRole';
 import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
@@ -24,7 +24,7 @@ interface RadarDisplayProps {
 }
 
 const DEFAULT_LAYERS: RadarLayers = {
-  showRangeRings: true,
+  showRangeRings: false,
   showFixes: true,
   showVectors: true,
   showTrails: true,
@@ -338,10 +338,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const dy = mousePos.y - selectedPlane.y;
     let heading = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
     heading = (heading + 360) % 360;
-    const distNm = Math.hypot(dx, dy) / UNITS_PER_NM;
     return {
       heading: Math.round(heading),
-      distance: distNm.toFixed(1),
     };
   }, [selectedPlane, mousePos]);
   // Authentic live radio phraseology line at the bottom
@@ -400,13 +398,18 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         <defs>
           <pattern id={gridId} width={5 * UNITS_PER_NM} height={5 * UNITS_PER_NM} patternUnits="userSpaceOnUse">
             <path d={`M ${5 * UNITS_PER_NM} 0 H 0 V ${5 * UNITS_PER_NM}`} fill="none"
-              stroke={scopeColor.map} strokeOpacity="0.28" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              stroke={scopeColor.map} strokeOpacity="0.42" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          </pattern>
+          <pattern id={`${gridId}-major`} data-grid="major" width={25 * UNITS_PER_NM} height={25 * UNITS_PER_NM} patternUnits="userSpaceOnUse">
+            <path d={`M ${25 * UNITS_PER_NM} 0 H 0 V ${25 * UNITS_PER_NM}`} fill="none"
+              stroke={scopeColor.map} strokeOpacity="0.6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           </pattern>
         </defs>
         {/* World-unit reference grid makes the full panel visible without inventing map geometry. */}
         <rect x={view.x} y={view.y} width={view.w} height={view.h} fill={`url(#${gridId})`} pointerEvents="all" />
+        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill={`url(#${gridId}-major)`} pointerEvents="none" />
 
-        {/* Range circles are guides only; map geometry remains visible in corners. */}
+        {/* Real airport geometry remains above the full-panel reference grid. */}
         <g>
           {/* Subtle Sector Airspace Polygons (TMA, CTR Boundaries) */}
           {airport.airspacePolygons?.map(poly => (
@@ -658,37 +661,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           </g>
         )}
 
-        {/* Vectoring cursor for the selected track */}
-        {selectedPlane && !selectedPlane.isEstablished && mousePos && (
-          <g style={{ pointerEvents: 'none' }}>
-            <line 
-              x1={selectedPlane.x} 
-              y1={selectedPlane.y} 
-              x2={mousePos.x} 
-              y2={mousePos.y} 
-              stroke={scopeColor.selected} 
-              strokeWidth="1.5" 
-              strokeDasharray="4,4"
-              opacity="0.85" 
-            />
-            <circle cx={mousePos.x} cy={mousePos.y} r="5" fill="none" stroke={scopeColor.selected} strokeWidth="1.5" />
-            <circle cx={mousePos.x} cy={mousePos.y} r="1.5" fill={scopeColor.selected} />
-            
-            {/* Live Heading & Distance Tooltip */}
-            {selectedMouseVector && (
-              <g transform={`translate(${mousePos.x + 12}, ${mousePos.y - 12})`}>
-                <rect x="0" y="-14" width="105" height="28" fill={scopeColor.tooltip} rx="3" stroke={scopeColor.selected} strokeWidth="1" />
-                <text x="6" y="-1" fill={scopeColor.selected} fontSize="10" fontFamily="monospace" fontWeight="bold">
-                  HDG {selectedMouseVector.heading.toString().padStart(3, '0')}°
-                </text>
-                <text x="6" y="10" fill={scopeColor.ink} fontSize="9" fontFamily="monospace">
-                  DIST {selectedMouseVector.distance} NM
-                </text>
-              </g>
-            )}
-          </g>
-        )}
-
         {/* Hit areas precede every annotation so they cannot cover a visible callsign. */}
         <g data-track-hit-layer>
           {planes.map((plane, index) => {
@@ -734,6 +706,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           const readout = trackReadout(plane, airport);
           const metrics = trackMetrics[index];
           const { labelX: tagX, labelY: tagY } = metrics;
+          const arrowHeading = isSelected && selectedMouseVector ? selectedMouseVector.heading
+            : plane.headingAssigned === true && !plane.targetWaypoint && !plane.isEstablished ? plane.targetHeading : null;
+          const arrowOffset = arrowHeading === null ? null : headingArrowOffset(plane, arrowHeading, view, metrics.inverseScale);
 
           // Animation class: conflict flashes rapidly, uncontrolled blinks smoothly
           const animClass = isConflict
@@ -832,6 +807,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 >
                   ✳
                 </text>
+
+                {arrowHeading !== null && arrowOffset && (
+                  <g data-heading-arrow pointerEvents="none"
+                    transform={`translate(${arrowOffset.x}, ${arrowOffset.y}) rotate(${arrowHeading})`}>
+                    <path d="M0 -6V-20 M-2.5 -16L0 -20L2.5 -16" fill="none" stroke={targetColor}
+                      strokeWidth="0.85" strokeLinecap="round" strokeLinejoin="round" />
+                  </g>
+                )}
 
                 {/* Dotted Leader Line to Data Block */}
                 <line

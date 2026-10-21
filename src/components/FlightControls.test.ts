@@ -272,12 +272,19 @@ it('covers the fixed rectangular viewBox with a quiet world-unit reference grid 
   expect(pattern?.getAttribute('patternUnits')).toBe('userSpaceOnUse');
   expect(pattern?.getAttribute('width')).toBe('112');
   expect(pattern?.getAttribute('height')).toBe('112');
-  expect(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeLessThan(0.4);
+  expect(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeGreaterThanOrEqual(0.4);
+  const major = svg.querySelector('pattern[data-grid="major"]')!;
+  expect(major?.getAttribute('width')).toBe('560');
+  expect(Number(major?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeGreaterThan(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity')));
   const grid = svg.querySelector('rect[pointer-events="all"]')!;
   const assertCoverage = () => {
     expect(['x', 'y', 'width', 'height'].map(attribute => Number(grid.getAttribute(attribute))))
       .toEqual(svg.getAttribute('viewBox')!.split(' ').map(Number));
     expect(grid.getAttribute('fill')).toBe(`url(#${pattern?.id})`);
+    const majorGrid = [...svg.querySelectorAll('rect')].find(rect => rect.getAttribute('fill') === `url(#${major.id})`)!;
+    expect(['x', 'y', 'width', 'height'].map(attribute => Number(majorGrid.getAttribute(attribute))))
+      .toEqual(svg.getAttribute('viewBox')!.split(' ').map(Number));
+    expect(majorGrid.getAttribute('pointer-events')).toBe('none');
   };
   assertCoverage();
   act(() => svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 200, clientY: 150 })));
@@ -449,4 +456,95 @@ it('suppresses heading, track, fix and ILS activation after dragging without mov
   expect(onDeselect).toHaveBeenCalledExactlyOnceWith(plane.id);
   act(() => svg.querySelector('[aria-label="Transmit direct to EAST"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
   expect(onCommand).toHaveBeenCalledExactlyOnceWith(plane.id, { targetWaypoint: 'east' });
+});
+
+it('defaults to no canvas range arcs but retains explicit optional guides and real geographic halos', () => {
+  radar(makePlane({ x: 500, y: 500 }));
+  const svg = container.querySelector('svg')!;
+  radarCoordinates(svg);
+  const ctx = new Proxy({ arc: vi.fn(), fillText: vi.fn() }, {
+    get(target, key) { return key in target ? target[key as keyof typeof target] : vi.fn(); },
+  });
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+  const draw = vi.mocked(requestAnimationFrame).mock.calls[0][0];
+  act(() => draw(100));
+  expect(ctx.arc).not.toHaveBeenCalled();
+  expect(svg.querySelector('circle[r="44.8"]')).not.toBeNull();
+  act(() => root.render(createElement(RadarDisplay, { airport: field, runwayConfig: fieldRunways,
+    planes: [], selectedId: null, onSelect: onDeselect,
+    layers: { showRangeRings: true, showFixes: true, showVectors: true, showTrails: true, showHalos: true, showExtendedCenterlines: true } })));
+  act(() => draw(200));
+  expect(ctx.arc).toHaveBeenCalledTimes(5);
+  for (const nm of [5, 10, 15, 20, 25]) expect(ctx.fillText).toHaveBeenCalledWith(`${nm}NM`, expect.any(Number), expect.any(Number));
+});
+
+it('previews a short prospective arrow, then retains the transmitted heading after deselection without replacing forecast or history', () => {
+  const plane = makePlane({ x: 500, y: 500, heading: 90, targetHeading: 270, headingAssigned: true, trail: [{ x: 480, y: 500 }] });
+  radar(plane);
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  coords.resize(860, 482);
+  const forecast = svg.querySelector('[aria-label="30-second forecast using active clearance, not other traffic"] polyline')!.getAttribute('points');
+  const client = coords.client(500, 100);
+  act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, ...client })));
+  const arrow = svg.querySelector('[data-heading-arrow]')!;
+  expect(arrow).toBeTruthy();
+  expect(arrow.getAttribute('transform')).toContain('rotate(0)');
+  expect(arrow.getAttribute('pointer-events')).toBe('none');
+  expect(arrow.querySelector('path')?.getAttribute('stroke-width')).toBe('0.85');
+  expect(arrow.querySelector('path')?.getAttribute('d')).toBe('M0 -6V-20 M-2.5 -16L0 -20L2.5 -16');
+  expect(svg.querySelector('line[stroke-dasharray="4,4"]')).toBeNull();
+  expect([...svg.querySelectorAll('text')].some(text => /^(HDG|DIST) /.test(text.textContent ?? ''))).toBe(false);
+  expect(svg.querySelector('[aria-label="30-second forecast using active clearance, not other traffic"] polyline')?.getAttribute('points')).toBe(forecast);
+  expect(svg.querySelector('[data-aircraft] rect[x="479"]')).toBeTruthy();
+  act(() => {
+    svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, ...client }));
+    svg.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, ...client }));
+  });
+  expect(onCommand).toHaveBeenCalledExactlyOnceWith(plane.id, { targetHeading: 0, targetWaypoint: null });
+  expect(onDeselect).toHaveBeenLastCalledWith(null);
+  const renderCommitted = (targetHeading: number) => act(() => root.render(createElement(RadarDisplay, {
+    planes: [{ ...plane, targetHeading }], selectedId: null, onSelect: onDeselect, airport: field, runwayConfig: fieldRunways,
+  })));
+  renderCommitted(0);
+  expect(svg.querySelector('[data-heading-arrow]')?.getAttribute('transform')).toContain('rotate(0)');
+  renderCommitted(180);
+  expect(svg.querySelector('[data-heading-arrow]')?.getAttribute('transform')).toContain('rotate(180)');
+  // The actual-heading velocity cue remains eastbound while the clearance is southbound.
+  expect(Number(svg.querySelector('[data-aircraft] > line')?.getAttribute('x2'))).toBeGreaterThan(500);
+});
+
+it.each([{ headingAssigned: false }, { headingAssigned: true, targetWaypoint: 'east' }, { headingAssigned: true, isEstablished: true }])('does not invent a committed arrow outside manual-heading mode (%j)', mode => {
+  act(() => root.render(createElement(RadarDisplay, { planes: [makePlane(mode)], selectedId: null, onSelect: onDeselect, airport: field, runwayConfig: fieldRunways })));
+  expect(container.querySelector('[data-heading-arrow]')).toBeNull();
+});
+
+it.each([0, 90, 180, 297])('keeps the thin arrow inside every panel edge without changing bearing %s or world centers', heading => {
+  const renderTrack = (x: number, y: number) => act(() => root.render(createElement(RadarDisplay, {
+    planes: [makePlane({ x, y, headingAssigned: true, targetHeading: heading })], selectedId: null, onSelect: onDeselect, airport: field, runwayConfig: fieldRunways,
+  })));
+  renderTrack(500, 500);
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  for (const [width, height] of [[390, 600], [1180, 650]]) {
+    coords.resize(width, height);
+    const [left, top, w, h] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    const scale = svg.getScreenCTM()!.a;
+    for (const [x, y] of [[left, top], [left + w, top], [left, top + h], [left + w, top + h]]) {
+      renderTrack(x, y);
+      const arrow = svg.querySelector('[data-heading-arrow]')!;
+      const [dx, dy, rotation] = arrow.getAttribute('transform')!.match(/-?[\d.]+/g)!.map(Number);
+      expect(rotation).toBe(heading);
+      expect(arrow.closest('[data-track-annotation]')?.getAttribute('transform')).toContain(`translate(${x}, ${y})`);
+      const angle = heading * Math.PI / 180;
+      for (const [px, py] of [[0, -6], [0, -20], [-2.5, -16], [2.5, -16]]) {
+        const screenX = (x - left) * scale + dx + px * Math.cos(angle) - py * Math.sin(angle);
+        const screenY = (y - top) * scale + dy + px * Math.sin(angle) + py * Math.cos(angle);
+        expect(screenX).toBeGreaterThanOrEqual(0.5 - 1e-8);
+        expect(screenX).toBeLessThanOrEqual(width - 0.5 + 1e-8);
+        expect(screenY).toBeGreaterThanOrEqual(0.5 - 1e-8);
+        expect(screenY).toBeLessThanOrEqual(height - 0.5 + 1e-8);
+      }
+    }
+  }
 });
