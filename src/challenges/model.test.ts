@@ -55,6 +55,7 @@ describe('independent versioned challenge progress', () => {
     expect(nextLevel(0)).toBeNull();
     expect(nextLevel(19)).toBe(20);
     expect(getIntensity('unknown', 1)).toBeNull();
+    expect(getIntensity('constructor', 1)).toBeNull();
     expect(getIntensity(AIRPORTS[0].id, 21)).toBeNull();
   });
 });

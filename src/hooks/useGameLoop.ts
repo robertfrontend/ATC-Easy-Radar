@@ -7,9 +7,11 @@ import { applySeparation } from '../utils/separation';
 import { advancePlane } from '../utils/sim';
 import { DIFFICULTY_CONFIG, isSpawnDue, spawnAircraft } from '../utils/spawn';
 import { createSession, recordSessionEvents, getSessionDifficulty } from '../utils/session';
+import { challengeResult, challengeRunways, getIntensity } from '../challenges/model';
+import { spawnIntensityTraffic } from '../challenges/traffic';
 
 export type { Plane, Difficulty, GameSpeed };
-export type SessionMode = 'tutorial' | 'shift' | 'free';
+export type SessionMode = 'tutorial' | 'shift' | 'free' | 'challenge';
 export interface FlightEvent {
   id: string;
   at: number;
@@ -20,6 +22,7 @@ export interface FlightEvent {
 interface LoopOptions {
   mode?: SessionMode;
   goal?: number;
+  level?: number;
   initialPlanes?: Plane[];
   /** Menus and guided instructions freeze time without changing manual pause. */
   blocked?: boolean;
@@ -31,11 +34,13 @@ export const useGameLoop = (
   airport: Airport,
   runwayConfig: RunwayConfig,
   difficulty: Difficulty,
-  gameSpeed: GameSpeed = 1,
+  selectedGameSpeed: GameSpeed = 1,
   options: LoopOptions = {},
 ) => {
   const mode = options.mode ?? 'free';
-  const goal = options.goal ?? 10;
+  const intensity = mode === 'challenge' ? getIntensity(airport.id, options.level ?? 1) : null;
+  const gameSpeed = mode === 'challenge' ? 1 : selectedGameSpeed;
+  const goal = intensity?.minimumOperations ?? options.goal ?? 10;
   const makeState = (initialPlanes = options.initialPlanes ?? []) => ({
     planes: initialPlanes.map(p => ({ ...p, trail: [...p.trail] })),
     score: 0,
@@ -54,30 +59,34 @@ export const useGameLoop = (
   const firstConflictRef = useRef<Record<string, { at: number; distance: number; vertical: number }>>({});
   const hadWarningRef = useRef(false);
   const eventSequenceRef = useRef(0);
+  const spawnSequenceRef = useRef(0);
   const runwayConfigRef = useRef(runwayConfig);
-  runwayConfigRef.current = runwayConfig;
-  const effectiveDifficulty = mode === 'shift' ? getSessionDifficulty(state.session, difficulty) : difficulty;
-  const hasEnded = mode !== 'free' && (state.session.status !== 'active' || (mode === 'shift' && state.elapsedMs >= SHIFT_DURATION_MS));
+  runwayConfigRef.current = mode === 'challenge' ? challengeRunways(airport) : runwayConfig;
+  const effectiveDifficulty = mode === 'challenge' ? 'easy' : mode === 'shift' ? getSessionDifficulty(state.session, difficulty) : difficulty;
+  const hasEnded = mode !== 'free' && (state.session.status !== 'active' || ((mode === 'shift' || mode === 'challenge') && state.elapsedMs >= SHIFT_DURATION_MS));
 
   useEffect(() => {
     if (isPaused || options.blocked || hasEnded) return;
     const intervalMs = TICK_RATE / (typeof gameSpeed === 'number' ? gameSpeed : 1);
     const interval = setInterval(() => {
       const previous = stateRef.current;
-      if (mode !== 'free' && (previous.session.status !== 'active' || (mode === 'shift' && previous.elapsedMs >= SHIFT_DURATION_MS))) return;
+      if (mode !== 'free' && (previous.session.status !== 'active' || ((mode === 'shift' || mode === 'challenge') && previous.elapsedMs >= SHIFT_DURATION_MS))) return;
       // Active-running time excludes menus, pause, instruction stops and tab throttling.
       const elapsedMs = previous.elapsedMs + intervalMs;
-      const trafficDifficulty = mode === 'shift' ? getSessionDifficulty(previous.session, difficulty) : difficulty;
+      const trafficDifficulty = mode === 'challenge' ? 'easy' : mode === 'shift' ? getSessionDifficulty(previous.session, difficulty) : difficulty;
       const config = DIFFICULTY_CONFIG[trafficDifficulty];
       let currentPlanes = previous.planes;
-      if (mode !== 'tutorial' && isSpawnDue({
+      const spawnDue = intensity
+        ? currentPlanes.length < intensity.maxPlanes && elapsedMs - lastSpawnRef.current >= intensity.spawnIntervalMs
+        : isSpawnDue({
         now: elapsedMs,
         lastSpawnAt: lastSpawnRef.current,
         planeCount: currentPlanes.length,
         difficulty: trafficDifficulty,
         gameSpeed,
-      })) {
-        const result = spawnAircraft({
+        });
+      if (mode !== 'tutorial' && spawnDue) {
+        const request = {
           airport,
           runwayConfig: runwayConfigRef.current,
           planes: currentPlanes,
@@ -85,8 +94,9 @@ export const useGameLoop = (
           gameSpeed,
           lastDepartureByRunway: lastDepartureTimeRef.current,
           lastDepartureAt: globalLastDepartureRef.current,
-          allowArrival: currentPlanes.length < config.maxPlanes,
-        });
+          allowArrival: currentPlanes.length < (intensity?.maxPlanes ?? config.maxPlanes),
+        };
+        const result = intensity ? spawnIntensityTraffic(request, intensity, ++spawnSequenceRef.current) : spawnAircraft(request);
         globalLastDepartureRef.current = result.lastDepartureAt;
         lastSpawnRef.current = elapsedMs;
         if (result.plane) {
@@ -125,6 +135,7 @@ export const useGameLoop = (
       if (separation.warning && !hadWarningRef.current) audioManager.playWarning();
       hadWarningRef.current = separation.warning;
       const successIds: string[] = [];
+      const controlledSuccessIds: string[] = [];
       const missedExitIds: string[] = [];
       const accidentIds: string[] = [];
       for (const plane of nextPlanes) {
@@ -141,6 +152,7 @@ export const useGameLoop = (
         if (fate.keep) return true;
         if (fate.score) {
           successIds.push(plane.id);
+          if (commandRef.current[plane.id]) controlledSuccessIds.push(plane.id);
           log('success', `${plane.callsign}: ${plane.type === 'arrival' ? 'landed' : 'exit handoff'} safely.`, 'Keep the next aircraft separated before turning it onto final.');
           audioManager.playSuccess();
         } else if (fate.accident) {
@@ -157,13 +169,16 @@ export const useGameLoop = (
       });
       const accidents = previous.accidents + separation.collisions + accidentIds.filter(id => !nextPlanes.find(p => p.id === id && p.status === 'crashed')).length;
       if (accidentIds.length) audioManager.playCrash();
-      const session = recordSessionEvents(previous.session, { successIds, missedExitIds, accidentIds, warning: separation.warning });
+      const session = recordSessionEvents(previous.session, {
+        successIds: intensity ? controlledSuccessIds : successIds, missedExitIds, accidentIds, warning: separation.warning,
+      }, !intensity);
+      if (intensity) session.status = challengeResult(elapsedMs, accidents, session.operations, goal);
       const next = { planes: retained, score: previous.score + successIds.length, accidents, elapsedMs, session, events: events.slice(-80) };
       stateRef.current = next;
       setState(next);
     }, intervalMs);
     return () => clearInterval(interval);
-  }, [airport, difficulty, gameSpeed, isPaused, options.blocked, hasEnded, mode]);
+  }, [airport, difficulty, gameSpeed, isPaused, options.blocked, hasEnded, mode, options.level]);
 
   const updatePlaneTarget = useCallback((id: string, updates: Partial<Plane>) => {
     const current = stateRef.current;
@@ -193,6 +208,7 @@ export const useGameLoop = (
     firstConflictRef.current = {};
     hadWarningRef.current = false;
     eventSequenceRef.current = 0;
+    spawnSequenceRef.current = 0;
   }, [goal, options.initialPlanes]);
   return { ...state, isPaused, hasEnded, effectiveDifficulty, togglePause, setPaused, updatePlaneTarget, restart };
 };
