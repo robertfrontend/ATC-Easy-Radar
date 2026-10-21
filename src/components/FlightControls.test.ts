@@ -239,10 +239,9 @@ it('removes the circular perimeter and 360-degree compass while retaining unclip
   expect(svg.querySelectorAll('line').length).toBeLessThan(100);
 });
 
-it('reserves flow space for guidance and readback instead of overlaying panel corners', () => {
+it('keeps only the stable readback in radar flow, without a conditional guidance band', () => {
   radar(makePlane());
-  const guidance = [...container.querySelectorAll('div')].find(el => el.className.includes('pointer-events-none') && el.textContent?.includes('DASHED PATH'))!;
-  expect(guidance.className).not.toContain('absolute');
+  expect(container.textContent).not.toContain('DASHED PATH');
   const readback = [...container.querySelectorAll('div')].find(el => el.className.includes('pointer-events-none') && el.textContent?.includes('TST100 (A320)'))!;
   expect(readback.className).not.toContain('absolute');
 });
@@ -545,6 +544,43 @@ it.each([0, 90, 180, 297])('keeps the thin arrow inside every panel edge without
         expect(screenY).toBeGreaterThanOrEqual(0.5 - 1e-8);
         expect(screenY).toBeLessThanOrEqual(height - 0.5 + 1e-8);
       }
+    }
+  }
+});
+
+it('keeps forecast explanation outside radar flow while retaining the actual SVG forecast', () => {
+  radar(makePlane());
+  expect(container.textContent).not.toContain('DASHED PATH · NEXT');
+  expect(container.querySelector('[aria-label="30-second forecast using active clearance, not other traffic"]')).not.toBeNull();
+});
+
+it.each([1, 4, 'real'] as const)('explains the selected forecast in the flight strip at speed %s', gameSpeed => {
+  act(() => root.render(createElement(ControlPanel, { plane: makePlane(), airport: field,
+    runwayConfig: fieldRunways, onCommand, onDeselect, gameSpeed, showVectors: true })));
+  expect(container.textContent).toContain(`DASHED PATH · NEXT 30s AT ${gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}`);
+  expect(container.textContent).toContain('No traffic or new clearances. Ends at landing/handoff.');
+  act(() => root.render(createElement(ControlPanel, { plane: makePlane(), airport: field,
+    runwayConfig: fieldRunways, onCommand, onDeselect, gameSpeed, showVectors: false })));
+  expect(container.textContent).not.toContain('DASHED PATH');
+});
+
+it('keeps actual fix labels, symbols and targets constant in screen pixels after fitted resize', () => {
+  radar(makePlane());
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  for (const [width, height] of [[390, 600], [1180, 650]]) {
+    coords.resize(width, height);
+    const [, , worldWidth, worldHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+    const projection = Math.min(width / worldWidth, height / worldHeight);
+    for (const waypoint of field.waypoints) {
+      const fix = svg.querySelector(`[aria-label="Transmit direct to ${waypoint.label}"]`)!;
+      expect(fix.getAttribute('transform')).toBe(`translate(${waypoint.x}, ${waypoint.y})`);
+      const annotation = fix.querySelector('[data-fix-annotation]')!;
+      const inverse = Number(annotation?.getAttribute('transform')?.match(/scale\(([^)]+)\)/)?.[1]);
+      expect(projection * inverse).toBeCloseTo(1);
+      expect(Number(annotation?.querySelector('text')?.getAttribute('font-size')) * inverse * projection).toBeCloseTo(10);
+      expect(Number(annotation?.querySelector('circle[fill="none"]')?.getAttribute('r')) * inverse * projection).toBeCloseTo(4);
+      expect(Number(annotation?.querySelector('circle[fill="transparent"]')?.getAttribute('r')) * 2 * inverse * projection).toBeCloseTo(44);
     }
   }
 });

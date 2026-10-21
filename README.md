@@ -33,7 +33,7 @@ Shift traffic begins easy, rises to medium after 3 safe operations and hard afte
 
 Select an arrival to see the exact ILS capture checklist: an active eligible runway, position inside its cone, actual altitude at or below 10,000 ft, and heading less than 50° from runway heading. The cone is 20–520 radar units behind the runway and narrows with difficulty. Once established, the simulation provides automatic heading, descent and speed guidance.
 
-With vectors enabled, the selected track shows a **30-second running-time forecast** based on the actual turn, speed, direct-to and ILS simulation. It refreshes twice per second and immediately after a new clearance. The forecast excludes other traffic, collision effects, later commands and later runway changes; it is not a separation guarantee.
+With vectors enabled, the selected track shows a **30-second running-time forecast** based on the actual turn, speed, direct-to and ILS simulation. It refreshes twice per second and immediately after a new clearance. The forecast excludes other traffic, collision effects, later commands and later runway changes; it is not a separation guarantee. Its explanation appears in the selected flight controls, outside the radar layout, so selecting a track does not resize the fitted scope. Navigation-fix symbols and labels retain constant screen-pixel sizes without moving their real airport coordinates.
 
 Departures initially climb on runway heading. They do not turn toward their assigned exit until you transmit `DEP`, the exit fix name or the strip’s **TRANSMIT DIRECT** button. The operation counts on handoff at a fix, not just on leaving the radar.
 
