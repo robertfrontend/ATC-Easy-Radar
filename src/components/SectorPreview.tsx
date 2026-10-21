@@ -29,22 +29,8 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
         <svg viewBox="0 0 1000 1000" role="img" aria-labelledby={`${previewId}-title`}
           aria-describedby={`${previewId}-description`} className="w-full h-full p-2">
           <title id={`${previewId}-title`}>{airport.icao} radar sector preview</title>
-          <desc id={`${previewId}-description`}>Static airport layout with runways, approach guides, a rectangular reference grid and navigation fixes. No live traffic.</desc>
+          <desc id={`${previewId}-description`}>Static airport layout with runways, approach guides and navigation fixes. No live traffic.</desc>
           <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />
-          <defs>
-            <pattern id={`${previewId}-grid`} width="112" height="112" patternUnits="userSpaceOnUse">
-              <path d="M 112 0 H 0 V 112" fill="none" stroke={scopeColor.map} strokeOpacity="0.42"
-                strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            </pattern>
-            <pattern id={`${previewId}-major`} width="560" height="560" patternUnits="userSpaceOnUse">
-              <path d="M 560 0 H 0 V 560" fill="none" stroke={scopeColor.map} strokeOpacity="0.6"
-                strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            </pattern>
-          </defs>
-          {/* Reference lines span the preview; fixes remain actual airport coordinates. */}
-          <rect data-sector-grid x="0" y="0" width="1000" height="1000" fill={`url(#${previewId}-grid)`} />
-          <rect x="0" y="0" width="1000" height="1000" fill={`url(#${previewId}-major)`} />
-
           {/* Airspace Boundary Polygons */}
           {airport.airspacePolygons?.map(poly => (
             <polygon
