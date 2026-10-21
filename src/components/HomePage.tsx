@@ -5,7 +5,6 @@ import { Difficulty, SavedGame, Airport, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
 import { scopeColor } from '../theme/radarTheme';
 import { SessionMode } from '../hooks/useGameLoop';
-import { CHALLENGES, Challenge } from '../config/challenges';
 
 interface HomePageProps {
   savedGames: SavedGame[];
@@ -114,13 +113,6 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const chooseChallenge = (challenge: Challenge) => {
-    setSelectedAirportId(challenge.airportId);
-    setSelectedDifficulty(challenge.difficulty);
-    setSelectedGoal(challenge.goal);
-    setSelectedMode('shift');
-  };
 
   const handleStartGame = () => {
     // Ensure at least one landing and departure runway is active
@@ -354,15 +346,10 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
         {/* Right Column — Live Radar Sector Preview & Log (Col 5) */}
         <div className="lg:col-span-5 space-y-5">
           <section aria-label="Airport challenges" className="bg-panel border border-line rounded-lg p-5 space-y-3">
-            <h2 className="text-sm font-bold text-phosphor">AIRPORT CHALLENGES</h2>
-            <p className="text-xs text-ink-dim">Choose a goal, then adjust your runway setup below. Every shift starts with light traffic.</p>
-            <div className="grid grid-cols-2 gap-2">
-              {CHALLENGES.map(challenge => <button key={challenge.id} onClick={() => chooseChallenge(challenge)} aria-pressed={selectedMode === 'shift' && selectedAirportId === challenge.airportId && selectedGoal === challenge.goal && selectedDifficulty === challenge.difficulty} className="text-left border border-line rounded p-3 hover:border-phosphor bg-inset">
-                <strong className="block text-xs text-ink-bright">{challenge.title}</strong>
-                <span className="block mt-1 text-[11px] text-ink-dim">{challenge.goal} operations · {challenge.difficulty}</span>
-              </button>)}
-            </div>
-            <p className="text-xs text-phosphor">Current goal: {selectedGoal} safe operations in 5 minutes.</p>
+            <h2 className="text-sm font-bold text-phosphor">Retos por intensidad</h2>
+            <p className="text-sm text-ink">Niveles 1–20 en cada aeropuerto. Cinco minutos completos, intensidad creciente y desbloqueo progresivo.</p>
+            <Link to="/challenges" className="inline-block rounded border border-phosphor px-4 py-3 font-bold focus-visible:outline-2 focus-visible:outline-selected">Elegir aeropuerto y nivel</Link>
+            <p className="text-xs text-ink-dim">Modo libre, tutorial y Learning siguen siendo opciones independientes.</p>
           </section>
           {/* Authentic Mini Radar Preview Card */}
           <div className="bg-panel border border-line rounded-lg p-5 space-y-3">

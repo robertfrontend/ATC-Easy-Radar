@@ -39,3 +39,19 @@ Deterministic feasibility tests run five minutes for all 120 profiles with seede
 Their reference policy clears departures to the assigned exit and vectors arrivals outward
 at high altitude. This demonstrates that the minimal activity goal is reachable without
 accidents; it does not claim expert arrival sequencing or exhaustive balance validation.
+
+## Verification receipt (2026-10-21)
+
+- 437 tests across 24 files passed, including the 120 profiles and 120 deterministic
+  five-minute feasibility witnesses. Typecheck, build and diff checks passed.
+- App/clock tests cover deadline success/failure, pause/menu freezes, no idle pass,
+  automatic versus effective operations, locked direct URLs, abandon, replay, next level,
+  level20, persistence, corrupt/quota storage and merging another tab's airport progress.
+- Existing free-play, tutorial, Learning and PR18 text-command tests pass unchanged.
+- Chrome: all six airports expose 20 levels, with only level1 initially available.
+  Panama level1 completed at 300/300 active seconds with 1/1 effective operation and
+  zero accidents; it continued after reaching the quota. Pause froze the countdown.
+- Reload of the selector retained Panama level1 completed, level2 available and level3
+  locked. The actual level2 route opened correctly. DEP + Enter cleared selection.
+- No JavaScript runtime errors were observed; local Chrome requested a missing favicon,
+  which is unrelated to challenge behavior. Balance remains initial, not manual QA of all levels.

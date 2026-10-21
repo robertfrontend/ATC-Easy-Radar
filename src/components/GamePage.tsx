@@ -13,11 +13,15 @@ import { ControlPanel } from './ControlPanel';
 import { Airport, Difficulty, SavedGame, RadarLayers, RunwayConfig, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { parseAtcCommand } from '../utils/commands';
+import { challengeRunways, getIntensity } from '../challenges/model';
 
-interface GamePageProps {
+export interface GamePageProps {
   airport: Airport;
   mode?: SessionMode;
   goal?: number;
+  challengeLevel?: number;
+  onChallengeComplete?: () => void;
+  onNextChallenge?: () => void;
   initialRunwayConfig?: RunwayConfig;
   activeRunwayIndex?: number;
   difficulty: Difficulty;
@@ -30,7 +34,10 @@ interface GamePageProps {
 export const GamePage: React.FC<GamePageProps> = ({
   airport,
   mode = 'free' as SessionMode,
-  goal = 10,
+  goal: requestedGoal = 10,
+  challengeLevel,
+  onChallengeComplete,
+  onNextChallenge,
   initialRunwayConfig,
   activeRunwayIndex,
   difficulty,
@@ -39,6 +46,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   onSave,
   onScoreUpdate
 }) => {
+  const intensity = mode === 'challenge' ? getIntensity(airport.id, challengeLevel ?? 1) : null;
+  const goal = intensity?.minimumOperations ?? requestedGoal;
   const [tutorialPhase, setTutorialPhase] = useState<'arrival' | 'separation'>('arrival');
   const [tutorialStep, setTutorialStep] = useState('select');
   const separationSinceRef = useRef<number | null>(null);
@@ -49,6 +58,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const radarRef = useRef<HTMLDivElement>(null);
   const [saveFlash, setSaveFlash] = useState(false);
   const [runwayConfig, setRunwayConfig] = useState<RunwayConfig>(() => {
+    if (mode === 'challenge') return challengeRunways(airport);
     if (mode === 'tutorial') return tutorialScenario.runwayConfig;
     if (initialRunwayConfig && Object.keys(initialRunwayConfig).length > 0) {
       return initialRunwayConfig;
@@ -130,8 +140,11 @@ export const GamePage: React.FC<GamePageProps> = ({
   const tutorialFrozen = mode === 'tutorial' && !['capture', 'landed', 'separation'].includes(tutorialStep);
   const { planes, score, accidents, session, events, elapsedMs, effectiveDifficulty, hasEnded, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
     airport, runwayConfig, difficulty, gameSpeed,
-    { mode, goal, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen }
+    { mode, goal, level: challengeLevel, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen }
   );
+  useEffect(() => {
+    if (mode === 'challenge' && session.status === 'completed') onChallengeComplete?.();
+  }, [mode, session.status, onChallengeComplete]);
   const resetSession = () => {
     setSelectedId(null);
     setCommandInput('');
@@ -296,7 +309,8 @@ export const GamePage: React.FC<GamePageProps> = ({
       planesActive: planes.length,
       gameSpeed,
       mode,
-      ...(mode === 'shift' ? { points: session.points, goal } : {}),
+      ...(mode === 'shift' || mode === 'challenge' ? { points: session.points, goal } : {}),
+      ...(mode === 'challenge' ? { challengeLevel } : {}),
     });
     setSaveFlash(true);
     setTimeout(() => setSaveFlash(false), 1500);
@@ -415,7 +429,7 @@ export const GamePage: React.FC<GamePageProps> = ({
             {/* 1. RUNWAYS BUTTON & DROPDOWN */}
             <div className="relative">
               <button
-                disabled={mode === 'tutorial'}
+                disabled={mode === 'tutorial' || mode === 'challenge'}
                 onClick={() => toggleSubmenu('runways')}
                 className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-colors flex items-center gap-1.5 ${
                   activeMenu === 'runways'
@@ -532,6 +546,7 @@ export const GamePage: React.FC<GamePageProps> = ({
 
                     {/* Dedicated Real Speed Button */}
                     <button
+                      disabled={mode === 'challenge'}
                       onClick={() => setGameSpeed('real')}
                       className={`w-full py-1.5 px-2.5 rounded font-bold text-xs border transition-all flex items-center justify-center gap-1.5 ${
                         gameSpeed === 'real'
@@ -550,6 +565,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                       {([0.5, 1, 2, 4] as const).map(spd => (
                         <button
                           key={spd}
+                          disabled={mode === 'challenge'}
                           onClick={() => setGameSpeed(spd)}
                           className={`py-1 rounded text-center font-bold border text-xs transition-colors ${
                             gameSpeed === spd
@@ -672,7 +688,8 @@ export const GamePage: React.FC<GamePageProps> = ({
 
         <div className="bg-panel border-b border-line px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-3">
-            <strong className="text-phosphor">{mode === 'tutorial' ? 'GUIDED TRAINING' : mode === 'shift' ? 'FIVE-MINUTE SHIFT' : 'FREE PLAY'}</strong>
+            <strong className="text-phosphor">{mode === 'challenge' ? `RETO · NIVEL ${challengeLevel}/20` : mode === 'tutorial' ? 'GUIDED TRAINING' : mode === 'shift' ? 'FIVE-MINUTE SHIFT' : 'FREE PLAY'}</strong>
+            {mode === 'challenge' && <><span>{session.operations}/{goal} operaciones efectivas · cero accidentes</span><span>{Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')} de turno restante · 1× fijo</span></>}
             {mode === 'shift' && <><span>{score}/{goal} safe operations</span><span>{Math.floor(remainingSeconds / 60)}:{String(remainingSeconds % 60).padStart(2, '0')} left</span><span>{session.points} pts · streak {session.streak}</span><span>Traffic: {effectiveDifficulty.toUpperCase()}</span></>}
           </div>
           <button onClick={togglePause} disabled={hasEnded || tutorialFrozen} className="border border-line-strong px-3 py-1 rounded text-ink-bright disabled:opacity-40">{isPaused ? 'Resume' : 'Pause'}</button>
@@ -766,15 +783,16 @@ export const GamePage: React.FC<GamePageProps> = ({
           <div role="dialog" aria-modal="true" aria-labelledby="debrief-title" className="fixed inset-0 bg-scrim backdrop-blur-sm flex items-center justify-center z-50 p-6">
             <section className="bg-panel border border-line-strong rounded-xl p-6 max-w-xl w-full space-y-4 shadow-2xl">
               <p className="text-xs text-phosphor tracking-widest">SESSION DEBRIEF</p>
-              <h2 id="debrief-title" className="text-2xl font-bold text-ink-bright">{session.status === 'failed' ? 'Let’s learn from this one' : session.status === 'completed' ? 'Objective complete' : 'Shift complete'}</h2>
-              <p className="text-sm text-ink">{score}/{goal} safe operations · {session.points} points · best streak {session.bestStreak}</p>
+              <h2 id="debrief-title" className="text-2xl font-bold text-ink-bright">{mode === 'challenge' ? session.status === 'completed' ? 'Nivel superado' : 'Nivel no superado' : session.status === 'failed' ? 'Let’s learn from this one' : session.status === 'completed' ? 'Objective complete' : 'Shift complete'}</h2>
+              <p className="text-sm text-ink">{mode === 'challenge' ? `${session.operations}/${goal} operaciones efectivas · ${Math.floor(elapsedMs / 1000)}/300 s activos · ${accidents} accidentes` : `${score}/${goal} safe operations · ${session.points} points · best streak ${session.bestStreak}`}</p>
+              {mode === 'challenge' && <p>{session.status === 'completed' ? 'Resultado aprobado. Tu progreso local se conserva; puedes repetir este nivel.' : 'No se desbloquea otro nivel. Completa el turno sin accidentes y con el mínimo de operaciones de aeronaves a las que hayas transmitido una orden.'}</p>}
               <p className="text-xs text-ink-dim">{session.warningEpisodes} separation-alert episodes · {session.missedExits} missed operations · {accidents} accident{accidents === 1 ? '' : 's'}</p>
-              {debriefEvent ? <div className="bg-inset border border-line rounded p-3 text-sm space-y-2"><p className="text-alert">{debriefEvent.message}</p><p>{debriefEvent.advice}</p></div> : <p className="text-sm">{score >= goal ? 'Safe sequencing paid off. Try another airport or a higher traffic ceiling.' : 'Build a sequence early: descend arrivals toward the ILS and clear departures to their exit fix.'}</p>}
+              {debriefEvent ? <div className="bg-inset border border-line rounded p-3 text-sm space-y-2"><p className="text-alert">{debriefEvent.message}</p><p>{debriefEvent.advice}</p></div> : mode !== 'challenge' && <p className="text-sm">{score >= goal ? 'Safe sequencing paid off. Try another airport or a higher traffic ceiling.' : 'Build a sequence early: descend arrivals toward the ILS and clear departures to their exit fix.'}</p>}
               <div className="max-h-40 overflow-y-auto space-y-1 text-xs text-ink-dim" aria-label="Recent flight events">
                 {events.slice(-5).map(event => <p key={event.id}>{Math.floor(event.at / 1000)}s · {event.message}</p>)}
               </div>
-              <p className="text-[11px] text-ink-faint">Scoring: +100 per operation plus clean-streak bonus; −25 per alert episode; −50 for a missed operation. An accident ends the shift.</p>
-              <div className="flex flex-wrap gap-3"><button onClick={handleSaveGame} disabled={saveFlash} className="rounded border border-line-strong px-4 py-2">{saveFlash ? 'SAVED' : 'SAVE RESULT'}</button><button autoFocus onClick={resetSession} className="rounded bg-phosphor text-scope px-4 py-2 font-bold">TRY AGAIN</button><button onClick={onExit} className="rounded border border-line-strong px-4 py-2">CHOOSE SESSION</button></div>
+              <p className="text-[11px] text-ink-faint">{mode === 'challenge' ? 'Para aprobar cuentan únicamente el turno completo, cero accidentes y el mínimo de operaciones efectivas. Puntos y alertas no añaden requisitos ocultos.' : 'Scoring: +100 per operation plus clean-streak bonus; −25 per alert episode; −50 for a missed operation. An accident ends the shift.'}</p>
+              <div className="flex flex-wrap gap-3"><button onClick={handleSaveGame} disabled={saveFlash} className="rounded border border-line-strong px-4 py-2">{saveFlash ? 'SAVED' : 'SAVE RESULT'}</button><button autoFocus onClick={resetSession} className="rounded bg-phosphor text-scope px-4 py-2 font-bold">{mode === 'challenge' ? 'Repetir nivel' : 'TRY AGAIN'}</button><button onClick={onExit} className="rounded border border-line-strong px-4 py-2">{mode === 'challenge' ? 'Elegir nivel' : 'CHOOSE SESSION'}</button>{mode === 'challenge' && session.status === 'completed' && onNextChallenge && <button onClick={onNextChallenge} className="rounded border border-phosphor px-4 py-2">Siguiente nivel</button>}</div>
             </section>
           </div>
         )}
