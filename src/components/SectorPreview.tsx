@@ -34,9 +34,9 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
           <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />
 
           {/* Range Rings */}
-          <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" />
-          <circle cx="500" cy="500" r="320" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" />
-          <circle cx="500" cy="500" r="470" fill="none" stroke={scopeColor.phosphor} strokeWidth="1.2" />
+          <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" opacity="0.25" />
+          <circle cx="500" cy="500" r="320" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" opacity="0.25" />
+          <circle cx="500" cy="500" r="470" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" opacity="0.25" />
 
           {/* Airspace Boundary Polygons */}
           {airport.airspacePolygons?.map(poly => (

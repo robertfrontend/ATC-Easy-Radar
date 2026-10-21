@@ -93,6 +93,9 @@ it('shows an accessible static airport preview after the destinations and tutori
   expect(preview?.getAttribute('viewBox')).toBe('0 0 1000 1000');
   expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('width')).toBe('1000');
   expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
+  const rings = [...preview!.querySelectorAll('circle[cx="500"][cy="500"]')];
+  expect(rings).toHaveLength(3);
+  expect(rings.every(ring => ring.getAttribute('stroke-dasharray') === '4,6' && ring.getAttribute('opacity') === '0.25')).toBe(true);
   for (const waypoint of AIRPORTS[0].waypoints) {
     expect(preview?.textContent).toContain(waypoint.label);
   }
