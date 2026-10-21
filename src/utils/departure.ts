@@ -1,10 +1,5 @@
 import { Airport, GameSpeed, Plane, Runway, RunwayConfig } from '../types';
-
-/**
- * Radar scope radius. Aircraft are clipped at 560; arrivals spawn just outside
- * that ring. An uncleared departure past this point has left the sector.
- */
-export const DEPARTURE_SECTOR_RADIUS = 600;
+import { DEPARTURE_SECTOR_HALF_EXTENT, squareExtent } from './radarBounds';
 
 export interface DepartureSeparationState {
   airport: Airport;
@@ -65,12 +60,12 @@ export function isRunwaySafeForDeparture(state: DepartureSeparationState): boole
 }
 
 /**
- * An uncleared departure that flies out of the scope is done.
+ * An uncleared departure beyond either square sector edge is done.
  * Reaching the exit fix is a different event (`markedForRemoval`) and is the
  * only one that scores. Keeping these tracks alive used to fill `maxPlanes`
  * until the 2,500-unit map edge, so no further departure could spawn.
  */
 export function departureLeftSector(plane: Plane, airport: Airport): boolean {
   if (plane.type !== 'departure' || plane.targetWaypoint || plane.status === 'crashed') return false;
-  return Math.hypot(plane.x - airport.x, plane.y - airport.y) > DEPARTURE_SECTOR_RADIUS;
+  return squareExtent(plane, airport) > DEPARTURE_SECTOR_HALF_EXTENT;
 }

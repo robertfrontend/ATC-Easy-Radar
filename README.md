@@ -37,6 +37,12 @@ With vectors enabled, the selected track shows a **30-second running-time foreca
 
 Departures initially climb on runway heading. They do not turn toward their assigned exit until you transmit `DEP`, the exit fix name or the strip’s **TRANSMIT DIRECT** button. The operation counts on handoff at a fix, not just on leaving the radar.
 
+### Radar world bounds
+
+Traffic uses airport-centered square world bounds, independent of camera zoom, pan or screen size. Uncleared departures leave the sector only beyond 600 units on either axis; other tracks are removed at 2,500 units on either axis. Range rings are distance guides, not survival boundaries. Coordinates and distances are not stretched.
+
+Corners provide more maneuvering room and longer diagonal exit times; effective difficulty may therefore change. Arrival intake remains on its existing 580-unit circle. Spawn cadence, traffic caps, separation, flight physics, level goals and the strict 35-unit cleared exit-fix handoff are unchanged. Existing plane state needs no migration.
+
 ### Separation rules
 
 The game uses radar units, not regulatory ATC separation standards:

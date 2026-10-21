@@ -1,5 +1,6 @@
 import { Airport, Plane, Runway, RunwayConfig } from '../types';
 import { departureLeftSector } from './departure';
+import { DISTANT_WORLD_HALF_EXTENT, squareExtent } from './radarBounds';
 
 export interface IlsRunwayCheck {
   runway: Runway;
@@ -225,7 +226,6 @@ export function trackFate(plane: Plane, airport: Airport): TrackFate {
     }
   }
 
-  const distToCenter = Math.hypot(plane.x - airport.x, plane.y - airport.y);
-  if (distToCenter < 2500) return { keep: true, score: false, accident: false, success: false };
+  if (squareExtent(plane, airport) < DISTANT_WORLD_HALF_EXTENT) return { keep: true, score: false, accident: false, success: false };
   return { keep: false, score: false, accident: false, success: false };
 }

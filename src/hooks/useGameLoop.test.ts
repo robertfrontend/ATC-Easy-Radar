@@ -153,6 +153,35 @@ describe('active simulation time', () => {
 });
 
 describe('real engine events and session completion', () => {
+  it('records a missed operation only after a corner departure crosses a square edge', () => {
+    preventRandomTraffic();
+    const corner = makeDeparture({
+      id: 'corner-departure',
+      x: field.x + 599,
+      y: field.y + 599,
+      heading: 90,
+      targetHeading: 90,
+      headingAssigned: true,
+      altitude: 8000,
+      targetAltitude: 8000,
+      speed: 240,
+      targetSpeed: 240,
+    });
+    mount({ mode: 'shift', initialPlanes: [corner] });
+    advance(50);
+    expect(loop.planes.map(plane => plane.id)).toEqual(['corner-departure']);
+    expect(loop.events.some(event => event.kind === 'missed')).toBe(false);
+    advance(100);
+    expect(loop.planes).toEqual([]);
+    expect(loop.events.filter(event => event.kind === 'missed')).toHaveLength(1);
+    expect(loop.events.some(event => event.kind === 'success')).toBe(false);
+    expect(loop.score).toBe(0);
+    expect(loop.session.operations).toBe(0);
+    expect(loop.accidents).toBe(0);
+    advance(100);
+    expect(loop.events.filter(event => event.kind === 'missed')).toHaveLength(1);
+  });
+
   it('scores a safe handoff once, completes its goal, and freezes the remaining traffic', () => {
     preventRandomTraffic();
     const completedDeparture = makeDeparture({
