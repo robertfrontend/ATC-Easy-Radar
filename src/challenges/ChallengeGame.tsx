@@ -16,7 +16,7 @@ export function ChallengeGame(services: GameServices) {
   }
   const following = nextLevel(level);
   return <>
-    {storageError && <p role="alert" className="fixed top-0 left-0 right-0 z-60 bg-conflict-banner text-ink-bright p-3">No se pudo guardar el progreso. El desbloqueo funciona en esta sesión, pero podría perderse al recargar.</p>}
+    {storageError && <p role="alert" className="fixed top-0 left-0 right-0 z-60 bg-conflict-banner text-ink-bright p-3">No se pudo guardar el progreso. El siguiente nivel está disponible aquí, pero puede perderse al salir o recargar.</p>}
     <GamePage {...services} key={`${airport.id}-${level}`} airport={airport} mode="challenge" difficulty="easy" challengeLevel={level}
       onExit={() => navigate(`/challenges?airport=${airport.id}`)}
       onChallengeComplete={() => recordCompletion(airport.id, level)}
