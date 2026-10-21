@@ -95,10 +95,9 @@ it('shows an accessible static airport preview after the destinations and tutori
   expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
   const rings = [...preview!.querySelectorAll('circle[cx="500"][cy="500"]')];
   expect(rings).toHaveLength(0);
-  const grid = preview!.querySelector('rect[data-sector-grid]')!;
-  expect(['x', 'y', 'width', 'height'].map(key => grid?.getAttribute(key))).toEqual(['0', '0', '1000', '1000']);
-  expect(preview!.querySelector('pattern')?.getAttribute('patternUnits')).toBe('userSpaceOnUse');
-  expect(preview?.querySelector('desc')?.textContent).toContain('rectangular reference grid');
+  expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('fill')).toBe('var(--color-scope)');
+  expect(preview?.querySelector('pattern, [data-sector-grid], rect[fill^="url("]')).toBeNull();
+  expect(preview?.querySelector('desc')?.textContent).not.toContain('grid');
   for (const waypoint of AIRPORTS[0].waypoints) {
     expect(preview?.textContent).toContain(waypoint.label);
     expect(preview?.querySelector(`g[transform="translate(${waypoint.x}, ${waypoint.y})"] circle[r="7"]`)).not.toBeNull();

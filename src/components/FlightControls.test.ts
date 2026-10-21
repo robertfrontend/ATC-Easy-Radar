@@ -132,7 +132,7 @@ it('renders the whole rectangular map and corner bloom without circular masking'
   expect(svg.style.overflow).toBe('hidden');
   expect(container.querySelector('[aria-label="Zoom radar in"]')).toBeNull();
   const background = svg.querySelector('rect[pointer-events="all"]');
-  expect(background?.getAttribute('fill')).not.toBe('transparent');
+  expect(background?.getAttribute('fill')).toBe('transparent');
   const ctx = new Proxy({ clip: vi.fn(), fillText: vi.fn() }, {
     get(target, key) { return key in target ? target[key as keyof typeof target] : vi.fn(); },
   });
@@ -261,29 +261,18 @@ it('fits a non-default airport center without any interactive camera state', () 
   expect(w / h).toBe(2);
 });
 
-it('covers the fixed rectangular viewBox with a quiet world-unit reference grid after resize', () => {
+it('keeps a plain black full-frame hit surface without decorative grids after resize', () => {
   radar(makePlane());
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
   coords.resize(860, 400);
-  const pattern = svg.querySelector('pattern');
-  expect(pattern).not.toBeNull();
-  expect(pattern?.getAttribute('patternUnits')).toBe('userSpaceOnUse');
-  expect(pattern?.getAttribute('width')).toBe('112');
-  expect(pattern?.getAttribute('height')).toBe('112');
-  expect(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeGreaterThanOrEqual(0.4);
-  const major = svg.querySelector('pattern[data-grid="major"]')!;
-  expect(major?.getAttribute('width')).toBe('560');
-  expect(Number(major?.querySelector('path')?.getAttribute('stroke-opacity'))).toBeGreaterThan(Number(pattern?.querySelector('path')?.getAttribute('stroke-opacity')));
-  const grid = svg.querySelector('rect[pointer-events="all"]')!;
+  const surface = svg.querySelector('rect[pointer-events="all"]')!;
   const assertCoverage = () => {
-    expect(['x', 'y', 'width', 'height'].map(attribute => Number(grid.getAttribute(attribute))))
+    expect(['x', 'y', 'width', 'height'].map(attribute => Number(surface.getAttribute(attribute))))
       .toEqual(svg.getAttribute('viewBox')!.split(' ').map(Number));
-    expect(grid.getAttribute('fill')).toBe(`url(#${pattern?.id})`);
-    const majorGrid = [...svg.querySelectorAll('rect')].find(rect => rect.getAttribute('fill') === `url(#${major.id})`)!;
-    expect(['x', 'y', 'width', 'height'].map(attribute => Number(majorGrid.getAttribute(attribute))))
-      .toEqual(svg.getAttribute('viewBox')!.split(' ').map(Number));
-    expect(majorGrid.getAttribute('pointer-events')).toBe('none');
+    expect(surface.getAttribute('fill')).toBe('transparent');
+    expect(svg.querySelector('pattern, [data-grid], rect[fill^="url("]')).toBeNull();
+    expect(svg.parentElement?.className).toContain('bg-scope');
   };
   assertCoverage();
   act(() => svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 200, clientY: 150 })));
@@ -291,7 +280,6 @@ it('covers the fixed rectangular viewBox with a quiet world-unit reference grid 
   act(() => svg.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
   coords.resize(400, 860);
   assertCoverage();
-  expect(pattern?.getAttribute('width')).toBe('112');
   expect(svg.querySelector('circle[r="560"]')).toBeNull();
 });
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback, useMemo, useId } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
@@ -74,7 +74,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   ilsWidth = 0.4,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
-  const gridId = useId();
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
@@ -396,21 +395,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        <defs>
-          <pattern id={gridId} width={5 * UNITS_PER_NM} height={5 * UNITS_PER_NM} patternUnits="userSpaceOnUse">
-            <path d={`M ${5 * UNITS_PER_NM} 0 H 0 V ${5 * UNITS_PER_NM}`} fill="none"
-              stroke={scopeColor.map} strokeOpacity="0.42" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          </pattern>
-          <pattern id={`${gridId}-major`} data-grid="major" width={25 * UNITS_PER_NM} height={25 * UNITS_PER_NM} patternUnits="userSpaceOnUse">
-            <path d={`M ${25 * UNITS_PER_NM} 0 H 0 V ${25 * UNITS_PER_NM}`} fill="none"
-              stroke={scopeColor.map} strokeOpacity="0.6" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          </pattern>
-        </defs>
-        {/* World-unit reference grid makes the full panel visible without inventing map geometry. */}
-        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill={`url(#${gridId})`} pointerEvents="all" />
-        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill={`url(#${gridId}-major)`} pointerEvents="none" />
+        {/* Transparent full-frame hit surface preserves the black scope and canvas glow. */}
+        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="transparent" pointerEvents="all" />
 
-        {/* Real airport geometry remains above the full-panel reference grid. */}
+        {/* Real airport geometry retains its existing world coordinates. */}
         <g>
           {/* Subtle Sector Airspace Polygons (TMA, CTR Boundaries) */}
           {airport.airspacePolygons?.map(poly => (
