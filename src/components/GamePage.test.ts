@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement } from 'react';
+import { act, createElement, useEffect } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { field, fieldRunways, makeDeparture, makePlane } from '../test/field';
@@ -7,12 +7,21 @@ import { Plane, SavedGame } from '../types';
 import { audioManager } from '../utils/audio';
 import * as spawn from '../utils/spawn';
 import { GamePage } from './GamePage';
+import { RadarDomain } from '../utils/radarBounds';
+
+let measured = true;
+let reportAspect: ((aspect: number) => void) | undefined;
+let capturedDomain: RadarDomain | undefined;
 
 // Retain the real game loop, command parser, tutorial progression, and session
 // UI. Only replace the visual radar/strip so these tests need no canvas or GPU.
 vi.mock('./RadarDisplay', () => ({
-  RadarDisplay: ({ planes, onSelect, selectedId }: { planes: Plane[]; onSelect: (id: string) => void; selectedId: string | null }) =>
-    createElement('div', { 'data-testid': 'radar' },
+  DEFAULT_SPAN: 1400,
+  RadarDisplay: ({ planes, onSelect, selectedId, domain, onViewportAspect }: { planes: Plane[]; onSelect: (id: string) => void; selectedId: string | null; domain?: RadarDomain; onViewportAspect?: (aspect: number) => void }) => {
+    capturedDomain = domain;
+    reportAspect = onViewportAspect;
+    useEffect(() => { if (measured) onViewportAspect?.(1); }, [onViewportAspect]);
+    return createElement('div', { 'data-testid': 'radar' },
       ...planes.map(plane => createElement('button', {
         key: plane.id,
         type: 'button',
@@ -20,7 +29,8 @@ vi.mock('./RadarDisplay', () => ({
         'data-plane-id': plane.id,
         'data-plane': JSON.stringify(plane),
         'aria-pressed': selectedId === plane.id,
-      }, `Select ${plane.callsign}`))),
+      }, `Select ${plane.callsign}`)));
+  },
 }));
 
 vi.mock('./ControlPanel', () => ({
@@ -117,6 +127,8 @@ function advanceUntil(predicate: () => boolean, limitMs: number, stepMs = 500) {
 }
 
 beforeEach(() => {
+  measured = true;
+  capturedDomain = undefined;
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -438,4 +450,22 @@ it('keeps one persistent flight strip and places the console below the radar at 
   const trackButton = container.querySelector('[data-plane-id]') as HTMLButtonElement;
   act(() => trackButton.click());
   expect(container.querySelector('[data-testid="strip"]')).toBe(strip);
+});
+
+it('blocks random time until first valid measurement and freezes domain through later measurements', () => {
+  measured = false;
+  const spawning = vi.spyOn(spawn, 'spawnAircraft');
+  mount('free');
+  advance(1000);
+  expect(spawning).not.toHaveBeenCalled();
+  act(() => reportAspect?.(0));
+  advance(1000);
+  expect(spawning).not.toHaveBeenCalled();
+  act(() => reportAspect?.(3));
+  expect(capturedDomain).toEqual({ halfWidth: 2100, halfHeight: 700 });
+  advance(50);
+  expect(spawning).toHaveBeenCalledWith(expect.objectContaining({ domain: capturedDomain }));
+  const frozen = capturedDomain;
+  act(() => reportAspect?.(.5));
+  expect(capturedDomain).toBe(frozen);
 });

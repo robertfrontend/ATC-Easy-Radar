@@ -7,8 +7,11 @@ import { scopeColor } from '../theme/radarTheme';
 import { TrackRole, trackRole } from '../theme/trackRole';
 import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
 import { inspectIlsReadiness } from '../utils/approach';
+import { RadarDomain } from '../utils/radarBounds';
 
 interface RadarDisplayProps {
+  domain?: RadarDomain;
+  onViewportAspect?: (aspect: number) => void;
   airport: Airport;
   runwayConfig: RunwayConfig;
   planes: Plane[];
@@ -29,7 +32,7 @@ const DEFAULT_LAYERS: RadarLayers = {
   showExtendedCenterlines: true,
 };
 
-const DEFAULT_SPAN = 1400;
+export const DEFAULT_SPAN = 1400;
 const MIN_VB = 400;
 const MAX_VB = 2600;
 
@@ -61,6 +64,8 @@ function bloomAlpha(plane: Plane, selected: boolean, now: number) {
 
 export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   airport,
+  domain,
+  onViewportAspect,
   runwayConfig,
   planes,
   selectedId,
@@ -80,13 +85,18 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const [vb, setVb] = useState(initialView);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const aspect = viewport.width > 0 && viewport.height > 0 ? viewport.width / viewport.height : 1;
+  const fitSpan = domain ? Math.max(2 * domain.halfWidth / Math.max(1, aspect), 2 * domain.halfHeight / Math.max(1, 1 / aspect)) : DEFAULT_SPAN;
+  const maxSpan = Math.max(MAX_VB, domain ? fitSpan * 2 : 0);
+  useEffect(() => {
+    if (domain) setVb({ x: airport.x - fitSpan / 2, y: airport.y - fitSpan / 2, w: fitSpan, h: fitSpan });
+  }, [domain, fitSpan, airport.x, airport.y]);
   const viewWidth = vb.w * Math.max(1, aspect);
   const viewHeight = vb.h * Math.max(1, 1 / aspect);
   const view = { x: vb.x + (vb.w - viewWidth) / 2, y: vb.y + (vb.h - viewHeight) / 2, w: viewWidth, h: viewHeight };
   const projectionScale = Math.min(viewport.width / view.w, viewport.height / view.h);
   const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
   const predictionContextRef = useRef<{
-    planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; at: number;
+    planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; domain?: RadarDomain; at: number;
   } | null>(null);
 
   const panRef = useRef<{ clientX: number; clientY: number; vbX: number; vbY: number } | null>(null);
@@ -100,6 +110,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const measure = () => {
       const { width, height } = svg.getBoundingClientRect();
       if (width > 0 && height > 0 && Number.isFinite(width / height)) {
+        onViewportAspect?.(width / height);
         setViewport(previous => previous.width === width && previous.height === height ? previous : { width, height });
       }
     };
@@ -111,7 +122,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(svg);
     return () => observer.disconnect();
-  }, []);
+  }, [onViewportAspect]);
 
   // Canvas paints range rings and a faint halo behind target symbols.
   // Data-block text is SVG only, with no bloom, so the readout stays sharp.
@@ -248,7 +259,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       const factor = 1 + (clampedDelta * 0.00085);
 
       setVb(prev => {
-        const targetW = Math.max(MIN_VB, Math.min(MAX_VB, prev.w * factor));
+        const targetW = Math.max(MIN_VB, Math.min(maxSpan, prev.w * factor));
         const actualFactor = targetW / prev.w;
         return {
           x: svgPt.x - (svgPt.x - prev.x) * actualFactor,
@@ -261,7 +272,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [maxSpan]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -339,13 +350,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const now = performance.now();
     const sameContext = previous?.planeId === selectedPlane.id
       && previous.airport === airport && previous.runwayConfig === runwayConfig
-      && previous.gameSpeed === gameSpeed && previous.ilsWidth === ilsWidth && previous.clearanceKey === clearanceKey;
+      && previous.gameSpeed === gameSpeed && previous.ilsWidth === ilsWidth && previous.clearanceKey === clearanceKey && previous.domain === domain;
     // Replaying up to 2,400 ticks is only useful for the selected aircraft,
     // and never needs to run at the live simulation's 20–80 Hz frequency.
     if (sameContext && now - previous.at < 500) return;
-    predictionContextRef.current = { planeId: selectedPlane.id, airport, runwayConfig, gameSpeed, ilsWidth, clearanceKey, at: now };
-    setPrediction({ planeId: selectedPlane.id, result: predictFlightPath(selectedPlane, airport, runwayConfig, ilsWidth, gameSpeed) });
-  }, [selectedPlane, airport, runwayConfig, gameSpeed, ilsWidth, layers.showVectors]);
+    predictionContextRef.current = { planeId: selectedPlane.id, airport, runwayConfig, gameSpeed, ilsWidth, clearanceKey, domain, at: now };
+    setPrediction({ planeId: selectedPlane.id, result: predictFlightPath(selectedPlane, airport, runwayConfig, ilsWidth, gameSpeed, PREDICTION_SECONDS, domain) });
+  }, [selectedPlane, airport, runwayConfig, gameSpeed, ilsWidth, layers.showVectors, domain]);
 
   const activePrediction = prediction?.planeId === selectedId && layers.showVectors ? prediction.result : null;
   const predictionEnd = activePrediction?.points.at(-1);
@@ -389,7 +400,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     const cx = vb.x + vb.w / 2;
     const cy = vb.y + vb.h / 2;
     setVb(prev => {
-      const targetW = Math.min(MAX_VB, prev.w * 1.25);
+      const targetW = Math.min(maxSpan, prev.w * 1.25);
       const actualFactor = targetW / prev.w;
       return {
         x: cx - (cx - prev.x) * actualFactor,
@@ -401,7 +412,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   };
 
   const resetView = () => {
-    setVb(initialView);
+    setVb({ x: airport.x - fitSpan / 2, y: airport.y - fitSpan / 2, w: fitSpan, h: fitSpan });
   };
 
   // Mouse vector calculations for selected aircraft
@@ -1012,7 +1023,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </button>
         <button
           onClick={zoomOut}
-          disabled={vb.w >= MAX_VB}
+          disabled={vb.w >= maxSpan}
           className="w-11 h-11 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
           title="Zoom Out (−)"
           aria-label="Zoom radar out"

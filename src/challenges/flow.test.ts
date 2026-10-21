@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement } from 'react';
+import { act, createElement, useEffect } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
@@ -17,9 +17,11 @@ vi.mock('../utils/audio', () => ({ audioManager: {
   playBlip: vi.fn(), playIlsCapture: vi.fn(), playWarning: vi.fn(), playSuccess: vi.fn(), playCrash: vi.fn(),
   playRadio: vi.fn(), setMuted: vi.fn(),
 } }));
-vi.mock('../components/RadarDisplay', () => ({ RadarDisplay: ({ planes, selectedId, onSelect }) => createElement('div', {},
-  ...planes.map((plane: Plane) => createElement('button', { key: plane.id, onClick: () => onSelect(plane.id),
-    'aria-pressed': selectedId === plane.id }, `Select ${plane.callsign}`))) }));
+vi.mock('../components/RadarDisplay', () => ({ DEFAULT_SPAN: 1400, RadarDisplay: ({ planes, selectedId, onSelect, onViewportAspect }) => {
+  useEffect(() => { onViewportAspect?.(1); }, [onViewportAspect]);
+  return createElement('div', {}, ...planes.map((plane: Plane) => createElement('button', { key: plane.id, onClick: () => onSelect(plane.id),
+    'aria-pressed': selectedId === plane.id }, `Select ${plane.callsign}`)));
+} }));
 vi.mock('../components/ControlPanel', () => ({ ControlPanel: () => null }));
 let root: Root, container: HTMLDivElement;
 const airport = AIRPORTS[0];

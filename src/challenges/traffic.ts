@@ -16,7 +16,7 @@ export function safeEntry(candidate: Plane, request: SpawnRequest): boolean {
     }
     entry = advancePlane(entry, request.airport, request.runwayConfig, .4, 1).plane;
     traffic = traffic.map(plane => advancePlane(plane, request.airport, request.runwayConfig, .4, 1).plane)
-      .filter(plane => trackFate(plane, request.airport).keep);
+      .filter(plane => trackFate(plane, request.airport, request.domain).keep);
   }
   return true;
 }

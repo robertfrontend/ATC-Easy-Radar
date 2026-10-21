@@ -63,7 +63,7 @@ describe('spawning', () => {
     // South of the field the inbound heading is just above north. A full
     // left offset used to wrap through the JS remainder and store a negative
     // heading, which the data block printed as "-30".
-    const values = [0, 0, 0, 0, 0, 0, 0, 0.252, 0];
+    const values = [0, 0, 0, 0, 0, 0, 0, 0.625, 0];
     let index = 0;
     const { plane } = spawn({
       runwayConfig: {
@@ -73,7 +73,7 @@ describe('spawning', () => {
       random: () => values[index++] ?? 0,
     });
     expect(plane!.type).toBe('arrival');
-    expect(plane!.heading).toBeCloseTo(330.72, 2);
+    expect(plane!.heading).toBeCloseTo(330, 2);
     expect(plane!.heading).toBeGreaterThanOrEqual(0);
     expect(plane!.targetHeading).toBe(plane!.heading);
   });
@@ -88,10 +88,10 @@ describe('spawning', () => {
       },
     });
     expect(plane!.type).toBe('arrival');
-    expect(Math.hypot(plane!.x - field.x, plane!.y - field.y)).toBeCloseTo(580);
-    expect(plane!.x).toBeCloseTo(field.x + 580);
-    expect(plane!.y).toBeCloseTo(field.y);
-    expect(plane!.heading).toBe(240);
+    expect(Math.max(Math.abs(plane!.x - field.x), Math.abs(plane!.y - field.y))).toBeCloseTo(580);
+    expect(plane!.x).toBeCloseTo(field.x - 580);
+    expect(plane!.y).toBeCloseTo(field.y - 580);
+    expect(plane!.heading).toBeCloseTo(105);
     expect(plane!.altitude).toBe(10000);
     expect(plane!.speed).toBe(240);
     expect(plane!.targetAltitude).toBe(plane!.altitude);

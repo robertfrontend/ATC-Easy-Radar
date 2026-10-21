@@ -19,14 +19,14 @@ Tradeoff: wider initial panels mean more space and longer transit paths. Preserv
 
 ## Tasks
 - [x] ENTRY-1 (delegated): shared pure rectangular domain/perimeter geometry with translated-center, aspect, weighting, corner and inward-heading tests; preserve default square bounds semantics. Conventional work-unit commit with exact checks and rollback boundary. Aim independently safe additive API slice.
-- [ ] ENTRY-2 (delegated): integrate frozen session domain through random spawn, exits/culling, challenge safety, predictions and camera fit; preserve scripted modes and frequency/caps. TDD integration/regression proof and work-unit commit(s), split only by coherent safe behavior when needed.
+- [x] ENTRY-2 (delegated): integrate frozen session domain through random spawn, exits/culling, challenge safety, predictions and camera fit; preserve scripted modes and frequency/caps. TDD integration/regression proof and work-unit commit(s), split only by coherent safe behavior when needed.
 - [ ] ENTRY-3 (parent with delegated browser QA): verify four sides/corners, wide desktop/mobile, multiple airports/modes, stable domain under zoom/pan/resize, departures/exits and unchanged readability/Home. Explain verified cause/tests/QA before draft PR and merge. Assess native gates, publish clean slices, checks, merge and verify exact production assets and main CI.
 
 ## Acceptance and verification
 Random entries are on the configured rectangle intake perimeter, outside the old radius580 circle (except legacy square600 fallback exact mid-edge where it equals580), with coverage across each edge and near corners including wide side bands. All initial headings move inward. No arbitrary simulation dependence on camera movement or resize. Bounds, safe-entry checks and forecasts use the same domain. No out-of-sector arbitrary spawns that get immediately culled. Existing departures remain runway-based; intentional training tracks unchanged. Camera uses uniform scaling, no letterboxing, and fits frozen domain on orientation change even if required span exceeds old max2600.
 
 ## Progress and next step
-ENTRY-1 pure helper unit verified and ready for its work-unit commit. Parent assesses the committed candidate before integrating ENTRY-2. No review receipt exists yet; no random flow behavior has changed.
+ENTRY-1 committed at `24a769842fa81ed3c8f7af466c784913187ca2cb`; native assessment medium227 under_budget, previous boundary remains0267718 (excluded unrelated .codegraph/.gitignore). ENTRY-2 complete integration locally verified; parent owns candidate assessment and ENTRY-3 browser/release work. No native review receipt exists yet.
 
 ### ENTRY-1 evidence
 - Delegated route: mapping required4+ files; bounded additive writer changed shared helper and a non-trivial new test file. Scope limited to pure geometry, no spawn/culling/render integration.
@@ -36,4 +36,15 @@ ENTRY-1 pure helper unit verified and ready for its work-unit commit. Parent ass
 - Coverage: aspect expansion/invalid aspect fallback; explicit700 span; legacy square thresholds; translated centers; four exact corners/midpoints; deterministic20,000-sample edge-length weighting for four aspects; inward vectors at corners and100 perimeter samples for five aspects including20:1/1:20, with minimum/center/maximum jitter; ordinary ±30-degree bearing preserved.
 - Runtime/browser: N/A for additive unused API; actual random traffic and browser proof belong to ENTRY-2/3. Pure helpers consume sample values, never random functions, so they cannot add random draws.
 - Rollback: remove additions to `src/utils/radarBounds.ts` and new `src/utils/radarDomain.test.ts`; existing square consumers remain unchanged.
-- Commit identity: parent records returned work-unit hash after commit; native assessment/publication pending parent. Engram mirror remains pending/prohibited without runtime identity.
+- Commit identity: `24a769842fa81ed3c8f7af466c784913187ca2cb`; native medium227 under_budget, boundary0267718; publication pending parent. Engram mirror remains pending/prohibited without runtime identity.
+
+
+### ENTRY-2 evidence
+- Delegated implementation threads one stable optional domain through GamePage, real spawn generator, hook, departure/fate, challenge safe-entry and selected prediction. Standalone defaults remain600 square. Random sessions wait for first positive finite SVG aspect, construct explicit700 half-span, and ignore later domain changes. Tutorial/Learning scripted geometry and all traffic rates/caps/physics remain intact.
+- TDD RED: `npm test -- src/utils/perimeterIntegration.test.ts src/components/GamePage.test.ts src/components/FlightControls.test.ts` failed10/passed32 before source (generator positions, fate/prediction, challenge retention, measurement freeze and orientation fit). GREEN final focused command additionally includes `src/utils/spawn.test.ts src/challenges/flow.test.ts`:59/59 passed. Legacy circle-specific assertions were adapted to the perimeter; visual test doubles now provide actual measurement callbacks.
+- Full `npm test`:528/528 across29 files. `npm run typecheck`, `npm run build`, `git diff --check`:passed. No new warnings beyond existing Node DEP0205.
+- Runtime proof: real generator deterministic samples cover four sides/corners/wide bands with exactly12 random draws for arrival no-runway path. Actual GamePage/live hook waits without spawn before measurement, forwards frozen domain and retains identity on new aspect; actual radar test fits4200x1400 initial wide domain and4200x12600 after rotation, centered on airport, with zoom beyond former2600 cap. Existing controls/annotation and all120 deterministic challenge witness tests pass.
+- React/UI check: stable measurement callback, dependency-aware resize/wheel cleanup, immutable domain, unchanged semantic controls, no text/annotation styling changes. Domain-aware forecast cache invalidates on changed domain.
+- Browser QA remains ENTRY-3 parent work; supplied Library capture still unseen. No visual or production verification claimed by this writer.
+- Rollback: revert ENTRY-2 integration commit, restoring prior random circle generator/UI camera wiring while retaining unused additive ENTRY-1 APIs. README bounds explanation and integration regressions travel with this behavior.
+- Work-unit commit identity/count reported to parent after explicit-file commit; no push/review/memory writes by writer. Engram mirror pending runtime identity.
