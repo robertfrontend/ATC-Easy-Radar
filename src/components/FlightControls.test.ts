@@ -6,6 +6,7 @@ import { ControlPanel } from './ControlPanel';
 import { RadarDisplay } from './RadarDisplay';
 import { field, fieldRunways, makePlane } from '../test/field';
 import { Plane } from '../types';
+import { createRadarDomain } from '../utils/radarBounds';
 
 vi.mock('../utils/audio', () => ({ audioManager: { playRadio: vi.fn(), playSelect: vi.fn() } }));
 let root: Root;
@@ -390,4 +391,25 @@ it('assigns four nearby rendered labels distinct quadrants while preserving thei
   annotations.forEach((annotation, index) => {
     expect(annotation.getAttribute('transform')).toContain(`translate(${planes[index].x}, 500)`);
   });
+});
+
+it('reports measured aspect and reframes a frozen wide domain after rotation beyond the old zoom cap', () => {
+  const onViewportAspect = vi.fn();
+  const domain = createRadarDomain(3, 700);
+  act(() => root.render(createElement(RadarDisplay, { planes: [], selectedId: null, onSelect: onDeselect,
+    airport: field, runwayConfig: fieldRunways, domain, onViewportAspect })));
+  const svg = container.querySelector('svg')!;
+  const screen = radarCoordinates(svg);
+  screen.resize(1200, 400);
+  expect(onViewportAspect).toHaveBeenLastCalledWith(3);
+  expect(svg.getAttribute('viewBox')!.split(' ').map(Number).slice(2)).toEqual([4200, 1400]);
+  screen.resize(400, 1200);
+  const [x, y, width, height] = svg.getAttribute('viewBox')!.split(' ').map(Number);
+  expect(width).toBe(4200);
+  expect(height).toBe(12600);
+  expect([x + width / 2, y + height / 2]).toEqual([field.x, field.y]);
+  const zoomOut = container.querySelector('[aria-label="Zoom radar out"]') as HTMLButtonElement;
+  expect(zoomOut.disabled).toBe(false);
+  act(() => zoomOut.click());
+  expect(Number(svg.getAttribute('viewBox')!.split(' ')[2])).toBeGreaterThan(4200);
 });

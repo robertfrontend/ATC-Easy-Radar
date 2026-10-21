@@ -39,9 +39,11 @@ Departures initially climb on runway heading. They do not turn toward their assi
 
 ### Radar world bounds
 
-Traffic uses airport-centered square world bounds, independent of camera zoom, pan or screen size. Uncleared departures leave the sector only beyond 600 units on either axis; other tracks are removed at 2,500 units on either axis. Range rings are distance guides, not survival boundaries. Coordinates and distances are not stretched.
+Random free/shift/Retos sessions freeze an airport-centered rectangular world from the first valid radar panel measurement. Intake is sampled uniformly along all four edges, 20 world units inside the initial visible perimeter, with inward headings. Wider panels therefore offer more maneuvering room and longer transit paths; identical effective density or difficulty across devices is not guaranteed.
 
-Corners provide more maneuvering room and longer diagonal exit times; effective difficulty may therefore change. Arrival intake remains on its existing 580-unit circle. Spawn cadence, traffic caps, separation, flight physics, level goals and the strict 35-unit cleared exit-fix handoff are unchanged. Existing plane state needs no migration.
+Zoom, pan and resize never change this domain. Rotation reframes the camera uniformly to keep the frozen domain available, without stretching coordinates. Uncleared departures leave beyond its operational edges; distant culling retains the existing 2,500/600 extent ratio. Standalone callers keep the legacy 600-unit square default. Range rings remain distance guides, not survival boundaries.
+
+Spawn cadence, traffic caps/mix, separation, flight physics, level goals and the strict 35-unit cleared exit-fix handoff are unchanged. Tutorial and Learning retain their intentional scripted positions. Existing plane state needs no migration.
 
 ### Separation rules
 

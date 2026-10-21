@@ -1,5 +1,6 @@
 import { Airport, Difficulty, GameSpeed, Plane, RunwayConfig } from '../types';
 import { isRunwaySafeForDeparture } from './departure';
+import { arrivalInwardHeading, DEFAULT_RADAR_DOMAIN, RadarDomain, sampleArrivalPerimeter } from './radarBounds';
 
 export const DIFFICULTY_CONFIG: Record<Difficulty, {
   maxPlanes: number;
@@ -36,6 +37,7 @@ export function isSpawnDue(input: {
 }
 
 export interface SpawnRequest {
+  domain?: RadarDomain;
   airport: Airport;
   runwayConfig: RunwayConfig;
   planes: Plane[];
@@ -169,17 +171,9 @@ export function spawnAircraft(request: SpawnRequest): SpawnResult {
     speed = 135;
     targetSpeed = 240;
   } else {
-    const angle = random() * Math.PI * 2;
-    const distance = 580;
-    x = airport.x + Math.cos(angle) * distance;
-    y = airport.y + Math.sin(angle) * distance;
-
-    const angleToCenter = Math.atan2(airport.y - y, airport.x - x);
-    heading = (angleToCenter * 180 / Math.PI) + 90;
-    if (heading < 0) heading += 360;
-    // The ±30° jitter can cross north. JS `%` keeps a negative sign, which
-    // showed up on the scope as a heading like "-30" instead of 330.
-    heading = (heading + (random() * 60 - 30) + 360) % 360;
+    const domain = request.domain ?? DEFAULT_RADAR_DOMAIN;
+    ({ x, y } = sampleArrivalPerimeter(airport, domain, random()));
+    heading = arrivalInwardHeading({ x, y }, airport, domain, random());
     targetHeading = heading;
 
     altitude = 10000 + Math.floor(random() * 16) * 1000;

@@ -1,5 +1,5 @@
 import { Airport, GameSpeed, Plane, Runway, RunwayConfig } from '../types';
-import { DEPARTURE_SECTOR_HALF_EXTENT, squareExtent } from './radarBounds';
+import { DEPARTURE_SECTOR_HALF_EXTENT, domainExtent, RadarDomain } from './radarBounds';
 
 export interface DepartureSeparationState {
   airport: Airport;
@@ -65,7 +65,7 @@ export function isRunwaySafeForDeparture(state: DepartureSeparationState): boole
  * only one that scores. Keeping these tracks alive used to fill `maxPlanes`
  * until the 2,500-unit map edge, so no further departure could spawn.
  */
-export function departureLeftSector(plane: Plane, airport: Airport): boolean {
+export function departureLeftSector(plane: Plane, airport: Airport, domain?: RadarDomain): boolean {
   if (plane.type !== 'departure' || plane.targetWaypoint || plane.status === 'crashed') return false;
-  return squareExtent(plane, airport) > DEPARTURE_SECTOR_HALF_EXTENT;
+  return domainExtent(plane, airport, domain) > DEPARTURE_SECTOR_HALF_EXTENT;
 }

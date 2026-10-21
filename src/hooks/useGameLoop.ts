@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plane, Difficulty, GameSpeed, Airport, RunwayConfig } from '../types';
 import { trackFate } from '../utils/approach';
+import { RadarDomain } from '../utils/radarBounds';
 import { audioManager } from '../utils/audio';
 import { applyClearance } from '../utils/navigation';
 import { applySeparation } from '../utils/separation';
@@ -20,6 +21,7 @@ export interface FlightEvent {
   advice: string;
 }
 interface LoopOptions {
+  domain?: RadarDomain;
   mode?: SessionMode;
   goal?: number;
   level?: number;
@@ -88,6 +90,7 @@ export const useGameLoop = (
       if (mode !== 'tutorial' && spawnDue) {
         const request = {
           airport,
+          domain: options.domain,
           runwayConfig: runwayConfigRef.current,
           planes: currentPlanes,
           now: elapsedMs,
@@ -148,7 +151,7 @@ export const useGameLoop = (
         }
       }
       const retained = nextPlanes.filter(plane => {
-        const fate = trackFate(plane, airport);
+        const fate = trackFate(plane, airport, options.domain);
         if (fate.keep) return true;
         if (fate.score) {
           successIds.push(plane.id);
@@ -178,7 +181,7 @@ export const useGameLoop = (
       setState(next);
     }, intervalMs);
     return () => clearInterval(interval);
-  }, [airport, difficulty, gameSpeed, isPaused, options.blocked, hasEnded, mode, options.level]);
+  }, [airport, difficulty, gameSpeed, isPaused, options.blocked, hasEnded, mode, options.level, options.domain]);
 
   const updatePlaneTarget = useCallback((id: string, updates: Partial<Plane>) => {
     const current = stateRef.current;

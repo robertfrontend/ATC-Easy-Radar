@@ -1,6 +1,7 @@
 import { Airport, GameSpeed, Plane, RunwayConfig } from '../types';
 import { trackFate } from './approach';
 import { advancePlane } from './sim';
+import { RadarDomain } from './radarBounds';
 
 export const PREDICTION_SECONDS = 30;
 
@@ -35,6 +36,7 @@ export function predictFlightPath(
   ilsWidth: number,
   gameSpeed: GameSpeed,
   horizonSeconds = PREDICTION_SECONDS,
+  domain?: RadarDomain,
 ): FlightPrediction {
   const secondsPerTick = 0.05 / (gameSpeed === 'real' ? 1 : gameSpeed);
   const ticks = Math.floor(Math.max(0, Math.min(horizonSeconds, 60)) / secondsPerTick);
@@ -56,7 +58,7 @@ export function predictFlightPath(
   for (let tick = 1; tick <= ticks; tick++) {
     projected = advancePlane(projected, airport, runwayConfig, ilsWidth, gameSpeed).plane;
     seconds = tick * secondsPerTick;
-    const ended = !trackFate(projected, airport).keep;
+    const ended = !trackFate(projected, airport, domain).keep;
     if (tick % sampleEvery === 0 || tick === ticks || ended) points.push(point(projected, seconds));
     if (ended) return { points, seconds, ended: true };
   }

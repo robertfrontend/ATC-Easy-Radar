@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import {
   Pause, Play, RotateCcw, Save, Home, Volume2, VolumeX,
@@ -8,7 +8,8 @@ import {
 import { useGameLoop, SessionMode, SHIFT_DURATION_MS } from '../hooks/useGameLoop';
 import { DIFFICULTY_CONFIG } from '../utils/spawn';
 import { createTutorialScenario, isTutorialHeadingCleared, isTutorialDescentCleared, isTutorialSpeedCleared, isTutorialSeparationCleared, hasTutorialSeparation } from '../utils/tutorial';
-import { RadarDisplay } from './RadarDisplay';
+import { RadarDisplay, DEFAULT_SPAN } from './RadarDisplay';
+import { createRadarDomain, RadarDomain } from '../utils/radarBounds';
 import { ControlPanel } from './ControlPanel';
 import { Airport, Difficulty, SavedGame, RadarLayers, RunwayConfig, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
@@ -137,10 +138,15 @@ export const GamePage: React.FC<GamePageProps> = ({
     showExtendedCenterlines: true,
   });
 
+  const [domain, setDomain] = useState<RadarDomain>();
+  const captureViewport = useCallback((aspect: number) => {
+    if (Number.isFinite(aspect) && aspect > 0) setDomain(previous => previous ?? createRadarDomain(aspect, DEFAULT_SPAN / 2));
+  }, []);
+  const randomMode = mode !== 'tutorial';
   const tutorialFrozen = mode === 'tutorial' && !['capture', 'landed', 'separation'].includes(tutorialStep);
   const { planes, score, accidents, session, events, elapsedMs, effectiveDifficulty, hasEnded, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
     airport, runwayConfig, difficulty, gameSpeed,
-    { mode, goal, level: challengeLevel, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen }
+    { mode, goal, level: challengeLevel, domain: randomMode ? domain : undefined, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen || (randomMode && !domain) }
   );
   useEffect(() => {
     if (mode === 'challenge' && session.status === 'completed') onChallengeComplete?.();
@@ -717,6 +723,8 @@ export const GamePage: React.FC<GamePageProps> = ({
         <div className="md:flex-1 min-h-0 w-full relative flex flex-col bg-scope">
           <div ref={radarRef} role="region" aria-label="Radar aircraft selection" tabIndex={-1} className="w-full md:flex-1 min-h-0 relative bg-scope overflow-hidden">
             <RadarDisplay
+              domain={randomMode ? domain : undefined}
+              onViewportAspect={captureViewport}
               airport={airport}
               runwayConfig={runwayConfig}
               planes={planes}

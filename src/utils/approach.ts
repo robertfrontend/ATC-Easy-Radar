@@ -1,6 +1,6 @@
 import { Airport, Plane, Runway, RunwayConfig } from '../types';
 import { departureLeftSector } from './departure';
-import { DISTANT_WORLD_HALF_EXTENT, squareExtent } from './radarBounds';
+import { DISTANT_WORLD_HALF_EXTENT, domainExtent, RadarDomain } from './radarBounds';
 
 export interface IlsRunwayCheck {
   runway: Runway;
@@ -194,13 +194,13 @@ export interface TrackFate {
  * Order matches the loop: handoff, uncleared departure leaving the sector,
  * landing, then the map edge.
  */
-export function trackFate(plane: Plane, airport: Airport): TrackFate {
+export function trackFate(plane: Plane, airport: Airport, domain?: RadarDomain): TrackFate {
   if (plane.markedForRemoval) {
     const handoff = plane.type === 'departure' && plane.status !== 'crashed';
     return { keep: false, score: handoff, accident: false, success: handoff };
   }
 
-  if (departureLeftSector(plane, airport)) {
+  if (departureLeftSector(plane, airport, domain)) {
     return { keep: false, score: false, accident: false, success: false };
   }
 
@@ -226,6 +226,6 @@ export function trackFate(plane: Plane, airport: Airport): TrackFate {
     }
   }
 
-  if (squareExtent(plane, airport) < DISTANT_WORLD_HALF_EXTENT) return { keep: true, score: false, accident: false, success: false };
+  if (domainExtent(plane, airport, domain) < DISTANT_WORLD_HALF_EXTENT) return { keep: true, score: false, accident: false, success: false };
   return { keep: false, score: false, accident: false, success: false };
 }
