@@ -20,9 +20,9 @@ Moderately enlarge aircraft symbols, readouts, critical game controls and intera
 - Engram mirror `odd/game-readability/tasks`: PENDING because runtime identity is unavailable and attributed writes are prohibited.
 
 ## Tasks and slice boundaries
-- [ ] READ-1A (delegated implementation): readable annotation metrics, finite resize/zoom sizing, edge placement, nearest dense selection and correct hit-layer ordering, with focused/full tests and a conventional commit. Slice A excludes ControlPanel, zoom touch sizing and nearby-label spreading. Rollback: annotation presentation, hit interactions and their tests/docs only.
+- [x] READ-1A (delegated implementation): readable annotation metrics, finite resize/zoom sizing, edge placement, nearest dense selection and correct hit-layer ordering, with focused/full tests and a conventional commit. Slice A excludes ControlPanel, zoom touch sizing and nearby-label spreading. Rollback: annotation presentation, hit interactions and their tests/docs only.
 - [ ] READ-2A (parent QA/release): desktop/mobile sizing, edge labels, min/default/max zoom, resize/pan, named label selection through overlapping hit areas, Enter/direct-to and gameplay routes; assess native gate, draft PR, checks, merge and deployment.
-- [ ] READ-1B (delegated, waiting for merged A/new branch): restore bounded nearby-label spreading, critical 12 px control text and 44 px button/range/zoom targets, with their tests. Rollback: density layout and scoped control presentation/tests only.
+- [ ] READ-1B (delegated, restored on `codex/game-readability-density`; commit pending): restore bounded nearby-label spreading, critical 12 px control text and 44 px button/range/zoom targets, with their tests. Rollback: density layout and scoped control presentation/tests only.
 - [ ] READ-2B (parent QA/release): 2–4 nearby labels, desktop/mobile control targets, keyboard and unchanged clearance behavior; native assessment, separate draft PR, checks, merge and deployed smoke.
 
 ## Verification and recovery
@@ -31,7 +31,15 @@ Moderately enlarge aircraft symbols, readouts, critical game controls and intera
 - Complete A+B source snapshot: `/private/tmp/atc-readability-complete.isrk2o40`, six explicit files plus `SHA256SUMS`. Restore B behavior only after A merges; preserve current task/release evidence rather than blindly overwriting this document.
 - React checklist: reused observer with cleanup and unchanged-dimension bailout; no per-frame React measurement state, dependencies or global styles. Existing semantic selection, keyboard and direct-to/Enter guards remain.
 - Source Library screenshot remains unavailable and unseen. Use independent browser screenshots, not claims about the missing image.
-- Slice A verification: 30 focused tests and 488 full tests pass; typecheck, build and diff check pass. Exact precommit authored count: 365 lines. B remains safely deferred, not discarded.
+- Slice A work-unit commit: `acdf5161c05a3d7ead88a975bc80053853639448` (`fix(radar): keep aircraft annotations readable at every zoom`); 283 additions + 82 deletions = 365 authored lines. This postcommit SHA record is intentionally not amended into its own commit.
+- Slice A verification: 30 focused tests and 488 full tests pass; typecheck, build and diff check pass. Exact precommit authored count: 365 lines. B has now been restored after the merged-A/new-branch signal.
+
+- Slice A publication: PR27 merged as `9a7c199c64275b0192dde0368e6a42f7937b5a8f`. Published commit `ed831aaaa4c15d04cbe7ffcd70a3af573362dd17` and merged main share exact tree `2b1e31e369834e93de2d93eda0fb9e44dcb84b18`; parent reports CI/Vercel preview green and bounded actual A QA passed. Production asset verification remains parent-owned and pending.
+- Slice B recovery: verified the snapshot manifest hash `c1523c72c94a37f65c7aff9a75618fe11f1d477b8c0e128f17287d69738b4566`, all six saved file hashes, and exact SHA256 equality of all five restored source/test files. Current task document was preserved rather than restored from snapshot.
+- Slice B checks: exact authored diff is 147 lines from merged A, including task evidence. 33 focused tests and 491 full tests pass; typecheck, build and diff check pass. Only bounded label quadrants, scoped ControlPanel typography/touch targets, zoom target sizing and their tests differ from merged A. Commit awaits parent approval.
 
 ## Next step
-Verify and commit A, then parent publishes it. Wait for the parent's merged-A/new-branch signal before restoring B. Keep each PR's exact commits and deployed proof separate.
+Parent completes B browser QA and authorizes its work-unit commit, then handles native candidate assessment, PR, checks, merge and deployment. Keep A/B commit and production proof separate; prior review declines do not authorize this new candidate.
+
+### Slice A production proof
+PR #27 merged as `9a7c199c64275b0192dde0368e6a42f7937b5a8f`. Main CI run 39537194047 and Vercel succeeded. Public JS/CSS SHA-256 match the saved slice-A build manifest. Actual public browser at 100% confirms 10/12/11 px annotations, full-panel geometry and Enter/double Enter. B remains a separate pending candidate.

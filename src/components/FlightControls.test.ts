@@ -342,6 +342,18 @@ it('selects the nearest dense track on hit areas, but keeps callsign and keyboar
   expect(onCommand).not.toHaveBeenCalled();
 });
 
+it('gives clearance controls readable text and practical touch targets without changing their behavior', () => {
+  strip(makePlane());
+  const controls = container.querySelector('[data-clearance-controls]');
+  expect(controls).toBeTruthy();
+  expect(controls?.className).toContain('[&_button]:min-h-11');
+  expect(controls?.className).toContain('[&_input[type=range]]:h-11');
+  clickText('+10°');
+  clickText('TRANSMIT CLEARANCE');
+  expect(onCommand).toHaveBeenCalledTimes(1);
+});
+
+
 it('paints every hit target below every visible label so a later track cannot intercept a callsign', () => {
   const planes = [makePlane({ id: 'near', x: 500, y: 500 }), makePlane({ id: 'last', x: 535, y: 500 })];
   act(() => root.render(createElement(RadarDisplay, { planes, selectedId: 'near', onSelect: onDeselect, onCommand, airport: field, runwayConfig: fieldRunways })));
@@ -364,4 +376,18 @@ it('paints every hit target below every visible label so a later track cannot in
   });
   expect(onDeselect).toHaveBeenLastCalledWith('near');
   expect(onCommand).not.toHaveBeenCalled();
+});
+
+
+it('assigns four nearby rendered labels distinct quadrants while preserving their world centers', () => {
+  const planes = [500, 535, 570, 605].map((x, index) => makePlane({ id: String(index), x, y: 500 }));
+  act(() => root.render(createElement(RadarDisplay, { planes, selectedId: null, onSelect: onDeselect, airport: field, runwayConfig: fieldRunways })));
+  const svg = container.querySelector('svg')!;
+  radarCoordinates(svg).resize(390, 600);
+  const annotations = [...svg.querySelectorAll('[data-track-annotation]')];
+  const positions = annotations.map(annotation => annotation.querySelector('g')!.getAttribute('transform')!.match(/-?[\d.]+/g)!.map(Number));
+  expect(positions.map(([x, y]) => [Math.sign(x), Math.sign(y)])).toEqual([[1, -1], [-1, 1], [-1, -1], [1, 1]]);
+  annotations.forEach((annotation, index) => {
+    expect(annotation.getAttribute('transform')).toContain(`translate(${planes[index].x}, 500)`);
+  });
 });
