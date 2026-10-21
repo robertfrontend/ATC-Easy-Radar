@@ -57,7 +57,7 @@ export function createSession(goal = 10): SessionState {
  * final landing on the same tick must not turn a failed shift into a win.
  * Keep the receipt IDs for the life of a shift, then discard them on restart.
  */
-export function recordSessionEvents(state: SessionState, events: SessionEvents): SessionState {
+export function recordSessionEvents(state: SessionState, events: SessionEvents, completeOnQuota = true): SessionState {
   if (state.status !== 'active') return state;
 
   const next = { ...state, resolvedIds: [...state.resolvedIds] };
@@ -109,7 +109,7 @@ export function recordSessionEvents(state: SessionState, events: SessionEvents):
       Math.max(0, next.streak - 1) * SESSION_POINTS.streakStep,
     );
     next.points += SESSION_POINTS.operation + bonus;
-    if (next.operations >= next.goal) {
+    if (completeOnQuota && next.operations >= next.goal) {
       next.status = 'completed';
       break;
     }

@@ -112,7 +112,7 @@ export interface SavedGame {
   airportId: string;
   planesActive: number;
   gameSpeed?: GameSpeed;
-  mode?: 'tutorial' | 'shift' | 'free';
+  mode?: 'tutorial' | 'shift' | 'free' | 'challenge';
   points?: number;
   goal?: number;
 }

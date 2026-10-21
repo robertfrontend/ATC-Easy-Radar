@@ -24,7 +24,7 @@ export interface Intensity {
 }
 
 export function getIntensity(airportId: string, level: number): Intensity | null {
-  const balance = airportBalance[airportId];
+  const balance = Object.hasOwn(airportBalance, airportId) ? airportBalance[airportId] : undefined;
   if (!balance || !Number.isInteger(level) || level < 1 || level > CHALLENGE_LEVELS) return null;
   const band = Math.floor((level - 1) / 5);
   return {

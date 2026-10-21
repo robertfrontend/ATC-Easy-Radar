@@ -46,6 +46,8 @@ export interface SpawnRequest {
   allowArrival: boolean;
   /** Defaults to Math.random. Injected so tests can replay a sequence. */
   random?: () => number;
+  /** Challenge intake only; other modes retain their original 35% departure mix. */
+  departureProbability?: number;
 }
 
 export interface SpawnResult {
@@ -113,7 +115,7 @@ export function spawnAircraft(request: SpawnRequest): SpawnResult {
     })
   );
 
-  const isDeparture = safeDepartureRunways.length > 0 && (planes.length === 0 ? true : random() < 0.35);
+  const isDeparture = safeDepartureRunways.length > 0 && (planes.length === 0 ? true : random() < (request.departureProbability ?? 0.35));
   if (!isDeparture && !allowArrival) return { plane: null, lastDepartureAt };
 
   const { callsign, flag, model, squawk } = generateCallsignAndDetails(airport, random);

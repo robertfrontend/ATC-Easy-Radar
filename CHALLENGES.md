@@ -29,3 +29,13 @@ Progress uses only `atc_challenges_progress_v1`, storing a validated contiguous 
 frontier per airport. Level 1 starts unlocked; only a successful full attempt can advance
 the frontier. Replay cannot lower progress or skip a level; level 20 has no level 21.
 Existing saves/high scores/Learning storage are not migrated or overwritten.
+
+Entry safety: up to eight candidate attempts per intake slot, rejecting pair conflicts
+over 20 seconds with the existing physics/separation checks. Rejected candidates do not
+consume departure cooldown state; no catch-up bursts. This gives a reaction window, not
+a guarantee against later conflicts or unsafe player commands. The cap includes departures.
+
+Deterministic feasibility tests run five minutes for all 120 profiles with seeded traffic.
+Their reference policy clears departures to the assigned exit and vectors arrivals outward
+at high altitude. This demonstrates that the minimal activity goal is reachable without
+accidents; it does not claim expert arrival sequencing or exhaustive balance validation.
