@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams
 import { HomePage } from './components/HomePage';
 import { GamePage } from './components/GamePage';
 import { LearningPage } from './learning/LearningPage';
+import { ChallengeSelector } from './challenges/ChallengeSelector';
+import { ChallengeGame } from './challenges/ChallengeGame';
 import { SavedGame, Difficulty, RunwayConfig } from './types';
 import { AIRPORTS } from './config/airports';
 import { SessionMode } from './hooks/useGameLoop';
@@ -96,6 +98,7 @@ function GamePageWrapper({
     return initial;
   }, [state?.runwayConfig, airport]);
 
+  if (rawMode === 'challenge') return <ChallengeGame highScore={highScore} onSave={onSave} onScoreUpdate={onScoreUpdate} />;
   return (
     <GamePage
       key={`${airport.id}-${difficulty}-${mode}-${goal}`}
@@ -147,6 +150,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/challenges" element={<ChallengeSelector />} />
         <Route path="/learning/*" element={<LearningPage />} />
         <Route
           path="/"

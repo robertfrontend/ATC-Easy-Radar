@@ -113,6 +113,7 @@ export interface SavedGame {
   planesActive: number;
   gameSpeed?: GameSpeed;
   mode?: 'tutorial' | 'shift' | 'free' | 'challenge';
+  challengeLevel?: number;
   points?: number;
   goal?: number;
 }
