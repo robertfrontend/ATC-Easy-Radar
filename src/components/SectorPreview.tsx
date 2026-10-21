@@ -30,8 +30,8 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
           aria-describedby={`${previewId}-description`} className="w-full h-full p-2">
           <title id={`${previewId}-title`}>{airport.icao} radar sector preview</title>
           <desc id={`${previewId}-description`}>Static airport layout with runways, approach guides, range rings and navigation fixes. No live traffic.</desc>
-          {/* Sector Background Circle */}
-          <circle cx="500" cy="500" r="470" fill={scopeColor.scopeDisk} stroke={scopeColor.line} strokeWidth="1.5" />
+          {/* Square sector background; circles below are range guides only. */}
+          <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />
 
           {/* Range Rings */}
           <circle cx="500" cy="500" r="160" fill="none" stroke={scopeColor.phosphor} strokeDasharray="4,6" />

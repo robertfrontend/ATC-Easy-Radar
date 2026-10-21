@@ -104,6 +104,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
+        canvas.style.width = `${bounds.width}px`;
+        canvas.style.height = `${bounds.height}px`;
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, bounds.width, bounds.height);
@@ -136,9 +138,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       const now = performance.now();
 
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-      ctx.clip();
 
       if (showRangeRings) {
         for (const nm of RANGE_RING_NM) {
@@ -419,38 +418,28 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   }, [selectedPlane, airport, planes]);
 
   return (
-    <div className="relative isolate w-full h-full select-none bg-scope overflow-hidden">
+    <div className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
       <canvas
         ref={phosphorRef}
-        className="pointer-events-none absolute inset-0 z-0 h-full w-full"
+        className="pointer-events-none absolute top-0 left-0 z-0"
         aria-hidden="true"
       />
       <svg
         ref={svgRef}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         preserveAspectRatio="xMidYMid meet"
-        className="relative z-10 h-full w-full"
-        style={{ overflow: 'visible', cursor: hasDraggedRef.current ? 'grabbing' : selectedPlane ? 'crosshair' : 'default' }}
+        className="relative z-10 w-full h-auto aspect-square md:aspect-auto md:h-full md:flex-1 min-h-0"
+        style={{ overflow: 'hidden', cursor: hasDraggedRef.current ? 'grabbing' : selectedPlane ? 'crosshair' : 'default' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        <defs>
-          <clipPath id="radarClip">
-            <circle cx={airport.x} cy={airport.y} r="560" />
-          </clipPath>
-        </defs>
+        {/* The square viewport, not a range ring, defines the visible map. */}
+        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="none" pointerEvents="all" />
 
-        {/* Transparent hit layer. The scope itself is pure black on the parent,
-            so the canvas phosphor bloom can show through. */}
-        <rect x="-5000" y="-5000" width="10000" height="10000" fill="transparent" pointerEvents="all" />
-
-        {/* Scope Interior (25 NM Radius) */}
-        <circle cx={airport.x} cy={airport.y} r="560" fill="none" />
-
-        {/* Inside Scope Visuals */}
-        <g clipPath="url(#radarClip)">
+        {/* Range circles are guides only; map geometry remains visible in corners. */}
+        <g>
           {/* Subtle Sector Airspace Polygons (TMA, CTR Boundaries) */}
           {airport.airspacePolygons?.map(poly => (
             <polygon
@@ -983,7 +972,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       </svg>
 
       {selectedPlane && layers.showVectors && (
-        <div className="absolute top-3 left-3 z-20 max-w-[270px] rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
+        <div className="relative md:absolute md:top-3 md:left-3 z-20 md:max-w-[270px] rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
           <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
           Active clearance only · refreshes twice/sec.
           <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
@@ -992,14 +981,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       )}
 
       {/* Scope readback line */}
-      <div className="absolute bottom-2 left-4 right-28 z-20 pointer-events-none select-none">
+      <div className="relative px-3 py-1 md:px-0 md:py-0 md:absolute md:bottom-2 md:left-4 md:right-28 z-20 min-w-0 pointer-events-none select-none">
         <div className="text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>
 
       {/* Smooth Mini Radar Zoom & Center Widget */}
-      <div className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
+      <div className="relative self-end m-2 md:m-0 md:absolute md:bottom-3 md:right-4 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
         <button
           onClick={zoomIn}
           disabled={vb.w <= MIN_VB}

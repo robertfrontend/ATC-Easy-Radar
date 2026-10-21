@@ -17,7 +17,7 @@ Supplied Library screenshot libfile_e350078a8cd88191a35a45eb3f79a83f NOT VIEWED:
 - Engram mirror PENDING odd/square-radar/tasks: runtime identity unavailable, writes prohibited.
 
 ## Tasks and acceptance
-- [ ] SQUARE-1 delegated: shared fixed world-square geometry, departure600 and distant2500 boundaries with exact exclusions/order/scoring preserved; corners/axial boundary/translated airports/cleared departures/handoff/legacy state regressions. No render change yet. Full tests/typecheck/build/diff check, coherent conventional commit and independent PR to main. Rollback only square boundary helper/consumers/tests/doc.
+- [x] SQUARE-1 delegated: shared fixed world-square geometry, departure600 and distant2500 boundaries with exact exclusions/order/scoring preserved; corners/axial boundary/translated airports/cleared departures/handoff/legacy state regressions. No render change yet. Full tests/typecheck/build/diff check, coherent conventional commit and independent PR to main. Rollback only square boundary helper/consumers/tests/doc.
 - [ ] SQUARE-2 delegated: remove circular SVG/canvas clipping, rectangular background/preview consistency, preserve rings/uniform CTM and click/heading/direct-to after zoom/pan/resize. Responsive square radar with sidebar/console below on mobile, preserving mounted controls/drafts and desktop behavior. Focused RED/GREEN/full checks; browser desktop/mobile corner commands/zoom/pan/resize and saved/progress compatibility; performance sanity. Separate work-unit/PR after SQUARE-1, green checks/merge/production asset verification.
 
 ## Progress
@@ -35,3 +35,17 @@ CodeGraph-backed mapping and focused source inspection verified design; Home pre
 
 ## Next step
 Parent inspects/commits/assesses/publishes SQUARE-1, then delegates SQUARE-2. Report any failed/unavailable check exactly, especially screenshot access and mobile input capabilities.
+
+## SQUARE-1 release
+Localf05cd1e and publication2868289 share treef2f3caa26877bc5bb5a6e6857b97258d3418f158; native medium196 under_budget. PR24 created draft, CI/Vercel success, ready and merged412c2f5a64dac9c31ffca0ed3d63d24087e4fc05. SQUARE-2 starts from this clean merged main on codex/square-radar-view; no polluted diff. Bounds tests cover461 checks; production verification pending final render release.
+
+
+### SQUARE-2 local implementation (uncommitted)
+- Delegated writer route, TDD ON. Removed only canvas circular clipping and SVG radarClip; retained range rings, existing inverse-CTM pointer handlers and default1400-unit square camera. ViewBox hit rectangle now follows the camera, and rectangular SVG overflow prevents map paint extending into mobile footer. No boundary/physics/spawn/progress changes.
+- Mobile: square SVG followed by existing prediction/readback/zoom controls, then command console and one persistently mounted flight strip. Desktop retains sidebar; the console now uses a reserved flow footer at all widths after browser QA proved its old overlay intercepted the southeast corner. Canvas CSS dimensions follow the actual SVG to prevent stretching bloom when mobile footer grows. Preview uses a square background, retaining existing runway/fix geometry.
+- RED observed before source edits: old circular mask, console nested in radar, and missing square preview background failed3 targeted regressions. One existing long tutorial additionally timed out under parallel load; unchanged standalone GamePage run passed12/12, then combined focused27/27 passed. No timeout/runner settings changed.
+- Real RadarDisplay regressions: all four corner track mouse/Enter/Space selection; heading commands at all four corners via inverse CTM after zoom and drag plus non-square resize; no resize camera reset; direct-to transmits once and reset returns original1400-square view. Canvas callback verifies corner bloom paints with no clip. Existing mocked GamePage tests verify single strip persistence and responsive console/sidebar classes; browser geometry/hit-tests remain parent QA.
+- Final checks: `npm test` passed468/468 across26files; `npm run typecheck`, `npm run build`, `git diff --check` passed. Existing DEP0205 deprecation warning only. Authored diff217lines includes16doclines (parent release evidence retained), no cosmetic compression. Assets `index-Ig7opt9A.js` / `index-Dd6NvYUn.css`. Final browser corner confirmation, commit/RDD/publication/deployment remain pending. Screenshot limitation unchanged.
+- Queued user request (not started): game readability after square release. No readability research or implementation included here.
+
+- Browser correction: parent observed1180x757 SVG860x552.3359; worldSE(1100,1100) mapped(666.7154,717.5474) inside console rectangle190..670/646.5..733, which intercepted hit-testing. Updated regression first failed old md:absolute; source now reserves one console footer outside radar at every width, with remaining-height flex radar. No duplicated controls or input behavior changes. After correction: targeted test passed1/11skipped, full468/468tests26files passed; typecheck/build/diff-check passed. No runner changes.

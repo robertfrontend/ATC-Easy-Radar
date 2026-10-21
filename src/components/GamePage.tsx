@@ -382,9 +382,9 @@ export const GamePage: React.FC<GamePageProps> = ({
   const debriefEvent = [...events].reverse().find(event => event.kind === 'accident') ?? [...events].reverse().find(event => event.kind === 'warning' || event.kind === 'missed');
 
   return (
-    <div className="flex h-screen min-h-[540px] bg-scope text-ink font-mono overflow-hidden select-none">
+    <div className="flex flex-col md:flex-row min-h-screen md:h-screen md:min-h-[540px] bg-scope text-ink font-mono overflow-x-hidden md:overflow-hidden select-none">
       {/* Main Radar Area */}
-      <div className="flex-1 min-w-0 flex flex-col relative">
+      <div className="md:flex-1 min-w-0 min-h-0 flex flex-col relative">
         {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}
         <header ref={headerRef} className="min-h-10 bg-header border-b border-line px-4 py-2 flex flex-wrap gap-x-4 gap-y-2 justify-between items-center z-30 select-none text-xs">
           {/* Left: Clean Station Identifier */}
@@ -714,21 +714,23 @@ export const GamePage: React.FC<GamePageProps> = ({
         )}
 
         {/* Main Radar Scope Container */}
-        <div ref={radarRef} role="region" aria-label="Radar aircraft selection" tabIndex={-1} className="flex-1 w-full relative bg-scope overflow-hidden">
-          <RadarDisplay
-            airport={airport}
-            runwayConfig={runwayConfig}
-            planes={planes}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onCommand={updatePlaneTarget}
-            layers={layers}
-            gameSpeed={gameSpeed}
-            ilsWidth={DIFFICULTY_CONFIG[effectiveDifficulty].ilsWidth}
-          />
+        <div className="md:flex-1 min-h-0 w-full relative flex flex-col bg-scope">
+          <div ref={radarRef} role="region" aria-label="Radar aircraft selection" tabIndex={-1} className="w-full md:flex-1 min-h-0 relative bg-scope overflow-hidden">
+            <RadarDisplay
+              airport={airport}
+              runwayConfig={runwayConfig}
+              planes={planes}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onCommand={updatePlaneTarget}
+              layers={layers}
+              gameSpeed={gameSpeed}
+              ilsWidth={DIFFICULTY_CONFIG[effectiveDifficulty].ilsWidth}
+            />
 
-          {/* Authentic ATC Command Console */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 w-full max-w-lg px-4 pointer-events-auto">
+          </div>
+          {/* Reserved footer keeps all radar corners clear at every screen size. */}
+          <div className="relative shrink-0 mx-auto my-3 z-30 w-full max-w-lg px-4 pointer-events-auto">
             <form onSubmit={handleCommandSubmit} autoComplete="off" className="relative">
               <div className="relative flex flex-col bg-panel border border-line-strong rounded-lg p-2.5 shadow-2xl">
                 <div className="flex items-center gap-2">
@@ -754,7 +756,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                           : "e.g. ILS 33L, D3000 H090 S210, HARBR..."
                     }
                     disabled={!selectedId}
-                    className="bg-transparent border-none outline-none flex-1 text-ink-bright placeholder:text-ink-faint uppercase tracking-widest text-sm disabled:cursor-not-allowed"
+                    className="bg-transparent border-none outline-none flex-1 min-w-0 text-ink-bright placeholder:text-ink-faint uppercase tracking-widest text-sm disabled:cursor-not-allowed"
                   />
                   {commandInput && (
                     <button
@@ -769,7 +771,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                 </div>
 
                 {/* Micro Syntax Cheat-Sheet */}
-                <div className="mt-1 pt-1 border-t border-line flex items-center justify-between text-[10px] text-ink-faint font-mono">
+                <div className="mt-1 pt-1 border-t border-line flex flex-wrap gap-x-2 items-center justify-between text-[10px] text-ink-faint font-mono">
                   <span>DEP (exit) · ILS {primaryRunway.label} · D3000 · H{primaryRunway.heading.toString().padStart(3, '0')} · S180</span>
                   <span>[TAB] Auto-Complete</span>
                 </div>
@@ -814,7 +816,7 @@ export const GamePage: React.FC<GamePageProps> = ({
       </div>
 
       {/* Side ATC Flight Strip Pedestal */}
-      <div className="w-80 xl:w-96 shrink-0 bg-panel border-l border-line p-5 flex flex-col z-20">
+      <div className="w-full md:w-80 xl:w-96 shrink-0 bg-panel border-t md:border-t-0 md:border-l border-line p-5 flex flex-col z-20 md:overflow-y-auto">
         <ControlPanel
           airport={airport}
           runwayConfig={runwayConfig}

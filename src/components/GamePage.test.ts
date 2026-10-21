@@ -419,3 +419,23 @@ describe('shift debriefs', () => {
     expect(debrief?.textContent).toContain('1 accident');
   });
 });
+
+it('keeps one persistent flight strip and places the console below the radar at every screen size', () => {
+  mount('tutorial');
+  const radar = container.querySelector('[aria-label="Radar aircraft selection"]')!;
+  const form = container.querySelector('form')!;
+  expect(radar.contains(form)).toBe(false);
+  expect(radar.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.firstElementChild?.className).toContain('flex-col');
+  expect(container.firstElementChild?.className).toContain('md:flex-row');
+  const strip = container.querySelector('[data-testid="strip"]')!;
+  expect(strip.parentElement?.className).toContain('w-full');
+  expect(strip.parentElement?.className).toContain('md:w-80');
+  expect(container.querySelectorAll('[data-testid="strip"]')).toHaveLength(1);
+  expect(form.parentElement?.className).not.toContain('absolute');
+  expect(form.parentElement?.parentElement?.className).toContain('flex-col');
+  expect(radar.className).toContain('md:flex-1');
+  const trackButton = container.querySelector('[data-plane-id]') as HTMLButtonElement;
+  act(() => trackButton.click());
+  expect(container.querySelector('[data-testid="strip"]')).toBe(strip);
+});
