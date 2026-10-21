@@ -27,7 +27,7 @@ Shift traffic begins easy, rises to medium after 3 safe operations and hard afte
 3. The console sends immediately on Enter: `H270`, `D3000`, `C5000`, `S180`, or combined `H270 D3000 S180`. `DEP` clears a departure to its assigned exit. A named fix clears direct to that fix.
 4. Clicking empty radar space with an aircraft selected transmits a heading to that point. Clicking a fix transmits direct-to; clicking the ILS marker assigns that runway and vectors toward its outer fix without changing altitude/speed.
 5. **PLAN ILS** stages a heading to the outer fix with 3,000 ft and 180 kt. It is not an automatic final intercept: transmit, then turn toward the runway heading inside the cone.
-6. Use the visible Pause control or the menu. Opening/closing a menu does not clear a manual pause. Zoom with the radar controls and pan by dragging.
+6. Use the visible Pause control or the menu. Opening/closing a menu does not clear a manual pause. The radar uses one fitted view with no in-game zoom or pan. Browser zoom and scrolling remain available; dragging does not issue a clearance.
 
 ### Approach help and prediction
 
@@ -41,7 +41,7 @@ Departures initially climb on runway heading. They do not turn toward their assi
 
 Random free/shift/Retos sessions freeze an airport-centered rectangular world from the first valid radar panel measurement. Intake is sampled uniformly along all four edges, 20 world units inside the initial visible perimeter, with inward headings. Wider panels therefore offer more maneuvering room and longer transit paths; identical effective density or difficulty across devices is not guaranteed.
 
-Zoom, pan and resize never change this domain. Rotation reframes the camera uniformly to keep the frozen domain available, without stretching coordinates. Uncleared departures leave beyond its operational edges; distant culling retains the existing 2,500/600 extent ratio. Standalone callers keep the legacy 600-unit square default. Range rings remain distance guides, not survival boundaries.
+Resize and rotation never change this domain. A single fitted camera always shows the whole frozen sector with uniform coordinate scaling; there are no game zoom/pan controls or camera gestures. Browser accessibility zoom and scrolling remain unchanged. Uncleared departures leave beyond its operational edges; distant culling retains the existing 2,500/600 extent ratio. Standalone callers keep the legacy 600-unit square default. Range rings remain distance guides, not survival boundaries.
 
 Spawn cadence, traffic caps/mix, separation, flight physics, level goals and the strict 35-unit cleared exit-fix handoff are unchanged. Tutorial and Learning retain their intentional scripted positions. Existing plane state needs no migration.
 
