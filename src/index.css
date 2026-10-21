@@ -105,3 +105,19 @@ input[type="range"] {
 .symbol-glow {
   text-shadow: 0 0 2px color-mix(in srgb, currentColor 45%, transparent);
 }
+
+/* Keep setup controls usable without changing the radar's visual language. */
+.home-page :is(button, a, input, summary):focus-visible {
+  outline: 2px solid var(--color-selected);
+  outline-offset: 3px;
+}
+
+.home-page button {
+  min-height: 44px;
+}
+
+@media (max-width: 639px) {
+  .home-launch > button {
+    width: 100%;
+  }
+}

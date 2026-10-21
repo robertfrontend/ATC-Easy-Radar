@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
-import { HomePage } from './components/HomePage';
+import { HomePage, HomeSetup, initialHomeSetup } from './components/HomePage';
 import { GamePage } from './components/GamePage';
 import { LearningPage } from './learning/LearningPage';
 import { ChallengeSelector } from './challenges/ChallengeSelector';
@@ -28,10 +28,14 @@ function HomePageWrapper({
   savedGames,
   highScore,
   onDeleteGame,
+  setup,
+  setSetup,
 }: {
   savedGames: SavedGame[];
   highScore: number;
   onDeleteGame: (id: string) => void;
+  setup: HomeSetup;
+  setSetup: React.Dispatch<React.SetStateAction<HomeSetup>>;
 }) {
   const navigate = useNavigate();
 
@@ -53,6 +57,8 @@ function HomePageWrapper({
       onNewGame={handleStartNewGame}
       onDeleteGame={onDeleteGame}
       highScore={highScore}
+      setup={setup}
+      setSetup={setSetup}
     />
   );
 }
@@ -116,6 +122,7 @@ function GamePageWrapper({
 }
 
 export default function App() {
+  const [homeSetup, setHomeSetup] = useState(initialHomeSetup);
   const [savedGames, setSavedGames] = useState<SavedGame[]>(loadSavedGames);
 
   const [highScore, setHighScore] = useState(() => {
@@ -159,6 +166,8 @@ export default function App() {
               savedGames={savedGames}
               highScore={highScore}
               onDeleteGame={handleDeleteGame}
+              setup={homeSetup}
+              setSetup={setHomeSetup}
             />
           }
         />
