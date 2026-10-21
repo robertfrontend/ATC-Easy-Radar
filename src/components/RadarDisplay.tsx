@@ -28,7 +28,7 @@ const DEFAULT_LAYERS: RadarLayers = {
   showExtendedCenterlines: true,
 };
 
-const INIT_VB = { x: -200, y: -200, w: 1400, h: 1400 };
+const DEFAULT_SPAN = 1400;
 const MIN_VB = 400;
 const MAX_VB = 2600;
 
@@ -73,7 +73,13 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
-  const [vb, setVb] = useState(INIT_VB);
+  // Keep camera state as center/shortest span; fit the displayed world to the SVG.
+  const initialView = { x: airport.x - DEFAULT_SPAN / 2, y: airport.y - DEFAULT_SPAN / 2, w: DEFAULT_SPAN, h: DEFAULT_SPAN };
+  const [vb, setVb] = useState(initialView);
+  const [aspect, setAspect] = useState(1);
+  const viewWidth = vb.w * Math.max(1, aspect);
+  const viewHeight = vb.h * Math.max(1, 1 / aspect);
+  const view = { x: vb.x + (vb.w - viewWidth) / 2, y: vb.y + (vb.h - viewHeight) / 2, w: viewWidth, h: viewHeight };
   const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
   const predictionContextRef = useRef<{
     planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; at: number;
@@ -83,6 +89,23 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const hasDraggedRef = useRef(false);
   const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
   phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const { width, height } = svg.getBoundingClientRect();
+      if (width > 0 && height > 0 && Number.isFinite(width / height)) setAspect(width / height);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
 
   // Canvas paints range rings and a faint halo behind target symbols.
   // Data-block text is SVG only, with no bloom, so the readout stays sharp.
@@ -148,9 +171,9 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           ctx.arc(center.x, center.y, rr, 0, Math.PI * 2);
           ctx.shadowBlur = 0;
           ctx.strokeStyle = phosphor;
-          ctx.globalAlpha = nm === 25 ? 0.3 : 0.18;
-          ctx.lineWidth = nm === 25 ? 1.25 : 1;
-          ctx.setLineDash(nm === 25 ? [] : [3 * scale, 6 * scale]);
+          ctx.globalAlpha = 0.14;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3 * scale, 6 * scale]);
           ctx.stroke();
           ctx.setLineDash([]);
           const label = toScreen(scope.x + ringR * 0.707 + 4, scope.y - ringR * 0.707 - 4);
@@ -158,7 +181,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           ctx.textAlign = 'left';
           ctx.textBaseline = 'alphabetic';
           ctx.fillStyle = phosphor;
-          ctx.globalAlpha = nm === 25 ? 0.42 : 0.32;
+          ctx.globalAlpha = 0.28;
           ctx.fillText(`${nm}NM`, label.x, label.y);
         }
       }
@@ -366,7 +389,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   };
 
   const resetView = () => {
-    setVb(INIT_VB);
+    setVb(initialView);
   };
 
   // Mouse vector calculations for selected aircraft
@@ -426,7 +449,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       />
       <svg
         ref={svgRef}
-        viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
+        viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"
         className="relative z-10 w-full h-auto aspect-square md:aspect-auto md:h-full md:flex-1 min-h-0"
         style={{ overflow: 'hidden', cursor: hasDraggedRef.current ? 'grabbing' : selectedPlane ? 'crosshair' : 'default' }}
@@ -435,8 +458,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {/* The square viewport, not a range ring, defines the visible map. */}
-        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="none" pointerEvents="all" />
+        {/* The rectangular viewport, not a range ring, defines the visible map. */}
+        <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="none" pointerEvents="all" />
 
         {/* Range circles are guides only; map geometry remains visible in corners. */}
         <g>
@@ -662,64 +685,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
             );
           })}
         </g>
-
-        {/* Outer 360° Azimuth Scale / Compass Ring */}
-        <circle cx={airport.x} cy={airport.y} r="560" fill="none" stroke={scopeColor.line} strokeWidth="1.2" />
-        
-        {/* Azimuth Ticks every 1°, 5°, 10° */}
-        {Array.from({ length: 360 }, (_, deg) => {
-          const isCardinal = deg % 90 === 0;
-          const isDeca = deg % 30 === 0;
-          const isMajor = deg % 10 === 0;
-          const isMedium = deg % 5 === 0;
-          
-          const tickLen = isCardinal ? 12 : isDeca ? 10 : isMajor ? 7 : isMedium ? 5 : 2.5;
-          const strokeWidth = isCardinal ? 1.5 : isMajor ? 1 : 0.6;
-          const opacity = isCardinal ? 0.8 : isMajor ? 0.5 : isMedium ? 0.3 : 0.15;
-          
-          const rad = deg * Math.PI / 180;
-          const x1 = airport.x + 560 * Math.sin(rad);
-          const y1 = airport.y - 560 * Math.cos(rad);
-          const x2 = airport.x + (560 - tickLen) * Math.sin(rad);
-          const y2 = airport.y - (560 - tickLen) * Math.cos(rad);
-          
-          return (
-            <line
-              key={deg}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={scopeColor.azimuth}
-              strokeWidth={strokeWidth}
-              opacity={opacity}
-            />
-          );
-        })}
-
-        {/* Azimuth Degree Numbers every 30° */}
-        {Array.from({ length: 12 }, (_, i) => {
-          const deg = i * 30;
-          const rad = deg * Math.PI / 180;
-          const labelDist = 540;
-          const lx = airport.x + labelDist * Math.sin(rad);
-          const ly = airport.y - labelDist * Math.cos(rad);
-          const label = deg === 0 ? '360' : deg.toString().padStart(3, '0');
-          return (
-            <text
-              key={deg}
-              x={lx}
-              y={ly + 3.5}
-              fill={scopeColor.mapLabel}
-              fontSize="9"
-              fontFamily="monospace"
-              fontWeight="bold"
-              textAnchor="middle"
-            >
-              {label}
-            </text>
-          );
-        })}
 
         {/* Forecast follows the actual turn, acceleration and navigation math. */}
         {activePrediction && predictionEnd && activePrediction.points.length > 1 && (
@@ -972,7 +937,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       </svg>
 
       {selectedPlane && layers.showVectors && (
-        <div className="relative md:absolute md:top-3 md:left-3 z-20 md:max-w-[270px] rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
+        <div className="relative shrink-0 z-20 rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
           <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
           Active clearance only · refreshes twice/sec.
           <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
@@ -981,14 +946,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       )}
 
       {/* Scope readback line */}
-      <div className="relative px-3 py-1 md:px-0 md:py-0 md:absolute md:bottom-2 md:left-4 md:right-28 z-20 min-w-0 pointer-events-none select-none">
+      <div className="relative shrink-0 px-3 py-1 z-20 min-w-0 pointer-events-none select-none">
         <div className="text-xs font-mono font-bold text-phosphor truncate">
           {liveVoiceReadback}
         </div>
       </div>
 
       {/* Smooth Mini Radar Zoom & Center Widget */}
-      <div className="relative self-end m-2 md:m-0 md:absolute md:bottom-3 md:right-4 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
+      <div className="relative shrink-0 self-end m-2 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
         <button
           onClick={zoomIn}
           disabled={vb.w <= MIN_VB}
@@ -1001,10 +966,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         <button
           onClick={resetView}
           className="px-2 py-0.5 text-[10px] font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
-          title="Click to Reset View to Center (25 NM)"
+          title="Reset to airport center; range shows the shortest panel span"
           aria-label="Reset radar view"
         >
-          {Math.round(vb.w / UNITS_PER_NM)} NM
+          {Math.round(vb.w / UNITS_PER_NM)} NM · short side
         </button>
         <button
           onClick={zoomOut}
