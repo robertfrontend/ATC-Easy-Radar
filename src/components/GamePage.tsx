@@ -829,6 +829,9 @@ export const GamePage: React.FC<GamePageProps> = ({
           airport={airport}
           runwayConfig={runwayConfig}
           plane={selectedPlane}
+          gameSpeed={gameSpeed}
+          showVectors={layers.showVectors}
+          showExtendedCenterlines={layers.showExtendedCenterlines}
           onCommand={updatePlaneTarget}
           onDeselect={() => setSelectedId(null)}
           ilsWidth={DIFFICULTY_CONFIG[effectiveDifficulty].ilsWidth}

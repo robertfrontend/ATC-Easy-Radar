@@ -86,6 +86,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const viewHeight = fitSpan * Math.max(1, 1 / aspect);
   const view = { x: airport.x - viewWidth / 2, y: airport.y - viewHeight / 2, w: viewWidth, h: viewHeight };
   const projectionScale = Math.min(viewport.width / view.w, viewport.height / view.h);
+  const fixAnnotationScale = projectionScale > 0 ? 1 / projectionScale : 1;
   const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
   const predictionContextRef = useRef<{
     planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; domain?: RadarDomain; at: number;
@@ -588,7 +589,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
           {/* Aeronautical Waypoints / Fixes (Authentic Double-Circle Symbol ◎) */}
           {layers.showFixes && airport.waypoints.map(wp => {
-            const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) < 30;
+            const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) * projectionScale < 22;
             return (
               <g
                 key={wp.id}
@@ -611,24 +612,26 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 }}
               >
                 <title>Transmit direct to {wp.label}</title>
-                {/* Hit area */}
-                <circle cx="0" cy="0" r="24" fill="transparent" />
+                <g data-fix-annotation transform={`scale(${fixAnnotationScale})`}>
+                  {/* Hit area */}
+                  <circle cx="0" cy="0" r="22" fill="transparent" />
                 
-                {/* Double circle waypoint fix symbol ◎ */}
-                <circle cx="0" cy="0" r="4.5" fill="none" stroke={scopeColor.fix} strokeWidth="1.2" />
-                <circle cx="0" cy="0" r="1.5" fill={scopeColor.fix} />
+                  {/* Double circle waypoint fix symbol ◎ */}
+                  <circle cx="0" cy="0" r="4" fill="none" stroke={scopeColor.fix} strokeWidth="1.2" />
+                  <circle cx="0" cy="0" r="1.5" fill={scopeColor.fix} />
                 
-                {/* Fix Label */}
-                <text
-                  x="8"
-                  y="3"
-                  fill={isHovered ? scopeColor.ink : scopeColor.fixLabel}
-                  fontSize="11"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                >
-                  {wp.label}
-                </text>
+                  {/* Fix Label */}
+                  <text
+                    x="8"
+                    y="3"
+                    fill={isHovered ? scopeColor.ink : scopeColor.fixLabel}
+                    fontSize="10"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                  >
+                    {wp.label}
+                  </text>
+                </g>
               </g>
             );
           })}
@@ -884,15 +887,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           );
         })}
       </svg>
-
-      {selectedPlane && layers.showVectors && (
-        <div className="relative shrink-0 z-20 rounded border border-line bg-panel/95 px-3 py-2 pointer-events-none text-[10px] font-mono leading-relaxed text-ink-dim">
-          <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
-          Active clearance only · refreshes twice/sec.
-          <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
-          {captureRunwayId && layers.showExtendedCenterlines && <><br />Tinted cone: current ILS capture area.</>}
-        </div>
-      )}
 
       {/* Scope readback line */}
       <div className="relative shrink-0 px-3 py-1 z-20 min-w-0 pointer-events-none select-none">

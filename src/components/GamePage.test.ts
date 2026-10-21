@@ -12,6 +12,7 @@ import { RadarDomain } from '../utils/radarBounds';
 let measured = true;
 let reportAspect: ((aspect: number) => void) | undefined;
 let capturedDomain: RadarDomain | undefined;
+let capturedControl: { gameSpeed?: unknown; showVectors?: boolean; showExtendedCenterlines?: boolean };
 
 // Retain the real game loop, command parser, tutorial progression, and session
 // UI. Only replace the visual radar/strip so these tests need no canvas or GPU.
@@ -34,8 +35,10 @@ vi.mock('./RadarDisplay', () => ({
 }));
 
 vi.mock('./ControlPanel', () => ({
-  ControlPanel: ({ plane }: { plane: Plane | null }) =>
-    createElement('div', { 'data-testid': 'strip' }, plane ? `Flight strip: ${plane.callsign}` : 'No selected aircraft'),
+  ControlPanel: (props: { plane: Plane | null; gameSpeed?: unknown; showVectors?: boolean; showExtendedCenterlines?: boolean }) => {
+    capturedControl = props;
+    return createElement('div', { 'data-testid': 'strip' }, props.plane ? `Flight strip: ${props.plane.callsign}` : 'No selected aircraft');
+  },
 }));
 
 vi.mock('../utils/audio', () => ({
@@ -480,4 +483,15 @@ it('starts with range guides off and keeps the explicit overlay toggle available
   expect(input.checked).toBe(true);
   act(() => input.click());
   expect(input.checked).toBe(false);
+});
+
+it('forwards active forecast speed and visibility to the controls outside the radar', () => {
+  mount('free');
+  expect(capturedControl).toEqual(expect.objectContaining({ gameSpeed: 1, showVectors: true, showExtendedCenterlines: true }));
+  click('MENU');
+  click('4x');
+  expect(capturedControl.gameSpeed).toBe(4);
+  const vectors = [...container.querySelectorAll('label')].find(el => el.textContent?.trim() === 'Vectors')!.querySelector('input')!;
+  act(() => vectors.click());
+  expect(capturedControl.showVectors).toBe(false);
 });

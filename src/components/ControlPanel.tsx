@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plane, Airport, RunwayConfig } from '../types';
+import { Plane, Airport, RunwayConfig, GameSpeed } from '../types';
 import { Compass, ArrowUpToLine, Gauge, Radio, Send, XCircle, Navigation, AlertTriangle, PlaneLanding } from 'lucide-react';
 import { audioManager } from '../utils/audio';
 import { inspectIlsReadiness } from '../utils/approach';
+import { PREDICTION_SECONDS } from '../utils/prediction';
 
 interface ControlPanelProps {
   airport: Airport;
@@ -11,9 +12,12 @@ interface ControlPanelProps {
   onCommand: (id: string, updates: Partial<Plane>) => void;
   onDeselect: () => void;
   ilsWidth?: number;
+  gameSpeed?: GameSpeed;
+  showVectors?: boolean;
+  showExtendedCenterlines?: boolean;
 }
 
-export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfig, plane, onCommand, onDeselect, ilsWidth = 0.4 }) => {
+export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfig, plane, onCommand, onDeselect, ilsWidth = 0.4, gameSpeed = 1, showVectors = true, showExtendedCenterlines = true }) => {
   const [heading, setHeading] = useState(0);
   const [altitude, setAltitude] = useState(0);
   const [speed, setSpeed] = useState(0);
@@ -160,6 +164,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
   return (
     <div data-clearance-controls className="flex flex-col h-full text-ink font-mono select-none overflow-y-auto pr-1 [&_button]:min-h-11 [&_button]:min-w-11 [&_input[type=range]]:h-11 [&_button]:focus-visible:outline-2 [&_button]:focus-visible:outline-selected">
+      {showVectors && (
+        <div className="shrink-0 rounded border border-line bg-panel px-3 py-2 mb-4 text-[10px] leading-relaxed text-ink-dim">
+          <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
+          Active clearance only · refreshes twice/sec.
+          <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
+          {plane.type === 'arrival' && approach?.check && showExtendedCenterlines && <><br />Tinted cone: current ILS capture area.</>}
+        </div>
+      )}
       {/* Flight Progress Strip Header */}
       <div className="bg-panel-raised border border-line rounded p-4 mb-4">
         <div className="flex items-center justify-between pb-2 border-b border-line">
