@@ -1,0 +1,43 @@
+# Fixed full-panel radar surface
+
+## Intent and authorization
+Make the game read as one complete rectangular radar surface, not a reduced central disc. User additionally requires a single fitted view: no in-game zoom controls, wheel/pinch zoom, camera shortcuts or interactive panning. Preserve browser accessibility zoom, all operational coordinates, corrected perimeter spawn, simulation, guided scenarios/progress and readable annotations. Existing authority covers draft PRs, ordinary checks, merge to main and verified production release through existing connections, not permission expansion or credential creation.
+
+## Evidence and reference
+Base main `0aa553c2ab5abb2ac0832531078da7d2d5085eb4`; branch `codex/rectangular-radar-surface`. Public before assets Cv5UH2pm/zm9iLNuw match main. Delegated CodeGraph mapping found no radial mask/clip: actual residuals are five default-on canvas range rings and a faint full-panel grid. Home preview also has three concentric guides. Named navigation fixes are real airport data; do not move, scatter or duplicate them to fill corners.
+
+Actual public matched baseline: EGLL tutorial stage1, stopped by scenario (normal Pause blurs the map), desktop1180x757 and mobile390x844 at DPR1/100%. Both parent and browser worker inspected `/private/tmp/atc-radar-visual-before-tutorial-desktop.jpg` and `...-mobile.jpg`; screenshot pixel evidence confirms circular guides remain visible despite full-panel grid. Home preview baseline preserved separately.
+
+User reference https://startgrid.itch.io/endlessatc was read and its official gallery actually viewed (`/private/tmp/endless-atc-official-reference.jpg`). Borrow restrained map detail, legible compact track hierarchy and controls outside the map, not assets, operational coordinates, its circle guides or camera interactions. Existing theme tokens/monospace and semantic track/alert colors remain; no broad palette or layout redesign.
+
+## Design and responsive decision
+- Continuous rectangular background, moderately clearer orthogonal references across all four corners; decorative grid must not resemble traffic/fixes. Concentric range guides off by default; optional explicit distance-guide use may remain. Real separation halos and airport/airspace geometry remain meaningful geographic data.
+- Header and controls stay outside the radar; desktop keeps side panel, mobile keeps single controls below it. No new camera widgets. Home preview retains layout/real airport content with matching rectilinear guides.
+- Frame computed from airport center, immutable session domain and measured current SVG aspect only. With a=width/height, span=max(2halfW/max(1,a),2halfH/max(1,1/a)); displayed dimensions are span*max(1,a) and span*max(1,1/a). For scripted views without domain use existing1400 shortest span. Uniform x/y scaling; whole frozen sector stays visible after rotation, no letterboxing. Surplus world is background, not a resized simulation domain.
+- Responsive fit necessarily changes world pixels/unit across viewport sizes; track symbols/text/hit areas remain constant screen pixels. There is one non-interactive fitted frame per layout, not a promise of identical physical pixels/unit on all screens. Preserve initial aspect-to-domain handshake and no random ticks before it completes.
+- Remove wheel interception entirely (including preventDefault), camera state/zoom limits and pan mutations. Retain drag-threshold suppression to prevent drag gestures accidentally issuing clearances or selections. Keep Enter/Tab/Escape, fix/direct-to, runway actions and all browser zoom/scroll behavior.
+
+## Execution and delivery
+Delegated direct: preparation/maps involve4+ files and source/test work2+ non-trivial files. TDD ON from explicit retained session instruction; runner `npm test` (vitest run), observed RED then GREEN/refactor. Full tests/typecheck/build/diff check per work unit. Forecast450–600 authored additions+deletions, predominantly camera/test removal; no code golf or omitted tests. Continue cached stacked-to-main delivery, auto-chain coherent independent units below400 per PR; report natural overage and make at most one honest slicing pass. Source work-unit commits include tests/docs and Conventional Commit messages, no attribution. Parent owns gates, browser proof and publication.
+
+RDD ON (global). Previous declines apply only their exact earlier candidates. Assess actual committed units against last reviewed boundary, follow native transitions and obtain fresh candidate consent when required; no review actors without consent. Engram mirror `odd/fixed-radar-surface/tasks` PENDING: no authoritative runtime identity, attributed writes prohibited. Preserve unrelated `.codegraph/` and historical recovery branches.
+
+## Tasks
+- [ ] VIEW-1 delegated: fixed fitted view without game zoom/pan; preserve browser zoom/scroll and drag suppression. Replace obsolete camera tests with non-cancelled wheel/ctrl-wheel/no-op drag, fit/resize/all corners and fixed annotation metrics. Update README camera instructions, observed checks, work-unit commit. Report actual diff before commit if natural size exceeds400 rather than trimming tests.
+- [ ] VIEW-2 delegated: rectilinear presentation and preview, default circular guides absent, full-panel coverage/visual hierarchy with regression tests. Preserve navigation coordinates, circles with real geographic meaning, controls and traffic. Observed checks and work-unit commit.
+- [ ] VIEW-3 parent/delegated QA: actually inspect equivalent before/after desktop/mobile screenshots, public baseline vs local completed build, plus real free-play spawn/edge selections, Enter/direct-to and guided/Home smoke. Confirm wheel/pinch/drag cannot move/zoom game and browser events are not cancelled. Native gate, draft PR slices, green checks, expected-head merge and exact production asset plus appearance verification. Do not claim unobserved gestures or deployment.
+
+## Progress and recovery
+Mapping/public baseline/reference inspection complete. VIEW-1 implementation is ready for its work-unit commit; VIEW-2 presentation is not implemented. Operational domain/spawn/separation changes are out of scope. If UI instructions or code call for pan/zoom, remove obsolete guidance rather than leave inert controls. No receipt exists for this feature; no Vercel403 retries or deployment actions authorized by reference browsing alone.
+
+
+## VIEW-1 verification
+- Delegated direct route retained. Removed mutable camera state and its fit effect, wheel interception, zoom limits/functions/widget, pan transforms and grabbing cursor. The displayed frame is derived only from airport center, frozen domain and current measured aspect; existing domain handshake remains untouched.
+- Drag distance is retained solely to suppress incidental heading, track, fix and ILS commands. Explicit keyboard activation still works after dragging. Browser wheel/ctrl-wheel, touch and camera-like keyboard events are not cancelled. No HTML viewport, touch-action, CSS or global key-handler changes were needed.
+- Observed RED: new fixed-view test failed on zoom controls; rewritten fixed-camera regressions then reported four failures (widget presence, mutable drag view and wheel zoom behavior). Existing useful corner coordinates/direct-to, rotation, uniform scale, grid coverage and fixed-screen annotation tests were updated rather than discarded.
+- Observed GREEN: `npm test -- src/components/FlightControls.test.ts` passes 23 tests; `npm test` passes 530 tests across 29 files. `npm run typecheck`, `npm run build` and `git diff --check` pass. Build assets: `index-B4OoWFu8.js` and `index-2_ccL58Q.css`.
+- Annotation metrics remain 10/12/11 screen pixels with 44 px hit targets across desktop/mobile resize. Tests preserve the 44.8-world-unit separation halo and actual coordinate-based heading/direct-to selection. Frozen-domain corners remain inside the rotated fitted view.
+- Reference context remains the previously viewed official Endless ATC gallery for later hierarchy/contrast work only. No reference assets, rings, grid or Home presentation were changed; no after-implementation browser visual QA is claimed here.
+- Rollback boundary: RadarDisplay fixed-camera interactions, their FlightControls tests and README camera guidance. Operational domain, physics, spawning and previous readability behavior are untouched.
+- Remaining: parent browser QA and native candidate assessment/publication; VIEW-2 rectilinear presentation and VIEW-3 full equivalent before/after production checks remain pending.
+- VIEW-1 precommit scope: 322 authored additions plus deletions across four files, including this recovery document; no slicing or test omissions were needed.

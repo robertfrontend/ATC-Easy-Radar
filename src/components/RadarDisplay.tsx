@@ -33,8 +33,6 @@ const DEFAULT_LAYERS: RadarLayers = {
 };
 
 export const DEFAULT_SPAN = 1400;
-const MIN_VB = 400;
-const MAX_VB = 2600;
 
 // Scale: 560 units = 25 NM -> 1 NM = 22.4 units
 const UNITS_PER_NM = 22.4;
@@ -80,26 +78,20 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [hoveredPlaneId, setHoveredPlaneId] = useState<string | null>(null);
-  // Keep camera state as center/shortest span; fit the displayed world to the SVG.
-  const initialView = { x: airport.x - DEFAULT_SPAN / 2, y: airport.y - DEFAULT_SPAN / 2, w: DEFAULT_SPAN, h: DEFAULT_SPAN };
-  const [vb, setVb] = useState(initialView);
+  // The camera is a pure fit of the frozen sector, never an interactive world transform.
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const aspect = viewport.width > 0 && viewport.height > 0 ? viewport.width / viewport.height : 1;
   const fitSpan = domain ? Math.max(2 * domain.halfWidth / Math.max(1, aspect), 2 * domain.halfHeight / Math.max(1, 1 / aspect)) : DEFAULT_SPAN;
-  const maxSpan = Math.max(MAX_VB, domain ? fitSpan * 2 : 0);
-  useEffect(() => {
-    if (domain) setVb({ x: airport.x - fitSpan / 2, y: airport.y - fitSpan / 2, w: fitSpan, h: fitSpan });
-  }, [domain, fitSpan, airport.x, airport.y]);
-  const viewWidth = vb.w * Math.max(1, aspect);
-  const viewHeight = vb.h * Math.max(1, 1 / aspect);
-  const view = { x: vb.x + (vb.w - viewWidth) / 2, y: vb.y + (vb.h - viewHeight) / 2, w: viewWidth, h: viewHeight };
+  const viewWidth = fitSpan * Math.max(1, aspect);
+  const viewHeight = fitSpan * Math.max(1, 1 / aspect);
+  const view = { x: airport.x - viewWidth / 2, y: airport.y - viewHeight / 2, w: viewWidth, h: viewHeight };
   const projectionScale = Math.min(viewport.width / view.w, viewport.height / view.h);
   const [prediction, setPrediction] = useState<{ planeId: string; result: FlightPrediction } | null>(null);
   const predictionContextRef = useRef<{
     planeId: string; airport: Airport; runwayConfig: RunwayConfig; gameSpeed: GameSpeed; ilsWidth: number; clearanceKey: string; domain?: RadarDomain; at: number;
   } | null>(null);
 
-  const panRef = useRef<{ clientX: number; clientY: number; vbX: number; vbY: number } | null>(null);
+  const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const hasDraggedRef = useRef(false);
   const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
   phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
@@ -239,63 +231,22 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     return pt ? { x: pt.x, y: pt.y } : null;
   }, [getSvgPoint]);
 
-  // Smooth, gradual mouse wheel zooming
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const ctm = svg.getScreenCTM();
-      if (!ctm) return;
-      const pt = svg.createSVGPoint();
-      pt.x = e.clientX;
-      pt.y = e.clientY;
-      const svgPt = pt.matrixTransform(ctm.inverse());
-      if (!isFinite(svgPt.x) || !isFinite(svgPt.y)) return;
-
-      // Gentle sensitivity: clamp delta and scale by 0.0008
-      const clampedDelta = Math.max(-40, Math.min(40, e.deltaY));
-      const factor = 1 + (clampedDelta * 0.00085);
-
-      setVb(prev => {
-        const targetW = Math.max(MIN_VB, Math.min(maxSpan, prev.w * factor));
-        const actualFactor = targetW / prev.w;
-        return {
-          x: svgPt.x - (svgPt.x - prev.x) * actualFactor,
-          y: svgPt.y - (svgPt.y - prev.y) * actualFactor,
-          w: targetW,
-          h: targetW,
-        };
-      });
-    };
-
-    svg.addEventListener('wheel', onWheel, { passive: false });
-    return () => svg.removeEventListener('wheel', onWheel);
-  }, [maxSpan]);
-
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    panRef.current = { clientX: e.clientX, clientY: e.clientY, vbX: vb.x, vbY: vb.y };
+    dragStartRef.current = { clientX: e.clientX, clientY: e.clientY };
     hasDraggedRef.current = false;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const coords = getCoordinates(e);
     if (coords) setMousePos(coords);
-    if (!panRef.current) return;
-    const dx = e.clientX - panRef.current.clientX;
-    const dy = e.clientY - panRef.current.clientY;
+    if (!dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.clientX;
+    const dy = e.clientY - dragStartRef.current.clientY;
     if (!hasDraggedRef.current && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
       hasDraggedRef.current = true;
     }
-    if (hasDraggedRef.current && panRef.current) {
-      const ctm = svgRef.current?.getScreenCTM();
-      if (!ctm || !isFinite(ctm.a) || ctm.a === 0) return;
-      const newX = panRef.current.vbX - dx / ctm.a;
-      const newY = panRef.current.vbY - dy / ctm.d;
-      setVb(prev => ({ ...prev, x: newX, y: newY }));
-    }
+
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
@@ -318,12 +269,12 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         onSelect(null); // Smooth auto-deselect after vectoring
       }
     }
-    panRef.current = null;
+    dragStartRef.current = null;
   };
 
   const handleMouseLeave = () => {
     setMousePos(null);
-    panRef.current = null;
+    dragStartRef.current = null;
   };
 
   const trackMetrics = planes.map((plane, index) => {
@@ -378,41 +329,6 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     onCommand(selectedPlane.id, { targetWaypoint: waypointId });
     audioManager.playRadio();
     onSelect(null);
-  };
-
-  // Smooth zoom actions
-  const zoomIn = () => {
-    const cx = vb.x + vb.w / 2;
-    const cy = vb.y + vb.h / 2;
-    setVb(prev => {
-      const targetW = Math.max(MIN_VB, prev.w * 0.8);
-      const actualFactor = targetW / prev.w;
-      return {
-        x: cx - (cx - prev.x) * actualFactor,
-        y: cy - (cy - prev.y) * actualFactor,
-        w: targetW,
-        h: targetW,
-      };
-    });
-  };
-
-  const zoomOut = () => {
-    const cx = vb.x + vb.w / 2;
-    const cy = vb.y + vb.h / 2;
-    setVb(prev => {
-      const targetW = Math.min(maxSpan, prev.w * 1.25);
-      const actualFactor = targetW / prev.w;
-      return {
-        x: cx - (cx - prev.x) * actualFactor,
-        y: cy - (cy - prev.y) * actualFactor,
-        w: targetW,
-        h: targetW,
-      };
-    });
-  };
-
-  const resetView = () => {
-    setVb({ x: airport.x - fitSpan / 2, y: airport.y - fitSpan / 2, w: fitSpan, h: fitSpan });
   };
 
   // Mouse vector calculations for selected aircraft
@@ -475,7 +391,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"
         className="relative z-10 w-full h-auto aspect-square md:aspect-auto md:h-full md:flex-1 min-h-0"
-        style={{ overflow: 'hidden', cursor: hasDraggedRef.current ? 'grabbing' : selectedPlane ? 'crosshair' : 'default' }}
+        style={{ overflow: 'hidden', cursor: selectedPlane ? 'crosshair' : 'default' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1002,35 +918,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         </div>
       </div>
 
-      {/* Smooth Mini Radar Zoom & Center Widget */}
-      <div className="relative shrink-0 self-end m-2 z-20 flex items-center gap-1.5 bg-panel border border-line rounded px-2.5 py-1 select-none text-xs">
-        <button
-          onClick={zoomIn}
-          disabled={vb.w <= MIN_VB}
-          className="w-11 h-11 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
-          title="Zoom In (+)"
-          aria-label="Zoom radar in"
-        >
-          +
-        </button>
-        <button
-          onClick={resetView}
-          className="min-h-11 px-2 text-xs font-bold text-ink hover:text-ink-bright hover:bg-panel-raised rounded border border-line transition-colors tracking-wider"
-          title="Reset to airport center; range shows the shortest panel span"
-          aria-label="Reset radar view"
-        >
-          {Math.round(vb.w / UNITS_PER_NM)} NM · short side
-        </button>
-        <button
-          onClick={zoomOut}
-          disabled={vb.w >= maxSpan}
-          className="w-11 h-11 flex items-center justify-center text-ink font-bold text-base rounded hover:bg-panel-raised hover:text-ink-bright disabled:opacity-30 transition-colors"
-          title="Zoom Out (−)"
-          aria-label="Zoom radar out"
-        >
-          −
-        </button>
-      </div>
+
     </div>
   );
 };

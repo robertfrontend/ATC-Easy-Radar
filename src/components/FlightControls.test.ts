@@ -130,7 +130,7 @@ it('renders the whole rectangular map and corner bloom without circular masking'
   expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMid meet');
   expect(svg.getAttribute('class')).toContain('aspect-square');
   expect(svg.style.overflow).toBe('hidden');
-  expect(container.querySelector('[aria-label="Zoom radar in"]')?.parentElement?.className).toContain('relative');
+  expect(container.querySelector('[aria-label="Zoom radar in"]')).toBeNull();
   const background = svg.querySelector('rect[pointer-events="all"]');
   expect(background?.getAttribute('fill')).not.toBe('transparent');
   const ctx = new Proxy({ clip: vi.fn(), fillText: vi.fn() }, {
@@ -156,18 +156,18 @@ it.each([[-1, -1], [1, -1], [-1, 1], [1, 1]])('selects corner tracks by mouse an
   }
 });
 
-it('preserves corner heading coordinates after zoom, drag and non-square resize, then resets the camera', () => {
+it('preserves fixed corner heading coordinates after drag suppression and non-square resize', () => {
   const plane = makePlane({ x: 500, y: 500 });
   radar(plane);
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
   const original = svg.getAttribute('viewBox');
-  clickText('+');
-  expect(svg.getAttribute('viewBox')).not.toBe(original);
+
   act(() => svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 200, clientY: 200 })));
   act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 230, clientY: 220 })));
   act(() => svg.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
   expect(onCommand).not.toHaveBeenCalled();
+  expect(svg.getAttribute('viewBox')).toBe(original);
   const movedView = svg.getAttribute('viewBox');
   coords.resize(390, 500);
   act(() => window.dispatchEvent(new Event('resize')));
@@ -191,17 +191,11 @@ it('preserves corner heading coordinates after zoom, drag and non-square resize,
     fix.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
   expect(onCommand).toHaveBeenCalledExactlyOnceWith(plane.id, { targetWaypoint: 'east' });
-  const reset = container.querySelector('[aria-label="Reset radar view"]') as HTMLButtonElement;
-  act(() => reset.click());
-  const resetView = svg.getAttribute('viewBox')!.split(' ').map(Number);
-  expect(resetView[0] + resetView[2] / 2).toBeCloseTo(500);
-  expect(resetView[1] + resetView[3] / 2).toBeCloseTo(500);
-  expect(Math.min(resetView[2], resetView[3])).toBe(1400);
   expect(original).toBe('-200 -200 1400 1400');
 });
 
 
-it('fits landscape, portrait and square SVG panels without gutters, while preserving anchored zoom and center', () => {
+it('fits landscape, portrait and square SVG panels without gutters and retains the fitted center', () => {
   radar(makePlane());
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
@@ -225,16 +219,16 @@ it('fits landscape, portrait and square SVG panels without gutters, while preser
   act(() => svg.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -40, ...anchor })));
   expect(coords.client(900, 800).clientX).toBeCloseTo(anchor.clientX);
   expect(coords.client(900, 800).clientY).toBeCloseTo(anchor.clientY);
-  const zoomed = view();
-  expect(Math.min(zoomed[2], zoomed[3])).toBeLessThan(1400);
+  const fitted = view();
+  expect(Math.min(fitted[2], fitted[3])).toBe(1400);
   coords.resize(0, 0);
-  expect(view()).toEqual(zoomed);
+  expect(view()).toEqual(fitted);
   coords.resize(482, 860);
   const portrait = view();
   expect(portrait[2] / portrait[3]).toBeCloseTo(482 / 860);
-  expect(Math.min(portrait[2], portrait[3])).toBeCloseTo(Math.min(zoomed[2], zoomed[3]));
-  expect(portrait[0] + portrait[2] / 2).toBeCloseTo(zoomed[0] + zoomed[2] / 2);
-  expect(portrait[1] + portrait[3] / 2).toBeCloseTo(zoomed[1] + zoomed[3] / 2);
+  expect(Math.min(portrait[2], portrait[3])).toBeCloseTo(Math.min(fitted[2], fitted[3]));
+  expect(portrait[0] + portrait[2] / 2).toBeCloseTo(fitted[0] + fitted[2] / 2);
+  expect(portrait[1] + portrait[3] / 2).toBeCloseTo(fitted[1] + fitted[3] / 2);
 });
 
 it('removes the circular perimeter and 360-degree compass while retaining unclipped world geometry', () => {
@@ -245,10 +239,8 @@ it('removes the circular perimeter and 360-degree compass while retaining unclip
   expect(svg.querySelectorAll('line').length).toBeLessThan(100);
 });
 
-it('reserves flow space for zoom, guidance and readback instead of overlaying panel corners', () => {
+it('reserves flow space for guidance and readback instead of overlaying panel corners', () => {
   radar(makePlane());
-  const zoom = container.querySelector('[aria-label="Zoom radar in"]')!.parentElement!;
-  expect(zoom.className).not.toContain('absolute');
   const guidance = [...container.querySelectorAll('div')].find(el => el.className.includes('pointer-events-none') && el.textContent?.includes('DASHED PATH'))!;
   expect(guidance.className).not.toContain('absolute');
   const readback = [...container.querySelectorAll('div')].find(el => el.className.includes('pointer-events-none') && el.textContent?.includes('TST100 (A320)'))!;
@@ -256,23 +248,13 @@ it('reserves flow space for zoom, guidance and readback instead of overlaying pa
 });
 
 
-it('limits the shortest camera span and resets to the airport center without changing panel coverage', () => {
+it('fits a non-default airport center without any interactive camera state', () => {
   const airport = { ...field, x: 650, y: 450 };
   act(() => root.render(createElement(RadarDisplay, { airport, runwayConfig: fieldRunways, planes: [], selectedId: null, onSelect: onDeselect })));
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
   coords.resize(900, 450);
   const view = () => svg.getAttribute('viewBox')!.split(' ').map(Number);
-  for (let i = 0; i < 20; i++) clickText('+');
-  expect(Math.min(view()[2], view()[3])).toBe(400);
-  expect((container.querySelector('[aria-label="Zoom radar in"]') as HTMLButtonElement).disabled).toBe(true);
-  for (let i = 0; i < 20; i++) clickText('−');
-  expect(Math.min(view()[2], view()[3])).toBe(2600);
-  expect(view()[2] / view()[3]).toBe(2);
-  expect((container.querySelector('[aria-label="Zoom radar out"]') as HTMLButtonElement).disabled).toBe(true);
-  const reset = container.querySelector('[aria-label="Reset radar view"]') as HTMLButtonElement;
-  expect(reset.textContent).toContain('116 NM');
-  act(() => reset.click());
   const [x, y, w, h] = view();
   expect(Math.min(w, h)).toBe(1400);
   expect(x + w / 2).toBe(airport.x);
@@ -280,7 +262,7 @@ it('limits the shortest camera span and resets to the airport center without cha
   expect(w / h).toBe(2);
 });
 
-it('covers the full rectangular viewBox with a quiet world-unit reference grid that follows pan and zoom', () => {
+it('covers the fixed rectangular viewBox with a quiet world-unit reference grid after resize', () => {
   radar(makePlane());
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
@@ -298,31 +280,29 @@ it('covers the full rectangular viewBox with a quiet world-unit reference grid t
     expect(grid.getAttribute('fill')).toBe(`url(#${pattern?.id})`);
   };
   assertCoverage();
-  clickText('+');
   act(() => svg.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: 200, clientY: 150 })));
   act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 240, clientY: 170 })));
   act(() => svg.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+  coords.resize(400, 860);
   assertCoverage();
   expect(pattern?.getAttribute('width')).toBe('112');
   expect(svg.querySelector('circle[r="560"]')).toBeNull();
 });
 
-it('keeps track annotation pixels stable across resize and zoom without scaling geographic halos', () => {
+it('keeps track annotation pixels stable across fitted resize without scaling geographic halos', () => {
   radar(makePlane({ x: 500, y: 500 }));
   const svg = container.querySelector('svg')!;
   const coords = radarCoordinates(svg);
   for (const [width, height] of [[390, 600], [1180, 650]]) {
     coords.resize(width, height);
-    for (const zoom of ['+', '−']) {
-      for (let step = 0; step < 12; step++) clickText(zoom);
-      const annotation = container.querySelector('[data-track-annotation]')!;
-      expect(annotation).toBeTruthy();
-      const inverse = Number(annotation.getAttribute('data-inverse-scale'));
-      expect(inverse * svg.getScreenCTM()!.a).toBeCloseTo(1);
-      expect(annotation.getAttribute('transform')).toContain('translate(500, 500)');
-      expect(container.querySelector('[data-track-hit]')?.getAttribute('r')).toBe(String(22 * inverse));
-      expect(container.querySelector('[data-aircraft] circle[stroke]')?.getAttribute('r')).toBe('44.8');
-    }
+
+    const annotation = container.querySelector('[data-track-annotation]')!;
+    expect(annotation).toBeTruthy();
+    const inverse = Number(annotation.getAttribute('data-inverse-scale'));
+    expect(inverse * svg.getScreenCTM()!.a).toBeCloseTo(1);
+    expect(annotation.getAttribute('transform')).toContain('translate(500, 500)');
+    expect(container.querySelector('[data-track-hit]')?.getAttribute('r')).toBe(String(22 * inverse));
+    expect(container.querySelector('[data-aircraft] circle[stroke]')?.getAttribute('r')).toBe('44.8');
   }
 });
 
@@ -393,7 +373,7 @@ it('assigns four nearby rendered labels distinct quadrants while preserving thei
   });
 });
 
-it('reports measured aspect and reframes a frozen wide domain after rotation beyond the old zoom cap', () => {
+it('reports measured aspect and fits every frozen domain corner after rotation', () => {
   const onViewportAspect = vi.fn();
   const domain = createRadarDomain(3, 700);
   act(() => root.render(createElement(RadarDisplay, { planes: [], selectedId: null, onSelect: onDeselect,
@@ -408,8 +388,65 @@ it('reports measured aspect and reframes a frozen wide domain after rotation bey
   expect(width).toBe(4200);
   expect(height).toBe(12600);
   expect([x + width / 2, y + height / 2]).toEqual([field.x, field.y]);
-  const zoomOut = container.querySelector('[aria-label="Zoom radar out"]') as HTMLButtonElement;
-  expect(zoomOut.disabled).toBe(false);
-  act(() => zoomOut.click());
-  expect(Number(svg.getAttribute('viewBox')!.split(' ')[2])).toBeGreaterThan(4200);
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      const corner = screen.client(field.x + sx * domain.halfWidth, field.y + sy * domain.halfHeight);
+      expect(corner.clientX).toBeGreaterThanOrEqual(20);
+      expect(corner.clientX).toBeLessThanOrEqual(420);
+      expect(corner.clientY).toBeGreaterThanOrEqual(30);
+      expect(corner.clientY).toBeLessThanOrEqual(1230);
+    }
+  }
+});
+
+it('keeps a fixed fitted view without cancelling browser wheel, pinch or keyboard zoom gestures', () => {
+  radar(makePlane());
+  const svg = container.querySelector('svg')!;
+  const coords = radarCoordinates(svg);
+  coords.resize(860, 482);
+  const original = svg.getAttribute('viewBox');
+  expect(container.querySelector('[aria-label="Zoom radar in"], [aria-label="Zoom radar out"], [aria-label="Reset radar view"]')).toBeNull();
+  for (const ctrlKey of [false, true]) {
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: -40, ctrlKey, ...coords.client(700, 700) });
+    act(() => svg.dispatchEvent(wheel));
+    expect(wheel.defaultPrevented).toBe(false);
+    expect(svg.getAttribute('viewBox')).toBe(original);
+  }
+  for (const key of ['+', '-', '0', 'ArrowLeft', 'ArrowRight']) {
+    const event = new KeyboardEvent('keydown', { key, ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => svg.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(false);
+    expect(svg.getAttribute('viewBox')).toBe(original);
+  }
+  const touch = new Event('touchmove', { bubbles: true, cancelable: true });
+  act(() => svg.dispatchEvent(touch));
+  expect(touch.defaultPrevented).toBe(false);
+});
+
+it('suppresses heading, track, fix and ILS activation after dragging without moving the fitted view', () => {
+  const plane = makePlane();
+  radar(plane);
+  const svg = container.querySelector('svg')!;
+  radarCoordinates(svg).resize(860, 482);
+  const original = svg.getAttribute('viewBox');
+  const targets = [svg, svg.querySelector('[data-aircraft-hit]')!, svg.querySelector('[data-aircraft] text')!,
+    svg.querySelector('[aria-label="Transmit direct to EAST"]')!, svg.querySelector('[data-radar-action="ils-fix"]')!];
+  for (const target of targets) {
+    expect(target).toBeTruthy();
+    act(() => target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200, clientY: 150 })));
+    act(() => svg.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 240, clientY: 170 })));
+    act(() => {
+      target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: 240, clientY: 170 }));
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 240, clientY: 170 }));
+    });
+    expect(svg.getAttribute('viewBox')).toBe(original);
+    expect(svg.style.cursor).not.toBe('grabbing');
+    expect(onCommand).not.toHaveBeenCalled();
+    expect(onDeselect).not.toHaveBeenCalled();
+  }
+  const aircraft = svg.querySelector('[data-aircraft]')!;
+  act(() => aircraft.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  expect(onDeselect).toHaveBeenCalledExactlyOnceWith(plane.id);
+  act(() => svg.querySelector('[aria-label="Transmit direct to EAST"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  expect(onCommand).toHaveBeenCalledExactlyOnceWith(plane.id, { targetWaypoint: 'east' });
 });
