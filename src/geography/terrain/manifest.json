@@ -1,0 +1,63 @@
+{
+  "format": "transparent SVG path fragments; concatenate in recorded order without separators",
+  "originalSourceCommit": "a2f8c2e31e9902785dbdc54e22aad87998ffe234",
+  "originalSourceSha256": "b9046ff5f8f5f99ab044a5f8c14f08e0d3aaf955d7c06b8d3359abbf427c5995",
+  "reconstructedOriginalSourceSha256": "b9046ff5f8f5f99ab044a5f8c14f08e0d3aaf955d7c06b8d3359abbf427c5995",
+  "pathCounts": {
+    "landPaths": 190,
+    "waterPaths": 198,
+    "neighborPaths": 3
+  },
+  "fragmentCount": 401,
+  "largestFragmentBytes": 29998,
+  "maximumDataEvidenceBytes": 30000,
+  "indexes": [
+    {
+      "file": "landPaths-index-00.json",
+      "sha256": "8c13a644a6e8b633cb09072b9d142b31927a89293949cc49105133ba596f3729"
+    },
+    {
+      "file": "landPaths-index-01.json",
+      "sha256": "3b2b4f7c3ff76ca7ff720baf94cb3d66cb49cec131015e2d8cc6dd6b65480104"
+    },
+    {
+      "file": "landPaths-index-02.json",
+      "sha256": "22349fa2750fe14062e9f0b8785e6f31956276fdc1eda073d0e7906dc6367b70"
+    },
+    {
+      "file": "landPaths-index-03.json",
+      "sha256": "d09ab50d500d26e0775e2e9d0e37056b30dc7cbe1cc5ebedef4699b9c549d477"
+    },
+    {
+      "file": "landPaths-index-04.json",
+      "sha256": "040966ffb23fac2d67a6305e70aa2811335f7004e158ee47cff01838d5e235c2"
+    },
+    {
+      "file": "waterPaths-index-00.json",
+      "sha256": "eb30a3c5d44a7b2e6dff24830803f57c19667add72f86018c904a91e715788c4"
+    },
+    {
+      "file": "waterPaths-index-01.json",
+      "sha256": "4c712447797cbe51e70591524e93b0cafe6330eeddaca318efb59787a2ef0281"
+    },
+    {
+      "file": "waterPaths-index-02.json",
+      "sha256": "875cce70da49f43260a37ed5005cd409d1586ad71f2e2fad676749a41c8de792"
+    },
+    {
+      "file": "waterPaths-index-03.json",
+      "sha256": "d8a0ab6424f8513d139645eee1eede659db3b07fc9b1189f6feb5e85d34fc029"
+    },
+    {
+      "file": "waterPaths-index-04.json",
+      "sha256": "3c395a2274fb1881e1e23cee538323726b1a623b123384f06edf5d6d909cb13c"
+    },
+    {
+      "file": "neighborPaths-index-00.json",
+      "sha256": "3eab6052cfe52714e0644d1676a7062e835b0b845efd6d42cebae786f709717a"
+    }
+  ],
+  "factsSha256": "552d6c1493647f7c0276e45661b3687d81ca03a2ff8b977db4efc5123ccbbb03",
+  "precisionWorld": 0.01,
+  "lossless": true
+}

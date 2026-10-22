@@ -1,3 +1,4 @@
+import { runwayFrame } from '../geography/navigation';
 import { Airport, GameSpeed, Plane, Runway, RunwayConfig } from '../types';
 import { DEPARTURE_SECTOR_HALF_EXTENT, domainExtent, RadarDomain } from './radarBounds';
 
@@ -34,8 +35,8 @@ export function isRunwaySafeForDeparture(state: DepartureSeparationState): boole
   const minGlobalInterval = isReal ? 20000 : (10000 / numSpeed);
   if (now - state.lastDepartureAt < minGlobalInterval) return false;
 
-  const rwyX = airport.x + (runway.offsetX || 0);
-  const rwyY = airport.y + (runway.offsetY || 0);
+  const start = runwayFrame(airport, runway).departureStart;
+  const rwyX = start.x, rwyY = start.y;
 
   for (const plane of planes) {
     if (plane.status === 'crashed' || plane.markedForRemoval) continue;

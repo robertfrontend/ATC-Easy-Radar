@@ -1,0 +1,285 @@
+{
+  "layer": "waterPaths",
+  "paths": [
+    {
+      "pathIndex": 0,
+      "sha256": "4763278b298cbcc4b517e53e5dc9750dcde2db66b4e1c2bfaa0fe8a988cc1a0d",
+      "fragments": [
+        "waterPaths-000-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 1,
+      "sha256": "2dcb50a7706583e5bc376de6abd26825c3ad61b7827c187b5dec95731511f317",
+      "fragments": [
+        "waterPaths-001-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 2,
+      "sha256": "78c6537690fd1212c3289f1e95963b97ab2b0096e00a78214fb90473cce91a23",
+      "fragments": [
+        "waterPaths-002-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 3,
+      "sha256": "6bcd3602dee26810e1cadf2f0b581825ecc43d678900cfb9e4325f11f01e70b4",
+      "fragments": [
+        "waterPaths-003-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 4,
+      "sha256": "6b51037444d605a1e4acdc4dae89785f30368a21b399a7114fb8c285436a5589",
+      "fragments": [
+        "waterPaths-004-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 5,
+      "sha256": "0dd9b4026731adaaae1820d23468a0d008ad49cbe0cc4453f447ec5d2cab0a01",
+      "fragments": [
+        "waterPaths-005-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 6,
+      "sha256": "fc7e4f1a8e191ef0b72ed66cb92b30a79bf2d0bda097b02e4dc183cf410a0c71",
+      "fragments": [
+        "waterPaths-006-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 7,
+      "sha256": "f8fc8fbeb6aaa8bb7c7a95317760ea7b66224950296d65b20446a055448edf89",
+      "fragments": [
+        "waterPaths-007-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 8,
+      "sha256": "8138f9a320036934f59e87f0f59eec54abb6f28bfd18f3372c1e401316c35d2c",
+      "fragments": [
+        "waterPaths-008-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 9,
+      "sha256": "b31534c4b7c143571818b79e847967fdcd8feb6eb36475de3e07ee7fa504c25f",
+      "fragments": [
+        "waterPaths-009-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 10,
+      "sha256": "c9682b5c13dba81e9f4a49b25db4c7251d712dbe5a0eebace43af1de6a34911e",
+      "fragments": [
+        "waterPaths-010-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 11,
+      "sha256": "34378820fe4d95ab079768c2963f92e480f0dd868449190a06ca1cbb533801c5",
+      "fragments": [
+        "waterPaths-011-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 12,
+      "sha256": "d13b61bcd3d4f2d78deb13dc844769504ce4fa81ebad7551a3e362004f884538",
+      "fragments": [
+        "waterPaths-012-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 13,
+      "sha256": "947521b9d9af582f038f30a8ece22bcc13fb750cd1403fd384c2c23ea5eced93",
+      "fragments": [
+        "waterPaths-013-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 14,
+      "sha256": "9cffdd7aae27edaf662cac98309b8ada3f25bbfb62b2d0224585d5c229302938",
+      "fragments": [
+        "waterPaths-014-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 15,
+      "sha256": "4635caa6ba039fcc02fa52bf21e0c3cc8b10b33edcfdded726a8b6f12bde68d1",
+      "fragments": [
+        "waterPaths-015-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 16,
+      "sha256": "0b412e007c536898f67491861feec4aba2fd32a8d6b8fc69e4e4e2b7e7777ad3",
+      "fragments": [
+        "waterPaths-016-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 17,
+      "sha256": "8c9231ef47da8c9736c1739ff568a12357a561cc6938c3bd12e3d386bdf05720",
+      "fragments": [
+        "waterPaths-017-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 18,
+      "sha256": "37d9521689cb2bc7f48ae0d14ca3006ec92b5746d852a98df281d1cd2461b4ad",
+      "fragments": [
+        "waterPaths-018-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 19,
+      "sha256": "c370f9e6355306f462283a1f2248b597748e27bf97856a8d0abd4e620c9f834a",
+      "fragments": [
+        "waterPaths-019-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 20,
+      "sha256": "367f0cbc7274d6ef184300dcf7b3fc5bfe268d8b425f6fd47ae0e258c31bce45",
+      "fragments": [
+        "waterPaths-020-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 21,
+      "sha256": "7901ed21c4910cc2950cdd302b67d141ed3f16885b123fb50a1d3630bfb3caec",
+      "fragments": [
+        "waterPaths-021-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 22,
+      "sha256": "05d69f334848b80d4230be9f093d745fd8d5ba382dc6852c229deebcd5ce8cb7",
+      "fragments": [
+        "waterPaths-022-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 23,
+      "sha256": "8983d6c88a71b979e366ab76722b722cc561e1107990a51fa5fa825d7ed840d3",
+      "fragments": [
+        "waterPaths-023-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 24,
+      "sha256": "db206f3942d40bc4ea92173969e7ca612a69b909fac92874af0fd75a48cedc5f",
+      "fragments": [
+        "waterPaths-024-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 25,
+      "sha256": "84b266eec3034ea7102fb95a2583505e226fdbe89652a5eb393b403007ed9872",
+      "fragments": [
+        "waterPaths-025-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 26,
+      "sha256": "ced61e8948f845ca5fce8d44ffbd7d41af9c6feeae9636474a6b7431aed5ba90",
+      "fragments": [
+        "waterPaths-026-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 27,
+      "sha256": "5861f14942dd7de89ed6a90a8d2d4f3b71b1319894ccfd8899a3dbcfdd294404",
+      "fragments": [
+        "waterPaths-027-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 28,
+      "sha256": "5c58aa1cb1125c85db725105cc2f8f455757c5b1263fe40ebb0933736b3f4685",
+      "fragments": [
+        "waterPaths-028-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 29,
+      "sha256": "ed7432ba15545d812f6e3643ac5dcf0b3a0aa4bbb5f5b0bf3fe71c008b23ef24",
+      "fragments": [
+        "waterPaths-029-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 30,
+      "sha256": "94754876145f3b10d76521c9fa0e916c7f62cc8cf9a51ecc220aa7564ecdde49",
+      "fragments": [
+        "waterPaths-030-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 31,
+      "sha256": "f1bdd929da2892279b1ed0fe6274c04a302cc6df38402dd7eb41c6f46706bf2a",
+      "fragments": [
+        "waterPaths-031-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 32,
+      "sha256": "589164fffb4864b9da1000b34e7b523e91e154d41cf4d25d44ff837e88240d70",
+      "fragments": [
+        "waterPaths-032-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 33,
+      "sha256": "54aa14ac1c42f7df6f321a9e13ac3a80d0d0cf4a112d568f1d28a5476085d96b",
+      "fragments": [
+        "waterPaths-033-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 34,
+      "sha256": "5536ad7ad4a58494ecb5f0429c96efdca3b699df4c8a47e75978005be23c8596",
+      "fragments": [
+        "waterPaths-034-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 35,
+      "sha256": "4ededc58b9862977441f6f2e3add603ab78fe6474e288d12ffa4fe4c4eae9ec0",
+      "fragments": [
+        "waterPaths-035-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 36,
+      "sha256": "dfd704427090e24182f7358fe4fab9ebf2b92f496a7368a5b7676655928bd0a1",
+      "fragments": [
+        "waterPaths-036-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 37,
+      "sha256": "2f4024f00ae860199044c81c3ee1246275084b546bb7fe3dd46936d48be73921",
+      "fragments": [
+        "waterPaths-037-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 38,
+      "sha256": "7082be12285fc1436ec2067857c9e7bfbeb051e9e0030c3bf18af7aabeeccda8",
+      "fragments": [
+        "waterPaths-038-00.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 39,
+      "sha256": "59b925cf3a22a3da8a10e6bbc57bd19a80dd780af2b051e957a6883920376a41",
+      "fragments": [
+        "waterPaths-039-00.svgpath"
+      ]
+    }
+  ]
+}

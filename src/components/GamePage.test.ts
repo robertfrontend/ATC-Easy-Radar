@@ -7,19 +7,23 @@ import { Plane, SavedGame } from '../types';
 import { audioManager } from '../utils/audio';
 import * as spawn from '../utils/spawn';
 import { GamePage } from './GamePage';
+import { AIRPORTS } from '../config/airports';
+import type { GeographicAirport } from '../geography/types';
 import { RadarDomain } from '../utils/radarBounds';
 
 let measured = true;
 let reportAspect: ((aspect: number) => void) | undefined;
 let capturedDomain: RadarDomain | undefined;
+let capturedAirport: GeographicAirport | undefined;
 let capturedControl: { gameSpeed?: unknown; showVectors?: boolean; showExtendedCenterlines?: boolean };
 
 // Retain the real game loop, command parser, tutorial progression, and session
 // UI. Only replace the visual radar/strip so these tests need no canvas or GPU.
 vi.mock('./RadarDisplay', () => ({
   DEFAULT_SPAN: 1400,
-  RadarDisplay: ({ planes, onSelect, selectedId, domain, onViewportAspect }: { planes: Plane[]; onSelect: (id: string) => void; selectedId: string | null; domain?: RadarDomain; onViewportAspect?: (aspect: number) => void }) => {
+  RadarDisplay: ({ airport, planes, onSelect, selectedId, domain, onViewportAspect }: { airport: GeographicAirport; planes: Plane[]; onSelect: (id: string) => void; selectedId: string | null; domain?: RadarDomain; onViewportAspect?: (aspect: number) => void }) => {
     capturedDomain = domain;
+    capturedAirport = airport;
     reportAspect = onViewportAspect;
     useEffect(() => { if (measured) onViewportAspect?.(1); }, [onViewportAspect]);
     return createElement('div', { 'data-testid': 'radar' },
@@ -320,7 +324,7 @@ describe('guided training with the live simulation', () => {
     expect(track('tutorial-arrival')).toEqual(initial);
     expect(consoleInput().disabled).toBe(true);
     expect(consoleInput().value).toBe('');
-    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('');
     expect(text()).toContain('OPS: 0');
     advance(10000);
     expect(track('tutorial-arrival')).toEqual(initial);
@@ -383,7 +387,7 @@ describe('pause and restart controls', () => {
     expect(text()).not.toContain('SIMULATION PAUSED');
     expect(container.querySelectorAll('[data-plane-id]')).toHaveLength(0);
     expect(consoleInput().disabled).toBe(true);
-    expect(container.querySelector('[role="status"]')).toBeNull();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('');
     advance(50);
     expect(container.querySelectorAll('[data-plane-id]')).toHaveLength(1);
     click('MENU');
@@ -494,4 +498,57 @@ it('forwards active forecast speed and visibility to the controls outside the ra
   const vectors = [...container.querySelectorAll('label')].find(el => el.textContent?.trim() === 'Vectors')!.querySelector('input')!;
   act(() => vectors.click());
   expect(capturedControl.showVectors).toBe(false);
+});
+
+it.each(['free', 'shift', 'tutorial', 'challenge'] as const)('shares the geographic KBOS world and frozen35NM core in %s', mode => {
+  measured = false;
+  const canonical = AIRPORTS.find(airport => airport.icao === 'KBOS')!;
+  act(() => root.render(createElement(GamePage, { airport: canonical, mode, challengeLevel: 1,
+    difficulty: 'easy', highScore: 0, onExit, onSave, onScoreUpdate })));
+  expect(capturedAirport).not.toBe(canonical);
+  expect(capturedAirport!.waypoints).toHaveLength(9);
+  expect(container.querySelector('[data-airport-theme="kbos"]')).not.toBeNull();
+  act(() => reportAspect!(2));
+  expect(capturedDomain).toEqual({ halfWidth: 784, halfHeight: 392 });
+  act(() => reportAspect!(.5));
+  expect(capturedDomain).toEqual({ halfWidth: 784, halfHeight: 392 });
+  expect(canonical.waypoints).toHaveLength(5);
+});
+
+it('transmits a KBOS magnetic console heading once and consumes Enter selection', () => {
+  const airport = AIRPORTS.find(item => item.icao === 'KBOS')!;
+  act(() => root.render(createElement(GamePage, { airport, mode: 'free', difficulty: 'easy', highScore: 0, onExit, onSave, onScoreUpdate })));
+  advance(50);
+  const current = JSON.parse(container.querySelector('[data-plane]')!.getAttribute('data-plane')!);
+  click(`Select ${current.callsign}`);
+  sendCommand('H090');
+  expect(track(current.id).targetHeading).toBe(75);
+  expect(consoleInput().disabled).toBe(true);
+});
+
+it('keeps a fixed, accessible console feedback slot through empty, error, success and reselect states', () => {
+  mount();
+  const slot = () => {
+    const status = container.querySelector<HTMLElement>('form [role="status"]');
+    expect(status).not.toBeNull();
+    // Assert the real CSS layout contract, not fabricated jsdom bounding boxes.
+    for (const token of ['h-8', 'shrink-0', 'leading-4', 'overflow-y-auto', 'break-words']) {
+      expect(status!.classList.contains(token), token).toBe(true);
+    }
+    expect(status!.tabIndex).toBe(0);
+    expect(status!.getAttribute('aria-atomic')).toBe('true');
+    return status!;
+  };
+  const original = slot();
+  expect(original.textContent).toBe('');
+  click('Select TRN101');
+  sendCommand('NOT-A-CLEARANCE');
+  expect(slot()).toBe(original);
+  expect(slot().textContent).toContain('Command not recognized.');
+  sendCommand('H090');
+  expect(slot()).toBe(original);
+  expect(slot().textContent).toContain('clearance transmitted.');
+  click('Select TRN101');
+  expect(slot()).toBe(original);
+  expect(slot().textContent).toBe('');
 });

@@ -2,6 +2,8 @@ import { useId } from 'react';
 import type { AIRPORTS } from '../config/airports';
 import type { RunwayConfig } from '../types';
 import { scopeColor } from '../theme/radarTheme';
+import { getGeographicAirport } from '../geography/kbos';
+import { GeographicSector, GeographicNotice, referenceLabelSide } from './GeographicSector';
 
 interface SectorPreviewProps {
   airport: (typeof AIRPORTS)[number];
@@ -10,13 +12,17 @@ interface SectorPreviewProps {
 }
 
 /** Static airport geometry only: no game loop, traffic simulation or animation. */
-export function SectorPreview({ airport, runwayConfig, compact = false }: SectorPreviewProps) {
+export function SectorPreview({ airport: selectedAirport, runwayConfig, compact = false }: SectorPreviewProps) {
+  const airport = getGeographicAirport(selectedAirport);
+  const geography = airport.geographic;
+  const halfRange = geography?.shortestHalfRange;
+  const previewView = halfRange ? `${airport.x - halfRange} ${airport.y - halfRange} ${2 * halfRange} ${2 * halfRange}` : '0 0 1000 1000';
   const previewId = useId();
   const landingRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.landing);
   const departureRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.departure);
 
   return (
-    <div className={`bg-panel border border-line rounded-lg p-4 space-y-3 ${compact ? 'w-full max-w-xs justify-self-center md:justify-self-end' : ''}`}>
+    <div data-airport-theme={geography ? 'kbos' : undefined} className={`bg-panel border border-line rounded-lg p-4 space-y-3 ${compact ? 'w-full max-w-xs justify-self-center md:justify-self-end' : ''}`}>
       <div className="flex flex-wrap gap-2 items-center justify-between pb-2 border-b border-line text-xs">
         <span className="font-bold text-ink uppercase tracking-widest flex items-center gap-2">
           <span className="text-phosphor">◉</span> Static sector preview
@@ -26,11 +32,12 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
 
       {/* Mini SVG Radar Display (Dynamic Multi-Runway ILS / DEP) */}
       <div className="w-full aspect-square bg-scope rounded-lg border border-line relative overflow-hidden flex items-center justify-center">
-        <svg viewBox="0 0 1000 1000" role="img" aria-labelledby={`${previewId}-title`}
+        <svg viewBox={previewView} role="img" aria-labelledby={`${previewId}-title`}
           aria-describedby={`${previewId}-description`} className="w-full h-full p-2">
           <title id={`${previewId}-title`}>{airport.icao} radar sector preview</title>
           <desc id={`${previewId}-description`}>Static airport layout with runways, approach guides and navigation fixes. No live traffic.</desc>
-          <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />
+          {!geography && <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />}
+          {geography && <GeographicSector airport={airport} runwayConfig={runwayConfig} annotationScale={2.6} />}
           {/* Airspace Boundary Polygons */}
           {airport.airspacePolygons?.map(poly => (
             <polygon
@@ -73,7 +80,7 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
           ))}
 
           {/* All Airport Runways with Dynamic ILS Tick Ladders & Departure Corridors */}
-          {airport.runways.map(rwy => {
+          {!geography && airport.runways.map(rwy => {
             const isLanding = !!runwayConfig[rwy.id]?.landing;
             const isDep = !!runwayConfig[rwy.id]?.departure;
             const rwyX = airport.x + (rwy.offsetX || 0);
@@ -118,26 +125,35 @@ export function SectorPreview({ airport, runwayConfig, compact = false }: Sector
 
           {/* Waypoint Fixes (◎ Double Circle) */}
           {airport.waypoints.map(wp => (
-            <g key={wp.id} transform={`translate(${wp.x}, ${wp.y})`}>
-              <circle cx="0" cy="0" r="7" fill="none" stroke={scopeColor.fix} strokeWidth="1.8" />
-              <circle cx="0" cy="0" r="2.5" fill={scopeColor.fix} />
-              <text x="12" y="5" fill={scopeColor.fixLabel} fontSize="16" fontFamily="monospace" fontWeight="bold">
+            <g key={wp.id} data-preview-fix={wp.id} transform={`translate(${wp.x}, ${wp.y})`}>
+              <g transform={geography ? 'scale(2.6)' : undefined}>
+              <circle cx="0" cy="0" r={geography ? 3 : 7} fill="none" stroke={scopeColor.fix} strokeWidth="1.8" />
+              <circle cx="0" cy="0" r={geography ? 1 : 2.5} fill={scopeColor.fix} />
+              <text x={geography ? referenceLabelSide(wp, wp.label, { x: airport.x - geography.shortestHalfRange, w: 2 * geography.shortestHalfRange }, 2.6).x : 12}
+                textAnchor={geography ? referenceLabelSide(wp, wp.label, { x: airport.x - geography.shortestHalfRange, w: 2 * geography.shortestHalfRange }, 2.6).anchor : undefined}
+                y="5" fill={scopeColor.fixLabel} fontSize={geography ? 10 : 16} fontFamily="monospace" fontWeight="bold">
                 {wp.label}
               </text>
+              </g>
             </g>
           ))}
         </svg>
 
         {/* Scope Overlay Badge */}
-        <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-ink-dim">
+        {!geography && <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] font-mono text-ink-dim">
           <span className="text-phosphor font-bold">
             ACTIVE ILS: {landingRunways.map(r => r.label).join(', ') || 'NONE'}
           </span>
           <span className="text-ink font-bold">
             DEP: {departureRunways.map(r => r.label).join(', ') || 'NONE'}
           </span>
-        </div>
+        </div>}
       </div>
+      {geography && <div className="flex flex-wrap justify-between gap-2 text-[10px] text-ink-dim">
+        <span>SIM ILS: {landingRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
+        <span>DEP: {departureRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
+      </div>}
+      <GeographicNotice airport={airport} />
     </div>
   );
 }

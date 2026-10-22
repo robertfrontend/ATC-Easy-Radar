@@ -1,0 +1,29 @@
+{
+  "layer": "neighborPaths",
+  "paths": [
+    {
+      "pathIndex": 0,
+      "sha256": "cc3a69563c84f4ab08344e73ab08e42187bb74c02b7786578863702f8fbc581f",
+      "fragments": [
+        "neighborPaths-000-00.svgpath",
+        "neighborPaths-000-01.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 1,
+      "sha256": "cb4584cd6dc18244163714626095d6be674b87abd3fcd95f37ed37374ec736ff",
+      "fragments": [
+        "neighborPaths-001-00.svgpath",
+        "neighborPaths-001-01.svgpath"
+      ]
+    },
+    {
+      "pathIndex": 2,
+      "sha256": "ccf62213971661925230b97b5b7ecf6e1d5330e6a2191ffd60dfb08c1bef0caf",
+      "fragments": [
+        "neighborPaths-002-00.svgpath",
+        "neighborPaths-002-01.svgpath"
+      ]
+    }
+  ]
+}

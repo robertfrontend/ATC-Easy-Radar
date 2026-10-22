@@ -1,4 +1,6 @@
 import { Airport, Plane, Runway, RunwayConfig } from '../types';
+import { runwayFrame, approachCoordinates } from '../geography/navigation';
+import type { GeographicAirport } from '../geography/types';
 import { departureLeftSector } from './departure';
 import { DISTANT_WORLD_HALF_EXTENT, domainExtent, RadarDomain } from './radarBounds';
 
@@ -12,6 +14,8 @@ export interface IlsRunwayCheck {
   altitudeReady: boolean;
   headingReady: boolean;
   ready: boolean;
+  referenceHeading: number;
+  sourceAvailable: boolean;
 }
 
 /** Shared by the simulation and the UI so capture feedback cannot use looser rules. */
@@ -21,14 +25,13 @@ export function checkIlsRunway(
   runway: Runway,
   ilsWidth: number,
 ): IlsRunwayCheck {
-  const dx = plane.x - (airport.x + (runway.offsetX || 0));
-  const dy = plane.y - (airport.y + (runway.offsetY || 0));
-  const rad = -runway.heading * Math.PI / 180;
-  const crossTrack = dx * Math.cos(rad) - dy * Math.sin(rad);
-  const alongTrack = dx * Math.sin(rad) + dy * Math.cos(rad);
-  const relHeading = (plane.heading - runway.heading + 360) % 360;
+  const frame = runwayFrame(airport, runway);
+  const { crossTrack, alongTrack, axisAlongTrack } = approachCoordinates(airport, runway, plane);
+  const relHeading = (plane.heading - frame.approachHeading + 360) % 360;
   const inRange = alongTrack > 20 && alongTrack < 520;
-  const inCone = inRange && Math.abs(crossTrack) <= alongTrack * ilsWidth;
+  const sourceAvailable = !frame.localizer?.restrictions.some(text => text.includes('33 DEGS LEFT'))
+    || Math.atan2(-crossTrack, axisAlongTrack) * 180 / Math.PI <= 33;
+  const inCone = inRange && Math.abs(crossTrack) <= alongTrack * ilsWidth && sourceAvailable;
   const altitudeReady = plane.altitude <= 10000;
   const headingReady = relHeading > 310 || relHeading < 50;
   return {
@@ -41,6 +44,7 @@ export function checkIlsRunway(
     altitudeReady,
     headingReady,
     ready: inCone && altitudeReady && headingReady,
+    referenceHeading: frame.approachHeading, sourceAvailable,
   };
 }
 
@@ -148,6 +152,14 @@ export function localizerGuidance(
   establishedRunwayId: string | null | undefined,
 ): LocalizerGuidance {
   const rwy = airport.runways.find(r => r.id === establishedRunwayId) || airport.runways[0];
+  if ((airport as GeographicAirport).geographic) {
+    const frame = runwayFrame(airport, rwy), { crossTrack, alongTrack } = approachCoordinates(airport, rwy, plane);
+    // Simplified last-NM visual transition to the actual displaced threshold, not a published procedure.
+    const targetHeading = alongTrack <= 22.4
+      ? (Math.atan2(frame.threshold.x - plane.x, plane.y - frame.threshold.y) * 180 / Math.PI + 360) % 360
+      : (frame.approachHeading - Math.max(-30, Math.min(30, Math.atan2(crossTrack, 44.8) * 180 / Math.PI)) + 360) % 360;
+    return { targetHeading, targetAltitude: 0, targetSpeed: 140 };
+  }
   const rwyX = airport.x + (rwy.offsetX || 0);
   const rwyY = airport.y + (rwy.offsetY || 0);
   const dx = plane.x - rwyX;
@@ -205,12 +217,18 @@ export function trackFate(plane: Plane, airport: Airport, domain?: RadarDomain):
   }
 
   if (plane.type === 'arrival') {
-    const rwy = airport.runways.find(r => r.id === plane.establishedRunwayId);
-    const rwyX = airport.x + (rwy?.offsetX || 0);
-    const rwyY = airport.y + (rwy?.offsetY || 0);
+    const geographic = !!(airport as GeographicAirport).geographic;
+    const rwy = airport.runways.find(r => r.id === plane.establishedRunwayId || geographic && r.id === plane.assignedRunwayId)
+      ?? (geographic ? [...airport.runways].sort((a, b) => {
+        const left = runwayFrame(airport, a).threshold, right = runwayFrame(airport, b).threshold;
+        return Math.hypot(plane.x - left.x, plane.y - left.y) - Math.hypot(plane.x - right.x, plane.y - right.y);
+      })[0] : undefined);
+    const threshold = rwy && geographic ? runwayFrame(airport, rwy).threshold : null;
+    const rwyX = threshold?.x ?? airport.x + (rwy?.offsetX || 0);
+    const rwyY = threshold?.y ?? airport.y + (rwy?.offsetY || 0);
     const distToRwy = Math.hypot(plane.x - rwyX, plane.y - rwyY);
 
-    if (distToRwy < 30) {
+    if (distToRwy < (geographic ? 4 : 30)) {
       if (plane.isEstablished) {
         return { keep: false, score: true, accident: false, success: true };
       }

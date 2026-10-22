@@ -1,3 +1,4 @@
+import { toMagneticHeading } from '../geography/headings';
 import { Airport, Plane } from '../types';
 
 /**
@@ -33,7 +34,7 @@ export function trackReadout(plane: Plane, airport: Airport) {
   } else if (exitLabel) {
     field = exitLabel;
   } else {
-    field = Math.round(plane.heading).toString().padStart(3, '0');
+    field = Math.round(toMagneticHeading(plane.heading, airport)).toString().padStart(3, '0');
     headingField = true;
   }
 

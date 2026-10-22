@@ -4,6 +4,9 @@ import { audioManager } from '../utils/audio';
 import { trackReadout } from '../utils/dataBlock';
 import { headingArrowOffset, nearestTrack, trackPresentation } from '../utils/trackPresentation';
 import { scopeColor } from '../theme/radarTheme';
+import type { GeographicAirport } from '../geography/types';
+import { toMagneticHeading } from '../geography/headings';
+import { GeographicSector, GeographicNotice, referenceLabelSide } from './GeographicSector';
 import { TrackRole, trackRole } from '../theme/trackRole';
 import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
 import { inspectIlsReadiness } from '../utils/approach';
@@ -39,9 +42,9 @@ const UNITS_PER_NM = 22.4;
 const SCOPE_RADIUS = 560;
 const RANGE_RING_NM = [5, 10, 15, 20, 25];
 
-function themeHex(name: string, fallback: string) {
+function themeHex(name: string, fallback: string, element: Element) {
   if (typeof document === 'undefined') return fallback;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const value = getComputedStyle(element).getPropertyValue(name).trim();
   return value || fallback;
 }
 
@@ -73,6 +76,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   gameSpeed = 1 as GameSpeed,
   ilsWidth = 0.4,
 }) => {
+  const geography = (airport as GeographicAirport).geographic;
   const svgRef = useRef<SVGSVGElement>(null);
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -80,7 +84,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   // The camera is a pure fit of the frozen sector, never an interactive world transform.
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const aspect = viewport.width > 0 && viewport.height > 0 ? viewport.width / viewport.height : 1;
-  const fitSpan = domain ? Math.max(2 * domain.halfWidth / Math.max(1, aspect), 2 * domain.halfHeight / Math.max(1, 1 / aspect)) : DEFAULT_SPAN;
+  const fitSpan = domain ? Math.max(2 * domain.halfWidth / Math.max(1, aspect), 2 * domain.halfHeight / Math.max(1, 1 / aspect)) : geography ? 2 * geography.shortestHalfRange : DEFAULT_SPAN;
   const viewWidth = fitSpan * Math.max(1, aspect);
   const viewHeight = fitSpan * Math.max(1, 1 / aspect);
   const view = { x: airport.x - viewWidth / 2, y: airport.y - viewHeight / 2, w: viewWidth, h: viewHeight };
@@ -93,8 +97,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
   const dragStartRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const hasDraggedRef = useRef(false);
-  const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings });
-  phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings };
+  const phosphorState = useRef({ airport, planes, selectedId, showRangeRings: layers.showRangeRings && !geography });
+  phosphorState.current = { airport, planes, selectedId, showRangeRings: layers.showRangeRings && !geography };
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -153,14 +157,14 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
       };
 
       const { airport: scope, planes: tracks, selectedId: activeId, showRangeRings } = phosphorState.current;
-      const phosphor = themeHex('--color-target', '#5FD35F');
+      const phosphor = themeHex('--color-target', '#5FD35F', canvas);
       const roleColor: Record<TrackRole, string> = {
         arrival: phosphor,
-        departure: themeHex('--color-departure', '#62B0DC'),
-        uncontrolled: themeHex('--color-uncontrolled', '#9AA4A8'),
-        selected: themeHex('--color-selected', '#e8c56a'),
-        alert: themeHex('--color-alert', '#e0b04a'),
-        conflict: themeHex('--color-conflict', '#ef6464'),
+        departure: themeHex('--color-departure', '#62B0DC', canvas),
+        uncontrolled: themeHex('--color-uncontrolled', '#9AA4A8', canvas),
+        selected: themeHex('--color-selected', '#e8c56a', canvas),
+        alert: themeHex('--color-alert', '#e0b04a', canvas),
+        conflict: themeHex('--color-conflict', '#ef6464', canvas),
       };
       const center = toScreen(scope.x, scope.y);
       const rim = toScreen(scope.x + SCOPE_RADIUS, scope.y);
@@ -356,7 +360,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     if (selectedPlane.isEstablished) {
       const estRwy = airport.runways.find(r => r.id === selectedPlane.establishedRunwayId);
       const dist = (Math.hypot(selectedPlane.x - airport.x, selectedPlane.y - airport.y) / UNITS_PER_NM).toFixed(1);
-      return `${selectedPlane.callsign} (${selectedPlane.model}), established ILS ${estRwy?.label ?? ''}, automatic descent, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.heading)}. ${dist} NM from field.`;
+      return `${selectedPlane.callsign} (${selectedPlane.model}), established ILS ${estRwy?.label ?? ''}, automatic descent, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(toMagneticHeading(selectedPlane.heading, airport))}. ${dist} NM from field.`;
     }
 
     if (selectedPlane.targetWaypoint) {
@@ -371,17 +375,17 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
     if (selectedPlane.type === 'departure' && selectedPlane.exitWaypointId) {
       const exitLabel = airport.waypoints.find(w => w.id === selectedPlane.exitWaypointId)?.label ?? 'FIX';
-      return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}. Exit ${exitLabel} — transmit DEP to proceed direct.`;
+      return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, heading ${Math.round(toMagneticHeading(selectedPlane.targetHeading, airport)).toString().padStart(3, '0')}. Exit ${exitLabel} — transmit DEP to proceed direct.`;
     }
 
-    return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(selectedPlane.targetHeading).toString().padStart(3, '0')}.`;
+    return `${selectedPlane.callsign} (${selectedPlane.model}), ${altAction}, speed ${Math.round(selectedPlane.speed)}, heading ${Math.round(toMagneticHeading(selectedPlane.targetHeading, airport)).toString().padStart(3, '0')}.`;
   }, [selectedPlane, airport, planes]);
 
   return (
-    <div className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
+    <div data-airport-theme={geography ? 'kbos' : undefined} className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
       <canvas
         ref={phosphorRef}
-        className="pointer-events-none absolute top-0 left-0 z-0"
+        className={`pointer-events-none absolute top-0 left-0 ${geography ? 'z-20' : 'z-0'}`}
         aria-hidden="true"
       />
       <svg
@@ -398,6 +402,10 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         {/* Transparent full-frame hit surface preserves the black scope and canvas glow. */}
         <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="transparent" pointerEvents="all" />
 
+        {geography && <GeographicSector airport={airport} annotationScale={fixAnnotationScale} view={view} runwayConfig={runwayConfig}
+          showFixes={layers.showFixes} showLocalizers={layers.showExtendedCenterlines}
+          canAssignLocalizer={selectedPlane?.type === 'arrival' && !selectedPlane.isEstablished}
+          onAssignLocalizer={transmitIlsFix} isPointerDragging={() => hasDraggedRef.current} />}
         {/* Real airport geometry retains its existing world coordinates. */}
         <g>
           {/* Subtle Sector Airspace Polygons (TMA, CTR Boundaries) */}
@@ -448,7 +456,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           {/* Range rings are drawn on the phosphor canvas. */}
 
           {/* Render ALL Airport Runways and their Authentic Tick Ladder ILS Feathers */}
-          {airport.runways.map(rwy => {
+          {!geography && airport.runways.map(rwy => {
             const isLanding = !!runwayConfig[rwy.id]?.landing;
             const isDeparture = !!runwayConfig[rwy.id]?.departure;
             const rwyX = airport.x + (rwy.offsetX || 0);
@@ -578,6 +586,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           {/* Aeronautical Waypoints / Fixes (Authentic Double-Circle Symbol ◎) */}
           {layers.showFixes && airport.waypoints.map(wp => {
             const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) * projectionScale < 22;
+            const label = geography ? referenceLabelSide(wp, wp.label, view, fixAnnotationScale) : { x: 8, anchor: 'start' as const };
             return (
               <g
                 key={wp.id}
@@ -610,7 +619,8 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                 
                   {/* Fix Label */}
                   <text
-                    x="8"
+                    x={label.x}
+                    textAnchor={label.anchor}
                     y="3"
                     fill={isHovered ? scopeColor.ink : scopeColor.fixLabel}
                     fontSize="10"
@@ -714,7 +724,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
               data-aircraft={plane.id}
               role="button"
               tabIndex={0}
-              aria-label={`Select ${plane.callsign}, ${plane.type}, ${Math.round(plane.altitude)} feet, heading ${Math.round(plane.heading)} degrees, ${Math.round(plane.speed)} knots${isConflict ? ', conflict alert' : ''}`}
+              aria-label={`Select ${plane.callsign}, ${plane.type}, ${Math.round(plane.altitude)} feet, heading ${Math.round(toMagneticHeading(plane.heading, airport))} degrees, ${Math.round(plane.speed)} knots${isConflict ? ', conflict alert' : ''}`}
               aria-pressed={isSelected}
               onClick={(e) => {
                 e.stopPropagation();
@@ -876,6 +886,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         })}
       </svg>
 
+      <GeographicNotice airport={airport} />
       {/* Scope readback line */}
       <div className="relative shrink-0 px-3 py-1 z-20 min-w-0 pointer-events-none select-none">
         <div className="text-xs font-mono font-bold text-phosphor truncate">

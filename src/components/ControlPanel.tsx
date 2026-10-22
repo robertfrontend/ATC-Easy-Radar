@@ -3,6 +3,8 @@ import { Plane, Airport, RunwayConfig, GameSpeed } from '../types';
 import { Compass, ArrowUpToLine, Gauge, Radio, Send, XCircle, Navigation, AlertTriangle, PlaneLanding } from 'lucide-react';
 import { audioManager } from '../utils/audio';
 import { inspectIlsReadiness } from '../utils/approach';
+import { approachVectorPoint, runwayFrame } from '../geography/navigation';
+import { toMagneticHeading, toTrueHeading } from '../geography/headings';
 import { PREDICTION_SECONDS } from '../utils/prediction';
 
 interface ControlPanelProps {
@@ -57,7 +59,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
     // Direct-to guidance changes the live target heading each tick. Do not let
     // those changes overwrite an altitude, speed or runway being drafted.
     if (plane && !draftRef.current) {
-      setHeading(Math.round(plane.targetHeading));
+      setHeading(Math.round(toMagneticHeading(plane.targetHeading, airport)));
       setAltitude(plane.targetAltitude);
       setSpeed(plane.targetSpeed);
       setSelectedWp(plane.targetWaypoint || null);
@@ -81,7 +83,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
     if (selectedWp) {
       const wpLabel = airport.waypoints.find(w => w.id === selectedWp)?.label || 'FIX';
       parts.push(`direct ${wpLabel}`);
-    } else if (Math.round(heading) !== Math.round(plane.heading)) {
+    } else if (Math.round(heading) !== Math.round(toMagneticHeading(plane.heading, airport))) {
       parts.push(`turn heading ${heading.toString().padStart(3, '0')}`);
     }
 
@@ -125,7 +127,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
   const handleApply = () => {
     onCommand(plane.id, {
-      targetHeading: heading,
+      targetHeading: toTrueHeading(heading, airport),
       targetAltitude: altitude,
       targetSpeed: speed,
       targetWaypoint: selectedWp,
@@ -145,17 +147,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
 
   const handleVectorToRunwayIls = (rwy: (typeof airport.runways)[0]) => {
     markDraft();
-    const rwyX = airport.x + (rwy.offsetX || 0);
-    const rwyY = airport.y + (rwy.offsetY || 0);
-    const rad = (rwy.heading * Math.PI) / 180;
-    const fafPoint = {
-      x: rwyX - 450 * Math.sin(rad),
-      y: rwyY + 450 * Math.cos(rad)
-    };
+    const fafPoint = approachVectorPoint(airport, rwy);
     const angle = (Math.atan2(fafPoint.y - plane.y, fafPoint.x - plane.x) * 180 / Math.PI) + 90;
     const directHeading = Math.round((angle + 360) % 360);
 
-    setHeading(directHeading);
+    setHeading(Math.round(toMagneticHeading(directHeading, airport)));
     setAltitude(3000);
     setSpeed(180);
     setSelectedWp(null);
@@ -169,7 +165,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
           <div className="font-bold text-selected">DASHED PATH · NEXT {PREDICTION_SECONDS}s AT {gameSpeed === 'real' ? 'REAL SPEED' : `${gameSpeed}×`}</div>
           Active clearance only · refreshes twice/sec.
           <br />Includes turns, speed changes and ILS. No traffic or new clearances. Ends at landing/handoff.
-          {plane.type === 'arrival' && approach?.check && showExtendedCenterlines && <><br />Tinted cone: current ILS capture area.</>}
+          {plane.type === 'arrival' && approach?.check && showExtendedCenterlines && <><br />{runwayFrame(airport, approach.check.runway).localizer
+            ? 'LOC axis is a source reference; descent and final transition are simplified.'
+            : 'Tinted cone: current ILS capture area.'}</>}
         </div>
       )}
       {/* Flight Progress Strip Header */}
@@ -229,7 +227,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
               <>
                 {plane.targetWaypoint
                   ? `DIRECT ${airport.waypoints.find(w => w.id === plane.targetWaypoint)?.label || plane.targetWaypoint}`
-                  : `HDG ${Math.round(plane.targetHeading).toString().padStart(3, '0')}°`}
+                  : `HDG ${Math.round(toMagneticHeading(plane.targetHeading, airport)).toString().padStart(3, '0')}°`}
                 {' · '}{Math.round(plane.targetAltitude).toLocaleString()} FT · {Math.round(plane.targetSpeed)} KT
               </>
             )}
@@ -307,7 +305,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                   }`}
                 >
                   <span>PLAN ILS {rwy.label}</span>
-                  <span className="text-xs opacity-60">({rwy.heading}°)</span>
+                  <span className="text-xs opacity-60">({Math.round(toMagneticHeading(rwy.heading, airport))}°)</span>
                 </button>
               ))}
             </div>
@@ -338,10 +336,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
                   {approach.check.altitudeReady ? '✓' : '○'} Altitude ≤10,000 FT · now {Math.round(plane.altitude).toLocaleString()} FT
                 </li>
                 <li className={approach.check.headingReady ? 'text-phosphor' : 'text-alert'}>
-                  {approach.check.headingReady ? '✓' : '○'} Heading less than 50° off {approach.check.runway.heading.toString().padStart(3, '0')}° · now {approach.check.headingDifference.toFixed(1)}° off
+                  {approach.check.headingReady ? '✓' : '○'} Heading less than 50° off {Math.round(toMagneticHeading(approach.check.referenceHeading, airport)).toString().padStart(3, '0')}° · now {approach.check.headingDifference.toFixed(1)}° off
                 </li>
               </ul>
             )}
+            {approach.check && runwayFrame(airport, approach.check.runway).localizer?.restrictions.map((restriction, index) =>
+              <p key={index} className="text-xs text-ink-dim">{restriction}</p>)}
             <p className="text-xs text-ink-faint">Checks actual position, altitude, heading and transmitted runway, not unsent plans. Speed is not an ILS capture requirement.</p>
           </div>
         )}
@@ -409,13 +409,13 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ airport, runwayConfi
             <button
               onClick={() => {
                 markDraft();
-                setHeading(plannedRunway.heading);
+                setHeading(Math.round(toMagneticHeading(plannedRunway.heading, airport)));
                 setSelectedWp(null);
               }}
               disabled={plane.isEstablished}
               className="w-full py-1 text-xs font-bold bg-panel hover:bg-panel-raised border border-line rounded text-ink transition-colors disabled:opacity-30 flex items-center justify-center gap-1"
             >
-              <Navigation className="w-3 h-3" /> Plan RWY {plannedRunway.label} Heading ({plannedRunway.heading.toString().padStart(3, '0')}°)
+              <Navigation className="w-3 h-3" /> Plan RWY {plannedRunway.label} Heading ({Math.round(toMagneticHeading(plannedRunway.heading, airport)).toString().padStart(3, '0')}°)
             </button>
           )}
         </div>

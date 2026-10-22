@@ -123,3 +123,20 @@ it('reuses the selected airport preview in preparation and after cancelling with
   expect(button('KBOS').getAttribute('aria-pressed')).toBe('true');
   expect(title()).toBe('KBOS radar sector preview');
 });
+
+it('uses the shared KBOS operational metadata and magnetic runway readouts without changing defaults', () => {
+  click('Jugar libre');
+  const legacy = AIRPORTS[0];
+  expect(button(legacy.icao).textContent).toContain(`${legacy.waypoints.length} FIXES`);
+  const canonical = JSON.stringify(AIRPORTS);
+  act(() => button('KBOS').click());
+  expect(button('KBOS').textContent).toContain('9 FIXES');
+  expect(container.textContent).toContain('RWY 27 (272°)');
+  expect(container.textContent).toContain('RWY 04R (035°)');
+  const ils = [...container.querySelectorAll('[title="Toggle ILS Approach Landing"]')];
+  expect(ils.map(el => el.getAttribute('aria-label'))).toEqual([
+    'Runway 33L ILS', 'Runway 27 ILS', 'Runway 04R ILS', 'Runway 15R ILS',
+  ]);
+  expect(ils.map(el => el.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false', 'false']);
+  expect(JSON.stringify(AIRPORTS)).toBe(canonical);
+});
