@@ -382,7 +382,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   }, [selectedPlane, airport, planes]);
 
   return (
-    <div data-airport-theme={geography ? 'kbos' : undefined} className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
+    <div data-airport-theme="navy" className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
       <canvas
         ref={phosphorRef}
         className={`pointer-events-none absolute top-0 left-0 ${geography ? 'z-20' : 'z-0'}`}

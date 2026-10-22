@@ -507,7 +507,7 @@ it.each(['free', 'shift', 'tutorial', 'challenge'] as const)('shares the geograp
     difficulty: 'easy', highScore: 0, onExit, onSave, onScoreUpdate })));
   expect(capturedAirport).not.toBe(canonical);
   expect(capturedAirport!.waypoints).toHaveLength(9);
-  expect(container.querySelector('[data-airport-theme="kbos"]')).not.toBeNull();
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
   act(() => reportAspect!(2));
   expect(capturedDomain).toEqual({ halfWidth: 784, halfHeight: 392 });
   act(() => reportAspect!(.5));
@@ -581,4 +581,15 @@ it('reserves a constant command row and transmit slot before the first character
   expect(track(id).targetHeading).toBe(90);
   expect(input.parentElement).toBe(row);
   expect(slot?.querySelector('button')).toBeNull();
+});
+
+
+it.each(AIRPORTS)('uses shared navy controls while retaining $icao identity and operative inventory', airport => {
+  act(() => root.render(createElement(GamePage, { airport, mode: 'free', difficulty: 'easy',
+    highScore: 0, onExit, onSave, onScoreUpdate })));
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
+  expect(capturedAirport!.id).toBe(airport.id);
+  expect(capturedAirport!.runways.map(runway => runway.id)).toEqual(airport.runways.map(runway => runway.id));
+  if (airport.icao !== 'KBOS') expect(capturedAirport).toBe(airport);
+  expect(consoleInput().parentElement!.classList.contains('h-8')).toBe(true);
 });
