@@ -1,3 +1,4 @@
+import { approachPoint, runwayFrame } from '../geography/navigation';
 import { Airport, Plane, RunwayConfig } from '../types';
 
 export type TutorialPhase = 'arrival' | 'separation';
@@ -27,13 +28,13 @@ function headingDifference(a: number, b: number): number {
 export function createTutorialScenario(airport: Airport, phase: TutorialPhase = 'arrival'): TutorialScenario {
   const runway = airport.runways[0];
   if (!runway) throw new Error('Tutorial practice requires an airport with a runway.');
-  const radians = runway.heading * Math.PI / 180;
-  const position = (crossTrack: number, distanceBehind: number) => ({
-    x: airport.x + (runway.offsetX ?? 0)
-      + crossTrack * Math.cos(radians) - distanceBehind * Math.sin(radians),
-    y: airport.y + (runway.offsetY ?? 0)
-      + crossTrack * Math.sin(radians) + distanceBehind * Math.cos(radians),
-  });
+  const frame = runwayFrame(airport, runway);
+  const trainingHeading = phase === 'arrival' ? frame.approachHeading : frame.pavementHeading;
+  const radians = trainingHeading * Math.PI / 180;
+  const position = (crossTrack: number, distanceBehind: number) => {
+    const point = approachPoint(airport, runway, distanceBehind);
+    return { x: point.x + crossTrack * Math.cos(radians), y: point.y + crossTrack * Math.sin(radians) };
+  };
   const normalizeHeading = (value: number) => (value + 360) % 360;
   const makeTrack = (id: string, callsign: string, x: number, y: number, heading: number, altitude: number, speed: number): Plane => ({
     id,
@@ -73,13 +74,13 @@ export function createTutorialScenario(airport: Airport, phase: TutorialPhase = 
     const { x, y } = position(0, 360);
     return {
       phase,
-      planes: [makeTrack(primaryPlaneId, 'TRN101', x, y, normalizeHeading(runway.heading + 60), 11000, 220)],
+      planes: [makeTrack(primaryPlaneId, 'TRN101', x, y, normalizeHeading(trainingHeading + 60), 11000, 220)],
       runwayConfig,
       primaryPlaneId,
       secondaryPlaneId,
       runwayId: runway.id,
-      runwayHeading: runway.heading,
-      targets: { heading: runway.heading, altitude: 3000, speed: 180 },
+      runwayHeading: trainingHeading,
+      targets: { heading: trainingHeading, altitude: 3000, speed: 180 },
     };
   }
 
@@ -88,15 +89,15 @@ export function createTutorialScenario(airport: Airport, phase: TutorialPhase = 
   return {
     phase,
     planes: [
-      makeTrack(primaryPlaneId, 'TRN201', a.x, a.y, normalizeHeading(runway.heading + 90), 4000, 180),
+      makeTrack(primaryPlaneId, 'TRN201', a.x, a.y, normalizeHeading(trainingHeading + 90), 4000, 180),
       makeTrack(secondaryPlaneId!, 'TRN202', b.x, b.y, normalizeHeading(runway.heading - 90), 4000, 180),
     ],
     runwayConfig,
     primaryPlaneId,
     secondaryPlaneId,
     runwayId: runway.id,
-    runwayHeading: runway.heading,
-    targets: { heading: normalizeHeading(runway.heading + 90), altitude: 5000, speed: 180 },
+    runwayHeading: trainingHeading,
+    targets: { heading: normalizeHeading(trainingHeading + 90), altitude: 5000, speed: 180 },
   };
 }
 

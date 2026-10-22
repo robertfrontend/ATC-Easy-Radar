@@ -5,6 +5,8 @@ import { Difficulty, SavedGame, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
 import { SectorPreview } from './SectorPreview';
 import { SessionMode } from '../hooks/useGameLoop';
+import { getGeographicAirport } from '../geography/kbos';
+import { toMagneticHeading } from '../geography/headings';
 
 interface HomePageProps {
   savedGames: SavedGame[];
@@ -57,7 +59,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
   const headingRef = useRef<HTMLHeadingElement>(null);
   const freeLinkRef = useRef<HTMLAnchorElement>(null);
   const previousPreparation = useRef(preparing);
-  const selectedAirport = AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0];
+  const selectedAirport = getGeographicAirport(AIRPORTS.find(a => a.id === selectedAirportId) || AIRPORTS[0]);
   const setRunwayConfig = (value: React.SetStateAction<RunwayConfig>) => setSetup(prev => ({ ...prev,
     runwayConfig: typeof value === 'function' ? value(prev.runwayConfig) : value }));
   const setSelectedAirportId = (id: string) => setSetup(prev => id === prev.selectedAirportId ? prev : ({
@@ -214,7 +216,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {AIRPORTS.map(a => {
+              {AIRPORTS.map(getGeographicAirport).map(a => {
                 const isSelected = selectedAirportId === a.id;
                 return (
                   <button
@@ -290,7 +292,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                   >
                     <div>
                       <div className="font-bold text-ink-bright text-xs">
-                        RWY {r.label} <span className="text-[10px] text-ink-faint font-normal">({r.heading.toString().padStart(3, '0')}°)</span>
+                        RWY {r.label} <span className="text-[10px] text-ink-faint font-normal">({Math.round(toMagneticHeading(r.heading, selectedAirport)).toString().padStart(3, '0')}°)</span>
                       </div>
                       <div className="text-[9px] text-ink-faint mt-0.5">
                         {isLanding && isDep ? 'ILS Landing & Takeoffs' : isLanding ? 'ILS Landing Only' : isDep ? 'Takeoffs Only' : 'Inactive Runway'}

@@ -1,3 +1,5 @@
+import { approachVectorPoint } from '../geography/navigation';
+import { toTrueHeading } from '../geography/headings';
 import { Airport, Plane, Runway, RunwayConfig } from '../types';
 
 export interface CommandContext {
@@ -7,13 +9,7 @@ export interface CommandContext {
 }
 
 function vectorToRunway(plane: Plane, airport: Airport, rwy: Runway): Partial<Plane> {
-  const rwyX = airport.x + (rwy.offsetX || 0);
-  const rwyY = airport.y + (rwy.offsetY || 0);
-  const rad = (rwy.heading * Math.PI) / 180;
-  const fafPoint = {
-    x: rwyX - 450 * Math.sin(rad),
-    y: rwyY + 450 * Math.cos(rad),
-  };
+  const fafPoint = approachVectorPoint(airport, rwy);
   const angle = (Math.atan2(fafPoint.y - plane.y, fafPoint.x - plane.x) * 180 / Math.PI) + 90;
   return {
     targetHeading: Math.round((angle + 360) % 360),
@@ -96,7 +92,7 @@ export function parseAtcCommand(raw: string, ctx: CommandContext): Partial<Plane
       updates.targetAltitude = val;
       anyValid = true;
     } else if (prefix === 'H') {
-      updates.targetHeading = val % 360;
+      updates.targetHeading = toTrueHeading(val % 360, airport);
       updates.targetWaypoint = null;
       anyValid = true;
     } else if (prefix === 'S') {

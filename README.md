@@ -83,3 +83,7 @@ npm run build
 - `src/config`: shared airport geometry and challenge presets.
 
 Weather and emergencies are deliberately left for later. This game is for entertainment, not operational ATC training.
+
+### Local KBOS geographic integration
+
+KBOS uses a shared NAD83/GRS80 world for traffic, commands, prediction and presentation, with a frozen35-NM shortest span. Enter KBOS headings magnetically; navigation/render angles remain true internally. Other airports keep their existing conventions. Source localizer axes and displaced thresholds are distinct; offset15R uses a simplified last-NM transition, not a published approach or certified glideslope. Existing runway/progress IDs and traffic goals remain. Source and coverage limitations are documented in `src/geography/SOURCES.md`.

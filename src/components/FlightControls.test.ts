@@ -572,3 +572,15 @@ it('keeps actual fix labels, symbols and targets constant in screen pixels after
     }
   }
 });
+
+it('plans KBOS headings magnetically but transmits true navigation values', async () => {
+  const { AIRPORTS } = await import('../config/airports');
+  const { getGeographicAirport } = await import('../geography/kbos');
+  const airport = getGeographicAirport(AIRPORTS.find(item => item.icao === 'KBOS')!);
+  act(() => root.render(createElement(ControlPanel, { plane: makePlane({ heading: 315, targetHeading: 315 }), airport,
+    runwayConfig: {}, onCommand, onDeselect })));
+  expect((container.querySelector('#clearance-heading') as HTMLInputElement).value).toBe('330');
+  clickText('+10°');
+  clickText('TRANSMIT CLEARANCE');
+  expect(onCommand).toHaveBeenCalledWith('plane-1', expect.objectContaining({ targetHeading: 325 }));
+});

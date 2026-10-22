@@ -121,3 +121,42 @@ input[type="range"] {
     width: 100%;
   }
 }
+
+/* Approved KBOS navy composition only; all legacy airport tokens remain unchanged. */
+[data-airport-theme="kbos"] {
+  --color-scope: #03060b;
+  --color-scope-disk: #03060b;
+  --color-panel: #0a101c;
+  --color-panel-raised: #172438;
+  --color-inset: #070c15;
+  --color-header: #0c1422;
+  --color-line: #34465e;
+  --color-line-strong: #425877;
+  --color-map: #9acbff;
+  --color-map-dim: #6488ac;
+  --color-map-label: #8da5bd;
+  --color-airspace: #748fa9;
+  --color-airspace-dim: #4c657d;
+  --color-runway: #bdcde2;
+  --color-runway-idle: #7890aa;
+  --color-centerline: #d8e4f1;
+  --color-fix: #86a5c4;
+  --color-fix-label: #b1c7dc;
+  --color-target: #78b8ff;
+  --color-target-dim: #507faf;
+  --color-arrival: #78b8ff;
+  --color-departure: #a4c9ef;
+  --color-uncontrolled: #9eafc6;
+  --color-selected: #e2edfc;
+  --color-selected-soft: #e2edfc33;
+  --color-ink: #d8e4f1;
+  --color-ink-bright: #e2edfc;
+  --color-ink-dim: #8fa2b8;
+  --color-ink-faint: #728aa5;
+  --color-phosphor: #78b8ff;
+  --color-halo: #78b8ff18;
+  --color-halo-stroke: #78b8ff55;
+  --color-geographic-land: #080b11;
+  --color-geographic-water: #06182b;
+  --color-geographic-coast: #34536d;
+}

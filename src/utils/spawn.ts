@@ -1,3 +1,4 @@
+import { runwayFrame } from '../geography/navigation';
 import { Airport, Difficulty, GameSpeed, Plane, RunwayConfig } from '../types';
 import { isRunwaySafeForDeparture } from './departure';
 import { arrivalInwardHeading, DEFAULT_RADAR_DOMAIN, RadarDomain, sampleArrivalPerimeter } from './radarBounds';
@@ -139,8 +140,8 @@ export function spawnAircraft(request: SpawnRequest): SpawnResult {
     lastDepartureByRunway[activeDepRunway.id] = now;
     lastDepartureAt = now;
 
-    const rwyX = airport.x + (activeDepRunway.offsetX || 0);
-    const rwyY = airport.y + (activeDepRunway.offsetY || 0);
+    const frame = runwayFrame(airport, activeDepRunway);
+    const rwyX = frame.departureStart.x, rwyY = frame.departureStart.y;
     x = rwyX;
     y = rwyY;
 

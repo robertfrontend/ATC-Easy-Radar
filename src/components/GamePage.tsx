@@ -14,6 +14,8 @@ import { ControlPanel } from './ControlPanel';
 import { Airport, Difficulty, SavedGame, RadarLayers, RunwayConfig, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
 import { parseAtcCommand } from '../utils/commands';
+import { getGeographicAirport } from '../geography/kbos';
+import { toMagneticHeading } from '../geography/headings';
 import { challengeRunways, getIntensity } from '../challenges/model';
 
 export interface GamePageProps {
@@ -33,7 +35,7 @@ export interface GamePageProps {
 }
 
 export const GamePage: React.FC<GamePageProps> = ({
-  airport,
+  airport: sourceAirport,
   mode = 'free' as SessionMode,
   goal: requestedGoal = 10,
   challengeLevel,
@@ -47,6 +49,8 @@ export const GamePage: React.FC<GamePageProps> = ({
   onSave,
   onScoreUpdate
 }) => {
+  const airport = useMemo(() => getGeographicAirport(sourceAirport), [sourceAirport]);
+  const displayHeading = (heading: number) => Math.round(toMagneticHeading(heading, airport));
   const intensity = mode === 'challenge' ? getIntensity(airport.id, challengeLevel ?? 1) : null;
   const goal = intensity?.minimumOperations ?? requestedGoal;
   const [tutorialPhase, setTutorialPhase] = useState<'arrival' | 'separation'>('arrival');
@@ -140,13 +144,14 @@ export const GamePage: React.FC<GamePageProps> = ({
 
   const [domain, setDomain] = useState<RadarDomain>();
   const captureViewport = useCallback((aspect: number) => {
-    if (Number.isFinite(aspect) && aspect > 0) setDomain(previous => previous ?? createRadarDomain(aspect, DEFAULT_SPAN / 2));
-  }, []);
+    if (Number.isFinite(aspect) && aspect > 0) setDomain(previous => previous ?? createRadarDomain(aspect, airport.geographic?.shortestHalfRange ?? DEFAULT_SPAN / 2));
+  }, [airport]);
   const randomMode = mode !== 'tutorial';
+  const fittedDomain = randomMode || !!airport.geographic;
   const tutorialFrozen = mode === 'tutorial' && !['capture', 'landed', 'separation'].includes(tutorialStep);
   const { planes, score, accidents, session, events, elapsedMs, effectiveDifficulty, hasEnded, isPaused, togglePause, updatePlaneTarget, restart } = useGameLoop(
     airport, runwayConfig, difficulty, gameSpeed,
-    { mode, goal, level: challengeLevel, domain: randomMode ? domain : undefined, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen || (randomMode && !domain) }
+    { mode, goal, level: challengeLevel, domain: fittedDomain ? domain : undefined, initialPlanes: mode === 'tutorial' ? tutorialScenario.planes : undefined, blocked: activeMenu !== null || tutorialFrozen || (fittedDomain && !domain) }
   );
   useEffect(() => {
     if (mode === 'challenge' && session.status === 'completed') onChallengeComplete?.();
@@ -368,7 +373,7 @@ export const GamePage: React.FC<GamePageProps> = ({
     : null;
 
   const primaryRunway = airport.runways[activeRunwayIndex ?? 0] || airport.runways[0];
-  const tutorialHeading = tutorialScenario.targets.heading.toString().padStart(3, '0');
+  const tutorialHeading = displayHeading(tutorialScenario.targets.heading).toString().padStart(3, '0');
   const tutorialCallsign = tutorialScenario.planes.find(p => p.id === tutorialScenario.primaryPlaneId)?.callsign ?? 'TRAIN1';
   const tutorialMessages: Record<string, [string, string]> = {
     select: ['1 / SELECT ONE AIRCRAFT', `Click ${tutorialCallsign} on the radar. Time is stopped, so you can explore without pressure.`],
@@ -388,7 +393,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const debriefEvent = [...events].reverse().find(event => event.kind === 'accident') ?? [...events].reverse().find(event => event.kind === 'warning' || event.kind === 'missed');
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen md:h-screen md:min-h-[540px] bg-scope text-ink font-mono overflow-x-hidden md:overflow-hidden select-none">
+    <div data-airport-theme={airport.geographic ? 'kbos' : undefined} className="flex flex-col md:flex-row min-h-screen md:h-screen md:min-h-[540px] bg-scope text-ink font-mono overflow-x-hidden md:overflow-hidden select-none">
       {/* Main Radar Area */}
       <div className="md:flex-1 min-w-0 min-h-0 flex flex-col relative">
         {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}
@@ -488,7 +493,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                           className="bg-inset border border-line rounded p-2 flex items-center justify-between"
                         >
                           <div className="font-bold text-ink-bright text-xs">
-                            RWY {rwy.label} <span className="text-[10px] text-ink-faint font-normal">({rwy.heading}°)</span>
+                            RWY {rwy.label} <span className="text-[10px] text-ink-faint font-normal">({displayHeading(rwy.heading)}°)</span>
                           </div>
 
                           <div className="flex items-center gap-1">
@@ -659,7 +664,7 @@ export const GamePage: React.FC<GamePageProps> = ({
                   {/* Weather Info */}
                   <div className="pt-2 border-t border-line text-[11px] text-ink-dim space-y-0.5">
                     <div className="text-[10px] text-ink-faint font-bold uppercase">METAR / ATIS:</div>
-                    <div className="text-ink">WIND: {primaryRunway.heading}° / 10KT · QNH: 1013 (29.92)</div>
+                    <div className="text-ink">WIND: {displayHeading(primaryRunway.heading)}° / 10KT · QNH: 1013 (29.92)</div>
                   </div>
 
                   {/* System Actions */}
@@ -723,7 +728,7 @@ export const GamePage: React.FC<GamePageProps> = ({
         <div className="md:flex-1 min-h-0 w-full relative flex flex-col bg-scope">
           <div ref={radarRef} role="region" aria-label="Radar aircraft selection" tabIndex={-1} className="w-full md:flex-1 min-h-0 relative bg-scope overflow-hidden">
             <RadarDisplay
-              domain={randomMode ? domain : undefined}
+              domain={fittedDomain ? domain : undefined}
               onViewportAspect={captureViewport}
               airport={airport}
               runwayConfig={runwayConfig}
@@ -780,10 +785,11 @@ export const GamePage: React.FC<GamePageProps> = ({
 
                 {/* Micro Syntax Cheat-Sheet */}
                 <div className="mt-1 pt-1 border-t border-line flex flex-wrap gap-x-2 items-center justify-between text-[10px] text-ink-faint font-mono">
-                  <span>DEP (exit) · ILS {primaryRunway.label} · D3000 · H{primaryRunway.heading.toString().padStart(3, '0')} · S180</span>
+                  <span>DEP (exit) · ILS {primaryRunway.label} · D3000 · H{displayHeading(primaryRunway.heading).toString().padStart(3, '0')} · S180</span>
                   <span>[TAB] Auto-Complete</span>
                 </div>
-                {commandFeedback && <p role="status" className="text-[11px] text-phosphor mt-1">{commandFeedback}</p>}
+                {/* Always reserve two lines; long/mobile feedback remains keyboard-scrollable without resizing the scope. */}
+                <p role="status" aria-atomic="true" tabIndex={0} className="h-8 shrink-0 overflow-y-auto break-words leading-4 text-[11px] text-phosphor mt-1">{commandFeedback}</p>
               </div>
             </form>
           </div>

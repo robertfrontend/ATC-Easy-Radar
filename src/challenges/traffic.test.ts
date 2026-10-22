@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { getGeographicAirport } from '../geography/kbos';
+import { createRadarDomain } from '../utils/radarBounds';
 import { AIRPORTS } from '../config/airports';
 import { Plane } from '../types';
 import { applyClearance } from '../utils/navigation';
@@ -31,9 +33,10 @@ describe('challenge entry safety', () => {
 });
 
 describe('deterministic five-minute feasibility witnesses, not manual playtests', () => {
-  for (const airport of AIRPORTS) for (let level = 1; level <= 20; level++) {
+  for (const airport of AIRPORTS.map(getGeographicAirport)) for (let level = 1; level <= 20; level++) {
     it(`${airport.id}/${level}: safe intake and attainable effective-operation minimum`, () => {
       const profile = getIntensity(airport.id, level)!;
+      const domain = airport.geographic ? createRadarDomain(1, airport.geographic.shortestHalfRange) : undefined;
       const runways = challengeRunways(airport);
       const random = randomStream(123 + level);
       const runwayTimes = {};
@@ -43,7 +46,7 @@ describe('deterministic five-minute feasibility witnesses, not manual playtests'
       for (let now = 50; now <= 300000; now += 50) {
         if (now - lastSpawn >= profile.spawnIntervalMs && planes.length < profile.maxPlanes) {
           const result = spawnIntensityTraffic({ airport, runwayConfig: runways, planes, now, gameSpeed: 1,
-            lastDepartureByRunway: runwayTimes, lastDepartureAt: lastDeparture, allowArrival: true, random }, profile, ++sequence);
+            domain, lastDepartureByRunway: runwayTimes, lastDepartureAt: lastDeparture, allowArrival: true, random }, profile, ++sequence);
           lastSpawn = now;
           lastDeparture = result.lastDepartureAt;
           if (result.plane) {
@@ -60,7 +63,7 @@ describe('deterministic five-minute feasibility witnesses, not manual playtests'
         planes = planes.map(plane => advancePlane(plane, airport, runways, .4, 1).plane);
         collisions += applySeparation(planes).collisions;
         planes = planes.filter(plane => {
-          const fate = trackFate(plane, airport);
+          const fate = trackFate(plane, airport, domain);
           accidents += Number(fate.accident);
           if (fate.score) operations++;
           return fate.keep;
