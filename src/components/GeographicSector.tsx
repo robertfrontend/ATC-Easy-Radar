@@ -24,8 +24,15 @@ function guidePoint(airport: GeographicAirport, localizer: LocalizerReference) {
   return runway ? approachPoint(airport, runway, localizer.illustrativeLengthNM * 22.4) : localizerGuideEnd(localizer);
 }
 
+/** Availability controls the complete presentation, not source metadata or capture physics. */
+export function activeLocalizers(airport: GeographicAirport, runwayConfig: RunwayConfig) {
+  return airport.geographic?.localizers.filter(localizer => !localizer.referenceOnly &&
+    !!localizer.operativeRunwayId && airport.runways.some(runway => runway.id === localizer.operativeRunwayId) &&
+    runwayConfig[localizer.operativeRunwayId]?.landing === true) ?? [];
+}
+
 /** Screen-space captions move; the real fixes, runway endpoints and LOC axes never do. */
-export function localizerCaptionOffsets(airport: GeographicAirport, scale: number, view: SectorView): Record<string, CaptionOffset> {
+export function localizerCaptionOffsets(airport: GeographicAirport, scale: number, view: SectorView, runwayConfig: RunwayConfig): Record<string, CaptionOffset> {
   const geography = airport.geographic;
   if (!geography) return {};
   const reserved = [...airport.waypoints, ...geography.contextFixes].flatMap(fix => {
@@ -35,7 +42,7 @@ export function localizerCaptionOffsets(airport: GeographicAirport, scale: numbe
       { x: fix.x - 5 * scale, y: fix.y - 5 * scale, w: 10 * scale, h: 10 * scale }];
   });
   const result: Record<string, CaptionOffset> = {};
-  for (const localizer of geography.localizers) {
+  for (const localizer of activeLocalizers(airport, runwayConfig)) {
     const point = guidePoint(airport, localizer);
     const text = `ILS ${localizer.runwayEnd}${localizer.status.includes('RESTRICTED') ? '†' : ''}`;
     const width = text.length * 6.3 * scale;
@@ -105,8 +112,8 @@ export function GeographicSector({ airport, annotationScale, view, runwayConfig,
   const geography = airport.geographic;
   const halfRange = geography?.shortestHalfRange ?? 392;
   const frame = view ?? { x: airport.x - halfRange, y: airport.y - halfRange, w: 2 * halfRange, h: 2 * halfRange };
-  const captions = useMemo(() => localizerCaptionOffsets(airport, annotationScale, frame),
-    [airport, annotationScale, frame.x, frame.y, frame.w, frame.h]);
+  const captions = useMemo(() => localizerCaptionOffsets(airport, annotationScale, frame, runwayConfig),
+    [airport, runwayConfig, annotationScale, frame.x, frame.y, frame.w, frame.h]);
   if (!geography) return null;
   return <g data-geographic-sector="KBOS">
     <Terrain geography={geography} />
@@ -118,18 +125,17 @@ export function GeographicSector({ airport, annotationScale, view, runwayConfig,
         <title>Physical runway {runway.id}; screen width exaggerated</title>
       </line>)}
     </g>
-    {showLocalizers && geography.localizers.map(localizer => {
+    {showLocalizers && activeLocalizers(airport, runwayConfig).map(localizer => {
       const end = guidePoint(airport, localizer);
       const caption = captions[localizer.runwayEnd];
-      const active = !!localizer.operativeRunwayId && !!runwayConfig[localizer.operativeRunwayId]?.landing;
-      const actionable = active && canAssignLocalizer && !!onAssignLocalizer && !localizer.referenceOnly;
+      const actionable = canAssignLocalizer && !!onAssignLocalizer;
       const restricted = localizer.status.includes('RESTRICTED');
       const assign = () => {
         if (actionable && localizer.operativeRunwayId) onAssignLocalizer?.(localizer.operativeRunwayId, end);
       };
       return <g key={localizer.runwayEnd} data-localizer={localizer.runwayEnd}>
         <line x1={localizer.antenna.x} y1={localizer.antenna.y} x2={end.x} y2={end.y}
-          stroke={active ? scopeColor.map : scopeColor.mapDim} strokeWidth={active ? 1.4 : 1}
+          stroke={scopeColor.map} strokeWidth={1.4}
           strokeDasharray="5 4" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         <g transform={`translate(${end.x}, ${end.y}) scale(${annotationScale})`}
           data-radar-action={actionable ? 'ils-fix' : undefined} role={actionable ? 'button' : undefined}
@@ -162,19 +168,22 @@ export function GeographicSector({ airport, annotationScale, view, runwayConfig,
   </g>;
 }
 
-export function GeographicNotice({ airport }: { airport: GeographicAirport }) {
+export function GeographicNotice({ airport, runwayConfig }: { airport: GeographicAirport; runwayConfig: RunwayConfig }) {
   if (!airport.geographic) return null;
+  const localizers = activeLocalizers(airport, runwayConfig);
   return <div className="shrink-0 px-3 py-1 text-[10px] leading-relaxed text-ink-dim" data-geographic-notice="true">
     <p>FAA {airport.geographic.source.effectiveDate} / MassGIS · unofficial · not for navigation</p>
-    <p>LOC axes: illustrative lengths, not procedures or coverage. 33L† source restricted; 15R offset. HOLD*: existence only.</p>
+    <p>Active LOC axes: illustrative lengths, not procedures or coverage.
+      {localizers.some(localizer => localizer.runwayEnd === '33L') ? ' 33L† source restricted.' : ''}
+      {localizers.some(localizer => localizer.runwayEnd === '15R') ? ' 15R offset.' : ''} HOLD*: existence only.</p>
     <details>
       <summary className="cursor-pointer">Map sources and limitations</summary>
       <p>{airport.geographic.source.attribution}</p>
       <p>Black outside sourced map coverage. Runway screen widths exaggerated. No ILS beam or glideslope cone.</p>
       <p>GS angles below are source references only; descent remains simplified simulation, not a published procedure.</p>
-      <ul>{airport.geographic.localizers.map(localizer => <li key={localizer.runwayEnd}>
+      <ul>{localizers.map(localizer => <li key={localizer.runwayEnd}>
         ILS {localizer.runwayEnd}: {localizer.frequencyMHz} MHz · {localizer.magneticCourse}° M / {localizer.trueCourse}° T · GS {localizer.glideslopeDegrees}°.
-        {localizer.referenceOnly ? ' Reference only; no operative control.' : ''} {localizer.status}. {localizer.restrictions.join(' ')}
+        {localizer.runwayEnd === '15R' ? ' Offset localizer.' : ''} {localizer.status}. {localizer.restrictions.join(' ')}
       </li>)}</ul>
       <p>{airport.geographic.source.notice}</p>
       {airport.geographic.source.sources.map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="block underline break-all">{source.url}</a>)}

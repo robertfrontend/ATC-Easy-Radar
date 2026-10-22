@@ -265,7 +265,7 @@ export const GamePage: React.FC<GamePageProps> = ({
     setCommandInput('');
     if (selectedId) {
       setCommandFeedback('');
-      const timer = window.setTimeout(() => inputRef.current?.focus(), 0);
+      const timer = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
       return () => window.clearTimeout(timer);
     }
   }, [selectedId]);
@@ -746,7 +746,7 @@ export const GamePage: React.FC<GamePageProps> = ({
           <div className="relative shrink-0 mx-auto my-3 z-30 w-full max-w-lg px-4 pointer-events-auto">
             <form onSubmit={handleCommandSubmit} autoComplete="off" className="relative">
               <div className="relative flex flex-col bg-panel border border-line-strong rounded-lg p-2.5 shadow-2xl">
-                <div className="flex items-center gap-2">
+                <div className="flex h-8 shrink-0 items-center gap-2">
                   <Terminal className="w-4 h-4 text-phosphor" />
                   <span className="text-phosphor font-bold text-sm tracking-wider">
                     {selectedPlane ? selectedPlane.callsign : 'ATC'}&gt;
@@ -769,18 +769,20 @@ export const GamePage: React.FC<GamePageProps> = ({
                           : "e.g. ILS 33L, D3000 H090 S210, HARBR..."
                     }
                     disabled={!selectedId}
-                    className="bg-transparent border-none outline-none flex-1 min-w-0 text-ink-bright placeholder:text-ink-faint uppercase tracking-widest text-sm disabled:cursor-not-allowed"
+                    className="bg-transparent border-none outline-none flex-1 min-w-0 text-ink-bright placeholder:text-ink-faint uppercase tracking-widest text-base md:text-sm disabled:cursor-not-allowed"
                   />
-                  {commandInput && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => transmitCommand(inputRef.current?.value ?? commandInput)}
-                      className="bg-inset hover:bg-panel-raised text-phosphor hover:text-ink-bright text-[10px] font-bold px-2 py-1 rounded border border-line-strong uppercase tracking-wider"
-                    >
-                      ENTER: TX
-                    </button>
-                  )}
+                  <div data-command-transmit-slot className="w-20 shrink-0">
+                    {commandInput && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => transmitCommand(inputRef.current?.value ?? commandInput)}
+                        className="bg-inset hover:bg-panel-raised text-phosphor hover:text-ink-bright text-[10px] font-bold px-2 py-1 rounded border border-line-strong uppercase tracking-wider"
+                      >
+                        ENTER: TX
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Micro Syntax Cheat-Sheet */}

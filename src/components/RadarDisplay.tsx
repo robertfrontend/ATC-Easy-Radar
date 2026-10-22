@@ -886,7 +886,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         })}
       </svg>
 
-      <GeographicNotice airport={airport} />
+      <GeographicNotice airport={airport} runwayConfig={runwayConfig} />
       {/* Scope readback line */}
       <div className="relative shrink-0 px-3 py-1 z-20 min-w-0 pointer-events-none select-none">
         <div className="text-xs font-mono font-bold text-phosphor truncate">

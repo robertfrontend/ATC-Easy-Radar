@@ -80,7 +80,7 @@ input[type="range"] {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: var(--radar-blink-min-opacity, 0.3);
   }
 }
 
@@ -124,6 +124,7 @@ input[type="range"] {
 
 /* Approved KBOS navy composition only; all legacy airport tokens remain unchanged. */
 [data-airport-theme="kbos"] {
+  --radar-blink-min-opacity: 0.75;
   --color-scope: #03060b;
   --color-scope-disk: #03060b;
   --color-panel: #0a101c;
@@ -142,13 +143,13 @@ input[type="range"] {
   --color-centerline: #d8e4f1;
   --color-fix: #86a5c4;
   --color-fix-label: #b1c7dc;
-  --color-target: #78b8ff;
-  --color-target-dim: #507faf;
-  --color-arrival: #78b8ff;
-  --color-departure: #a4c9ef;
-  --color-uncontrolled: #9eafc6;
-  --color-selected: #e2edfc;
-  --color-selected-soft: #e2edfc33;
+  --color-target: #f0f1f3;
+  --color-target-dim: #d4d6da;
+  --color-arrival: #f0f1f3;
+  --color-departure: #e0e2e6;
+  --color-uncontrolled: #d4d6da;
+  --color-selected: #78b8ff;
+  --color-selected-soft: #78b8ff33;
   --color-ink: #d8e4f1;
   --color-ink-bright: #e2edfc;
   --color-ink-dim: #8fa2b8;
