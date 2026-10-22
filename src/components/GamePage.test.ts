@@ -552,3 +552,33 @@ it('keeps a fixed, accessible console feedback slot through empty, error, succes
   expect(slot()).toBe(original);
   expect(slot().textContent).toBe('');
 });
+
+it('reserves a constant command row and transmit slot before the first character', () => {
+  mount();
+  const input = consoleInput();
+  const row = input.parentElement!;
+  const slot = row.querySelector('[data-command-transmit-slot]');
+  expect(row.classList.contains('h-8')).toBe(true);
+  expect(row.classList.contains('shrink-0')).toBe(true);
+  expect(slot?.classList.contains('w-20')).toBe(true);
+  expect(slot?.classList.contains('shrink-0')).toBe(true);
+  expect(input.classList.contains('text-base')).toBe(true);
+  expect(input.classList.contains('md:text-sm')).toBe(true);
+  expect(slot?.querySelector('button')).toBeNull();
+  const focus = vi.spyOn(input, 'focus');
+  click('Select TRN101');
+  advance(0);
+  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  for (const command of ['H', 'H0', 'ILS', 'SW', '']) {
+    typeCommand(command);
+    expect(consoleInput()).toBe(input);
+    expect(input.parentElement).toBe(row);
+    expect(row.querySelector('[data-command-transmit-slot]')).toBe(slot);
+    expect(slot?.querySelectorAll('button')).toHaveLength(command ? 1 : 0);
+  }
+  const id = container.querySelector('[data-plane-id]')!.getAttribute('data-plane-id')!;
+  sendCommand('H090');
+  expect(track(id).targetHeading).toBe(90);
+  expect(input.parentElement).toBe(row);
+  expect(slot?.querySelector('button')).toBeNull();
+});

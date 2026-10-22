@@ -153,7 +153,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
         <span>SIM ILS: {landingRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
         <span>DEP: {departureRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
       </div>}
-      <GeographicNotice airport={airport} />
+      <GeographicNotice airport={airport} runwayConfig={runwayConfig} />
     </div>
   );
 }

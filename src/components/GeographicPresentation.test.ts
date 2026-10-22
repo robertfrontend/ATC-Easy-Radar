@@ -6,6 +6,7 @@ import { AIRPORTS } from '../config/airports';
 import { getGeographicAirport } from '../geography/kbos';
 import { createRadarDomain } from '../utils/radarBounds';
 import { RadarDisplay } from './RadarDisplay';
+import { GeographicSector, localizerCaptionOffsets } from './GeographicSector';
 import { SectorPreview } from './SectorPreview';
 
 vi.mock('../utils/audio', () => ({ audioManager: { playRadio: vi.fn(), playSelect: vi.fn() } }));
@@ -26,7 +27,7 @@ afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlo
 function radar() {
   act(() => root.render(createElement(RadarDisplay, { airport: boston, runwayConfig: operations, planes: [], selectedId: null, onSelect: vi.fn() })));
 }
-it('renders the approved scoped geographic terrain, six physical surfaces and only five source LOC axes', () => {
+it('renders the approved scoped geographic terrain, six physical surfaces and only available operative LOC axes', () => {
   radar();
   expect(container.querySelector('[data-airport-theme="kbos"]')).not.toBeNull();
   expect(container.querySelector('[data-geographic-terrain]')).not.toBeNull();
@@ -37,7 +38,7 @@ it('renders the approved scoped geographic terrain, six physical surfaces and on
       .toEqual([runway.ends[0].position.x, runway.ends[0].position.y, runway.ends[1].position.x, runway.ends[1].position.y]);
   }
   expect([...container.querySelectorAll('[data-localizer]')].map(element => element.getAttribute('data-localizer')))
-    .toEqual(['04R', '15R', '22L', '27', '33L']);
+    .toEqual(['04R', '15R', '27', '33L']);
   expect(container.querySelector('[data-localizer="22L"] [role="button"]')).toBeNull();
   expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe('108 108 784 784');
   expect(container.querySelector('rect[rx="24"], pattern')).toBeNull();
@@ -70,7 +71,7 @@ it('reuses projected KBOS geography and the common 35 NM core in the accessible 
   const svg = container.querySelector('svg[role="img"]')!;
   expect(svg.getAttribute('viewBox')).toBe('108 108 784 784');
   expect(svg.querySelectorAll('[data-physical-runway]')).toHaveLength(6);
-  expect(svg.querySelectorAll('[data-localizer]')).toHaveLength(5);
+  expect(svg.querySelectorAll('[data-localizer]')).toHaveLength(4);
   expect(svg.querySelector('[data-geographic-terrain]')).not.toBeNull();
   for (const waypoint of boston.waypoints) {
     expect(svg.querySelector(`[data-preview-fix="${waypoint.id}"]`)?.getAttribute('transform')).toContain(`translate(${waypoint.x}, ${waypoint.y})`);
@@ -157,4 +158,49 @@ it('separates mobile LOC and real-fix labels across frozen desktop profiles and 
   }
   act(() => root.render(createElement(SectorPreview, { airport: boston, runwayConfig: operations, compact: true })));
   assertReferenceSeparation(container.querySelector('svg')!, 286, true);
+});
+
+
+it('reactively removes complete inactive LOC groups, captions and source detail rows in game and Home', () => {
+  const only = (id: string) => ({ [id]: { landing: true, departure: false } });
+  const takeoffOnly = Object.fromEntries(boston.runways.map(runway => [runway.id, { landing: false, departure: true }]));
+  for (const preview of [false, true]) {
+    for (const [config, expected] of [[operations, ['04R', '15R', '27', '33L']], [{}, []],
+      [takeoffOnly, []], [only('bos-33l'), ['33L']], [only('bos-15r'), ['15R']],
+      [only('nonexistent'), []]] as const) {
+      act(() => root.render(preview
+        ? createElement(SectorPreview, { airport: boston, runwayConfig: config })
+        : createElement(RadarDisplay, { airport: boston, runwayConfig: config, planes: [], selectedId: null, onSelect: vi.fn() })));
+      expect([...container.querySelectorAll('[data-localizer]')].map(group => group.getAttribute('data-localizer'))).toEqual(expected);
+      expect(container.querySelectorAll('[data-geographic-notice] li')).toHaveLength(expected.length);
+      for (const inactive of ['04R', '15R', '22L', '27', '33L'].filter(end => !(expected as readonly string[]).includes(end))) {
+        expect(container.querySelector('svg')!.textContent).not.toContain(`ILS ${inactive}`);
+        expect(container.querySelector('[data-geographic-notice]')!.textContent).not.toContain(`ILS ${inactive}`);
+      }
+      const captions = localizerCaptionOffsets(boston, 1, { x: 108, y: 108, w: 784, h: 784 }, config);
+      expect(Object.keys(captions).sort()).toEqual([...expected].sort());
+    }
+  }
+  expect(boston.geographic!.localizers).toHaveLength(5);
+  expect(boston.geographic!.localizers.find(loc => loc.runwayEnd === '33L')!.status).toContain('RESTRICTED');
+});
+
+it('rejects reference-only LOCs even when their operative id and landing config exist', () => {
+  const airport = { ...boston, geographic: { ...boston.geographic!, localizers: [
+    { ...boston.geographic!.localizers[0], referenceOnly: true },
+    { ...boston.geographic!.localizers[0], operativeRunwayId: 'missing' },
+  ] } };
+  act(() => root.render(createElement('svg', {}, createElement(GeographicSector, {
+    airport, annotationScale: 1, runwayConfig: { ...operations, missing: { landing: true, departure: true } },
+  }))));
+  expect(container.querySelectorAll('[data-localizer]')).toHaveLength(0);
+});
+
+it('keeps legacy operative ILS actions landing-gated rather than takeoff-gated', () => {
+  const airport = AIRPORTS.find(item => item.icao !== 'KBOS')!;
+  for (const landing of [false, true, false]) {
+    const config = Object.fromEntries(airport.runways.map(runway => [runway.id, { landing, departure: true }]));
+    act(() => root.render(createElement(RadarDisplay, { airport, runwayConfig: config, planes: [], selectedId: null, onSelect: vi.fn() })));
+    expect(container.querySelectorAll('[data-radar-action="ils-fix"]')).toHaveLength(landing ? airport.runways.length : 0);
+  }
 });
