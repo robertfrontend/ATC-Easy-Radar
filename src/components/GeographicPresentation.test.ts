@@ -251,3 +251,47 @@ it('shares MDSD terrain/pavement with Home while keeping synthetic navigation ex
     }
   }
 });
+
+it('keeps map-only Home fix/hold annotations legible without moving their world geometry', () => {
+  const airport = getGeographicAirport(AIRPORTS.find(item => item.icao === 'MDSD')!);
+  act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: {}, compact: true })));
+  for (const fix of airport.waypoints) {
+    const element = container.querySelector(`[data-preview-fix="${fix.id}"]`)!;
+    expect(element.getAttribute('transform')).toBe(`translate(${fix.x}, ${fix.y})`);
+    const label = element.querySelector('text')!;
+    const scale = Number(/scale\(([^)]+)\)/.exec(label.parentElement!.getAttribute('transform')!)?.[1] ?? 1);
+    expect(Number(label.getAttribute('font-size')) * scale * 286 / 1400).toBeGreaterThanOrEqual(9);
+  }
+  const hold = airport.holdingStacks![0];
+  const element = [...container.querySelectorAll('g')].find(group => group.getAttribute('transform') === `translate(${hold.x}, ${hold.y}) rotate(${hold.rotation})`)!;
+  expect(element.querySelector('rect')?.getAttribute('width')).toBe(String(hold.width));
+  const label = element.querySelector('text')!;
+  const scale = Number(/scale\(([^)]+)\)/.exec(label.getAttribute('transform')!)?.[1] ?? 1);
+  expect(Number(label.getAttribute('font-size')) * scale * 286 / 1400).toBeGreaterThanOrEqual(9);
+  act(() => root.render(createElement(RadarDisplay, { airport, runwayConfig: {}, planes: [], selectedId: null, onSelect: vi.fn() })));
+  const svg = container.querySelector('svg')!;
+  vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({ width: 390, height: 390 } as DOMRect);
+  act(() => window.dispatchEvent(new Event('resize')));
+  const runtimeHold = [...svg.querySelectorAll('g')].find(group => group.getAttribute('transform') === `translate(${hold.x}, ${hold.y}) rotate(${hold.rotation})`)!;
+  const runtimeLabel = runtimeHold.querySelector('text')!;
+  const runtimeScale = Number(/scale\(([^)]+)\)/.exec(runtimeLabel.getAttribute('transform')!)![1]);
+  expect(Number(runtimeLabel.getAttribute('font-size')) * runtimeScale * 390 / 1400).toBeCloseTo(11, 8);
+});
+
+it('keeps Boston peripheral context labels inside the mobile/Home frame without moving source points', () => {
+  for (const preview of [false, true]) {
+    act(() => root.render(preview ? createElement(SectorPreview, { airport: boston, runwayConfig: {} })
+      : createElement(RadarDisplay, { airport: boston, runwayConfig: {}, planes: [], selectedId: null, onSelect: vi.fn() })));
+    const svg = container.querySelector('svg')!;
+    for (const fix of boston.geographic!.contextFixes) {
+      const element = svg.querySelector(`[data-context-fix="${fix.label}"]`)!;
+      expect(element.getAttribute('transform')).toContain(`translate(${fix.x}, ${fix.y})`);
+      const scale = Number(/scale\(([^)]+)\)/.exec(element.getAttribute('transform')!)![1]);
+      const label = element.querySelector('text')!;
+      const width = fix.label.length * 6.3 * scale;
+      const x = fix.x + Number(label.getAttribute('x')) * scale;
+      expect(label.getAttribute('text-anchor') === 'end' ? x - width : x).toBeGreaterThanOrEqual(108);
+      expect(label.getAttribute('text-anchor') === 'end' ? x : x + width).toBeLessThanOrEqual(892);
+    }
+  }
+});

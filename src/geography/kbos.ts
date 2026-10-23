@@ -3,6 +3,7 @@ import type { GeographicAirport } from './types';
 import { kbosData } from './kbos-data';
 import { runwayFrame } from './navigation';
 import { mdsdMap } from './mdsd-map';
+import { mdsdSyntheticLayout } from './synthetic-layouts';
 
 const adapted = new WeakMap<Airport, GeographicAirport>();
 function freeze<T>(value: T): T {
@@ -22,8 +23,16 @@ export function getGeographicAirport(airport: Airport): GeographicAirport {
   if (!result) {
     const candidate: GeographicAirport = airport.icao === 'KBOS'
       ? { ...structuredClone(airport), ...kbosData, holdingStacks: [], airspacePolygons: [] }
-      : { ...structuredClone(airport), terrainMap: mdsdMap,
+      : { ...structuredClone(airport), terrainMap: mdsdMap, syntheticLayout: mdsdSyntheticLayout,
         airspacePolygons: structuredClone(airport.airspacePolygons?.filter(polygon => polygon.id !== 'mdsd-caribbean')) };
+    if (candidate.syntheticLayout) {
+      const layout = candidate.syntheticLayout;
+      candidate.waypoints = candidate.waypoints.map(fix => ({ ...fix, ...layout.fixPositions[fix.id] }));
+      candidate.holdingStacks = candidate.holdingStacks?.map(hold => {
+        const fix = candidate.waypoints.find(point => point.id === layout.holdFixIds[hold.id]);
+        return fix ? { ...hold, x: fix.x, y: fix.y - 10 } : hold;
+      });
+    }
     if (candidate.terrainMap) {
       const [first, second] = candidate.terrainMap.physicalRunways[0].ends;
       const center = { x: (first.position.x + second.position.x) / 2, y: (first.position.y + second.position.y) / 2 };

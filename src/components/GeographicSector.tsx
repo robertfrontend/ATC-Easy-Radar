@@ -14,8 +14,12 @@ export function localizerGuideEnd(localizer: LocalizerReference): WorldPoint {
 
 /** Keep source points fixed while placing their annotations inside the visible frame. */
 export function referenceLabelSide(point: WorldPoint, label: string, view: { x: number; w: number }, scale: number) {
-  return point.x + (label.length * 6.3 + 8) * scale > view.x + view.w - 4 * scale
-    ? { x: -8, anchor: 'end' as const } : { x: 8, anchor: 'start' as const };
+  const min = view.x + 4 * scale, max = view.x + view.w - 4 * scale;
+  const width = label.length * 6.3 * scale;
+  const end = point.x + width + 8 * scale > max;
+  const left = Math.max(min, Math.min(max - width, point.x + (end ? -8 * scale - width : 8 * scale)));
+  return end ? { x: (left + width - point.x) / scale, anchor: 'end' as const }
+    : { x: (left - point.x) / scale, anchor: 'start' as const };
 }
 
 type SectorView = { x: number; y: number; w: number; h: number };
@@ -157,7 +161,9 @@ export function GeographicSector({ airport, annotationScale, view, runwayConfig,
       {geography.contextFixes.map(fix => <g key={fix.id} data-context-fix={fix.label}
         transform={`translate(${fix.x}, ${fix.y}) scale(${annotationScale})`}>
         <circle r="3" fill="none" stroke={scopeColor.fix} />
-        <text x="8" y="3" fill={scopeColor.fixLabel} fontSize="10" fontFamily="monospace">{fix.label}</text>
+        <text x={referenceLabelSide(fix, fix.label, frame, annotationScale).x} y="3"
+          textAnchor={referenceLabelSide(fix, fix.label, frame, annotationScale).anchor}
+          fill={scopeColor.fixLabel} fontSize="10" fontFamily="monospace">{fix.label}</text>
         <title>Regional context only; not a selectable exit or clearance</title>
       </g>)}
       {geography.holdReferences.map(fix => <g key={fix.id} data-hold-reference={fix.label}

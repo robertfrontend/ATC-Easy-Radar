@@ -446,7 +446,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                   fontFamily="monospace"
                   fontWeight="bold"
                   textAnchor="middle"
-                  transform={`rotate(${-stack.rotation}, 0, -8)`}
+                  transform={`rotate(${-stack.rotation}, 0, -8)${terrainMap ? ` scale(${fixAnnotationScale})` : ''}`}
                 >
                   {stack.label}
                 </text>

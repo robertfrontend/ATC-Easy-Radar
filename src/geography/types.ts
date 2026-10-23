@@ -1,5 +1,6 @@
 import type { Airport, Runway, Waypoint } from '../types';
 import type { AirportTerrainMap } from './map-types';
+import type { SyntheticLayout } from './synthetic-layouts';
 
 export interface GeographicPoint { longitude: number; latitude: number }
 export interface WorldPoint { x: number; y: number }
@@ -47,7 +48,7 @@ export interface AirportGeography {
     sources: { url: string; sha256?: string }[];
   };
 }
-export type GeographicAirport = Airport & { geographic?: AirportGeography; terrainMap?: AirportTerrainMap };
+export type GeographicAirport = Airport & { geographic?: AirportGeography; terrainMap?: AirportTerrainMap; syntheticLayout?: SyntheticLayout };
 export interface GeographicAirportData {
   geographic: AirportGeography;
   runways: Runway[];
