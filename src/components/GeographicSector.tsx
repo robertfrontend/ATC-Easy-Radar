@@ -1,5 +1,6 @@
 import { memo, useId, useMemo } from 'react';
 import type { GeographicAirport, AirportGeography, LocalizerReference, WorldPoint } from '../geography/types';
+import type { AirportTerrainMap } from '../geography/map-types';
 import type { RunwayConfig } from '../types';
 import { scopeColor } from '../theme/radarTheme';
 import { approachPoint } from '../geography/navigation';
@@ -72,7 +73,7 @@ export function localizerCaptionOffsets(airport: GeographicAirport, scale: numbe
 
 const ringPoints = (ring: WorldPoint[]) => ring.map(point => `${point.x},${point.y}`).join(' ');
 
-const Terrain = memo(function Terrain({ geography }: { geography: AirportGeography }) {
+export const Terrain = memo(function Terrain({ geography }: { geography: Pick<AirportGeography, 'terrain' | 'coverage'> }) {
   const id = useId();
   const paths = useMemo(() => ({
     land: geography.terrain.landPaths.join(' '),
@@ -187,6 +188,21 @@ export function GeographicNotice({ airport, runwayConfig }: { airport: Geographi
       </li>)}</ul>
       <p>{airport.geographic.source.notice}</p>
       {airport.geographic.source.sources.map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="block underline break-all">{source.url}</a>)}
+    </details>
+  </div>;
+}
+
+
+export function TerrainMapNotice({ map }: { map?: AirportTerrainMap }) {
+  if (!map) return null;
+  return <div data-map-notice className="shrink-0 px-3 py-1 text-[10px] leading-relaxed text-ink-dim">
+    <p>Approximate real map / synthetic navigation and airspace · not for navigation</p>
+    <details>
+      <summary className="cursor-pointer">Map sources and limitations</summary>
+      <p>{map.source.attribution}</p>
+      <p>{map.source.notice} Black outside sourced coverage. Pavement screen width exaggerated.</p>
+      <p>Runway-aligned ILS controls are simplified gameplay, not verified equipment or procedures. Heading numbers retain simplified game semantics, not verified magnetic bearings.</p>
+      {map.source.sources.map(source => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="block underline break-all">{source.url}</a>)}
     </details>
   </div>;
 }

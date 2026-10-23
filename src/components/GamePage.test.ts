@@ -590,6 +590,11 @@ it.each(AIRPORTS)('uses shared navy controls while retaining $icao identity and 
   expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
   expect(capturedAirport!.id).toBe(airport.id);
   expect(capturedAirport!.runways.map(runway => runway.id)).toEqual(airport.runways.map(runway => runway.id));
-  if (airport.icao !== 'KBOS') expect(capturedAirport).toBe(airport);
+  if (!['KBOS', 'MDSD'].includes(airport.icao)) expect(capturedAirport).toBe(airport);
+  if (airport.icao === 'MDSD') {
+    expect(capturedAirport!.terrainMap).toBeDefined();
+    expect(capturedAirport!.waypoints).toEqual(airport.waypoints);
+    expect(capturedAirport!.geographic).toBeUndefined();
+  }
   expect(consoleInput().parentElement!.classList.contains('h-8')).toBe(true);
 });
