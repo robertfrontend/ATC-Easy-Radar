@@ -1,12 +1,12 @@
 # Airport implementation reference
 
-The shared navy presentation applies to every existing airport preparation/game view; current legacy maps remain unchanged. Treat each future geographic migration as a separate rollout project using one shared radar engine and its own verified geographic package. Boston is the working reference for presentation and integration, not a geographic template for other airports. This document does not authorize implementation, publication, or changes to airport priority.
+The shared navy presentation applies to all six airport preparation/game views. Boston uses its documented geographic/navigation package; Las Americas uses approximate real terrain/runway placement with explicitly simplified navigation. The other four maps remain legacy until their individual rollout. Treat each migration as a separate rollout using the shared radar engine and an independently sourced package. Boston is the working reference for presentation and integration, not a geographic template for other airports. This document does not authorize implementation, publication, or changes to airport priority.
 
 ## Quick path
 
 1. Confirm the airport, authorized scope, acceptance criteria, and delivery permissions.
 2. Verify source data, reuse rights, datum, coverage, and operational inventory.
-3. Prepare one immutable geographic package consumed consistently by the UI and simulation.
+3. Prepare one immutable derived airport consumed consistently by UI and simulation; keep approximate terrain/runway maps separate from verified navigation facts.
 4. Verify the airport locally, then follow the authorized review and release process.
 5. Validate one additional airport before batching the remaining migrations.
 
@@ -18,22 +18,22 @@ Status below describes geographic migration, not whether an airport is playable.
 | --- | --- | --- | --- |
 | London Heathrow | EGLL | `london-lhr` | Legacy playable layout; new geographic sources not verified |
 | Logan Intl Airport | KBOS | `logan-int` | Geographic reference implementation |
-| Las Américas Intl | MDSD | `las-americas` | Legacy playable layout; new geographic sources not verified |
+| Las Américas Intl | MDSD | `las-americas` | Published approximate real coast and runway17/35 placement; synthetic navigation |
 | Dubai Intl Airport | OMDB | `dubai-int` | Legacy playable layout; new geographic sources not verified |
 | Amsterdam Schiphol | EHAM | `amsterdam-ams` | Legacy playable layout; new geographic sources not verified |
 | Panama Tocumen | MPTO | `panama-pty` | Legacy playable layout; new geographic sources not verified |
 
-The user selects the next airport and priorities. Do not interpret this table's order as a migration decision.
+Accepted rollout order: polish MDSD, then MPTO, EGLL, EHAM and OMDB. Preserve Boston. This order comes from the approved plan, not table order.
 
 ## Shared foundation versus proposed generalization
 
 | Already available | Proposed work before scaling |
 | --- | --- |
-| [Geographic contracts](../src/geography/types.ts), terrain reconstruction, immutable cached KBOS adapter | Register packages by ICAO instead of the KBOS-only adapter branch |
-| [Shared rendering](../src/components/GeographicSector.tsx), active-only localizers, Home/game reuse | Replace KBOS theme names, source notices, and named-runway exceptions with package metadata |
+| [Geographic contracts](../src/geography/types.ts), terrain reconstruction, immutable cached KBOS/MDSD adapter | Register packages by ICAO and bind each operative runway to its own sourced surface/end |
+| [Shared rendering](../src/components/GeographicSector.tsx), active-only localizers, Home/game reuse | Keep shared navy presentation independent of terrain; preserve airport-specific source notices and documented KBOS exceptions |
 | [Heading conversions](../src/geography/headings.ts) and [runway/LOC frames](../src/geography/navigation.ts) | Make per-airport range and simplified vector-target policies explicit |
-| Fixed responsive camera and frozen session domain | Load only the selected airport's package, with an explicit loading boundary and cached result |
-| [NAD83/GRS80 projection](../src/geography/projection.ts) and integrity tests | Verify each new source datum and transform it deliberately; NAD83 is not a universal input assumption |
+| Fixed responsive camera and frozen session domain | Measure package bytes/load costs; add selected-only loading only if measurements require it, before session mounting |
+| [NAD83/GRS80 and WGS84 projections](../src/geography/projection.ts) and integrity tests | Verify each new source datum and transform it deliberately; NAD83 is not a universal input assumption |
 
 These proposed changes are not already implemented. The current KBOS loader eagerly imports its terrain. Adding five equivalent eager imports would increase the initial bundle; measure load time, transferred bytes, parse cost, and memory before setting the next package's budget.
 
@@ -49,6 +49,8 @@ These proposed changes are not already implemented. The current KBOS loader eage
 - Preserve free play, quick shifts, Retos, Learning, tutorial behavior, saved progress keys, airport IDs, and the existing operative runway inventory unless a separate scope change authorizes otherwise.
 
 ## What each airport package must establish
+
+For the accepted map-only rollout, navigation/ILS/hold rows below apply only when real operational facts are incorporated. Otherwise preserve clearly labelled synthetic gameplay, retain IDs/functions, and do not fabricate equipment, magnetic variation or threshold displacement. Synthetic-layout coordinates belong in gameplay data, not source-derived terrain facts.
 
 | Concern | Required evidence |
 | --- | --- |
@@ -125,4 +127,4 @@ Rollback boundary and next user-owned decision:
 - [ ] Loading cost and unknown-terrain handling meet the agreed budget and coverage policy.
 - [ ] Any authorized release is verified publicly, with a bounded rollback and honest remaining limitations.
 
-Next geographic phase: use this brief to agree on one pilot airport and its verified data sources before authorizing that airport's geographic implementation. Shared presentation does not imply verified real geography for legacy airports.
+Next implementation phase: polish MDSD, prepare explicit multipista bindings, then complete each remaining airport in the accepted order. Shared presentation does not imply real geography or verified navigation for legacy airports.

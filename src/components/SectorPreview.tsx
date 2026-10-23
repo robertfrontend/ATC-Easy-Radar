@@ -17,6 +17,8 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
   const { geographic: geography, terrainMap } = airport;
   const halfRange = geography?.shortestHalfRange ?? (terrainMap ? 700 : undefined);
   const previewView = halfRange ? `${airport.x - halfRange} ${airport.y - halfRange} ${2 * halfRange} ${2 * halfRange}` : '0 0 1000 1000';
+  const annotationScale = terrainMap ? 4.6 : 2.6;
+  const mapped = !!(geography || terrainMap);
   const previewId = useId();
   const landingRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.landing);
   const departureRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.departure);
@@ -69,11 +71,11 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
                 x="0"
                 y="-8"
                 fill={scopeColor.fixLabel}
-                fontSize="16"
+                fontSize={terrainMap ? 10 : 16}
                 fontFamily="monospace"
                 fontWeight="bold"
                 textAnchor="middle"
-                transform={`rotate(${-stack.rotation}, 0, -8)`}
+                transform={`rotate(${-stack.rotation}, 0, -8)${terrainMap ? ` scale(${annotationScale})` : ''}`}
               >
                 {stack.label}
               </text>
@@ -128,12 +130,12 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
           {/* Waypoint Fixes (◎ Double Circle) */}
           {airport.waypoints.map(wp => (
             <g key={wp.id} data-preview-fix={wp.id} transform={`translate(${wp.x}, ${wp.y})`}>
-              <g transform={geography ? 'scale(2.6)' : undefined}>
-              <circle cx="0" cy="0" r={geography ? 3 : 7} fill="none" stroke={scopeColor.fix} strokeWidth="1.8" />
-              <circle cx="0" cy="0" r={geography ? 1 : 2.5} fill={scopeColor.fix} />
-              <text x={geography ? referenceLabelSide(wp, wp.label, { x: airport.x - geography.shortestHalfRange, w: 2 * geography.shortestHalfRange }, 2.6).x : 12}
-                textAnchor={geography ? referenceLabelSide(wp, wp.label, { x: airport.x - geography.shortestHalfRange, w: 2 * geography.shortestHalfRange }, 2.6).anchor : undefined}
-                y="5" fill={scopeColor.fixLabel} fontSize={geography ? 10 : 16} fontFamily="monospace" fontWeight="bold">
+              <g transform={mapped ? `scale(${annotationScale})` : undefined}>
+              <circle cx="0" cy="0" r={mapped ? 3 : 7} fill="none" stroke={scopeColor.fix} strokeWidth="1.8" />
+              <circle cx="0" cy="0" r={mapped ? 1 : 2.5} fill={scopeColor.fix} />
+              <text x={mapped ? referenceLabelSide(wp, wp.label, { x: airport.x - halfRange!, w: 2 * halfRange! }, annotationScale).x : 12}
+                textAnchor={mapped ? referenceLabelSide(wp, wp.label, { x: airport.x - halfRange!, w: 2 * halfRange! }, annotationScale).anchor : undefined}
+                y="5" fill={scopeColor.fixLabel} fontSize={mapped ? 10 : 16} fontFamily="monospace" fontWeight="bold">
                 {wp.label}
               </text>
               </g>

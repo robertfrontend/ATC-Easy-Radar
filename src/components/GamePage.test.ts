@@ -593,7 +593,8 @@ it.each(AIRPORTS)('uses shared navy controls while retaining $icao identity and 
   if (!['KBOS', 'MDSD'].includes(airport.icao)) expect(capturedAirport).toBe(airport);
   if (airport.icao === 'MDSD') {
     expect(capturedAirport!.terrainMap).toBeDefined();
-    expect(capturedAirport!.waypoints).toEqual(airport.waypoints);
+    expect(capturedAirport!.waypoints.map(fix => [fix.id, fix.label])).toEqual(airport.waypoints.map(fix => [fix.id, fix.label]));
+    expect(capturedAirport!.syntheticLayout?.kind).toBe('synthetic');
     expect(capturedAirport!.geographic).toBeUndefined();
   }
   expect(consoleInput().parentElement!.classList.contains('h-8')).toBe(true);
