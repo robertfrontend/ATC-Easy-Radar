@@ -17,9 +17,9 @@ it('projects explicit WGS84 controls independently of the NAD83 Boston contract'
   expect(() => projectWgs84(origin, { longitude: NaN, latitude: 0 })).toThrow();
 });
 
-it('packages only independent historical17/35 pavement and generalized terrain, without activating navigation', () => {
+it('packages only independent historical17/35 pavement and generalized terrain, without verified operational navigation', () => {
   const canonical = AIRPORTS.find(airport => airport.icao === 'MDSD')!;
-  expect(getGeographicAirport(canonical)).toBe(canonical);
+  expect(getGeographicAirport(canonical).geographic).toBeUndefined();
   expect(mdsdMap.physicalRunways.map(runway => runway.id)).toEqual(['17/35']);
   const [first, second] = mdsdMap.physicalRunways[0].ends;
   expect(first.id).toBe('17');

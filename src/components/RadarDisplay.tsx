@@ -6,7 +6,7 @@ import { headingArrowOffset, nearestTrack, trackPresentation } from '../utils/tr
 import { scopeColor } from '../theme/radarTheme';
 import type { GeographicAirport } from '../geography/types';
 import { toMagneticHeading } from '../geography/headings';
-import { GeographicSector, GeographicNotice, referenceLabelSide } from './GeographicSector';
+import { GeographicSector, GeographicNotice, referenceLabelSide, Terrain, TerrainMapNotice } from './GeographicSector';
 import { TrackRole, trackRole } from '../theme/trackRole';
 import { FlightPrediction, PREDICTION_SECONDS, predictFlightPath } from '../utils/prediction';
 import { inspectIlsReadiness } from '../utils/approach';
@@ -76,7 +76,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
   gameSpeed = 1 as GameSpeed,
   ilsWidth = 0.4,
 }) => {
-  const geography = (airport as GeographicAirport).geographic;
+  const { geographic: geography, terrainMap } = airport as GeographicAirport;
   const svgRef = useRef<SVGSVGElement>(null);
   const phosphorRef = useRef<HTMLCanvasElement>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -385,7 +385,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
     <div data-airport-theme="navy" className="relative isolate w-full h-full flex flex-col select-none bg-scope overflow-hidden">
       <canvas
         ref={phosphorRef}
-        className={`pointer-events-none absolute top-0 left-0 ${geography ? 'z-20' : 'z-0'}`}
+        className={`pointer-events-none absolute top-0 left-0 ${geography || terrainMap ? 'z-20' : 'z-0'}`}
         aria-hidden="true"
       />
       <svg
@@ -402,6 +402,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         {/* Transparent full-frame hit surface preserves the black scope and canvas glow. */}
         <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="transparent" pointerEvents="all" />
 
+        {terrainMap && <Terrain geography={terrainMap} />}
         {geography && <GeographicSector airport={airport} annotationScale={fixAnnotationScale} view={view} runwayConfig={runwayConfig}
           showFixes={layers.showFixes} showLocalizers={layers.showExtendedCenterlines}
           canAssignLocalizer={selectedPlane?.type === 'arrival' && !selectedPlane.isEstablished}
@@ -484,7 +485,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                       strokeDasharray="3,6"
                       pointerEvents="none"
                     >
-                      <title>Actual ILS capture cone for the current difficulty; heading and altitude must also match</title>
+                      <title>{terrainMap ? 'Simplified gameplay capture guide; not verified equipment or service volume' : 'Actual ILS capture cone for the current difficulty; heading and altitude must also match'}</title>
                     </polygon>
                   )}
                   {/* ILS Localizer Tick Ladder (Authentic British/European ATC Style) */}
@@ -537,6 +538,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
 
                   {/* Subdued gray runway bar. Active pavement is a step lighter. */}
                   <rect
+                    data-map-pavement={terrainMap ? rwy.id : undefined}
                     x="-4"
                     y={-halfLen}
                     width="8"
@@ -886,6 +888,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
         })}
       </svg>
 
+      <TerrainMapNotice map={terrainMap} />
       <GeographicNotice airport={airport} runwayConfig={runwayConfig} />
       {/* Scope readback line */}
       <div className="relative shrink-0 px-3 py-1 z-20 min-w-0 pointer-events-none select-none">

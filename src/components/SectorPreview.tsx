@@ -3,7 +3,7 @@ import type { AIRPORTS } from '../config/airports';
 import type { RunwayConfig } from '../types';
 import { scopeColor } from '../theme/radarTheme';
 import { getGeographicAirport } from '../geography/kbos';
-import { GeographicSector, GeographicNotice, referenceLabelSide } from './GeographicSector';
+import { GeographicSector, GeographicNotice, referenceLabelSide, Terrain, TerrainMapNotice } from './GeographicSector';
 
 interface SectorPreviewProps {
   airport: (typeof AIRPORTS)[number];
@@ -14,8 +14,8 @@ interface SectorPreviewProps {
 /** Static airport geometry only: no game loop, traffic simulation or animation. */
 export function SectorPreview({ airport: selectedAirport, runwayConfig, compact = false }: SectorPreviewProps) {
   const airport = getGeographicAirport(selectedAirport);
-  const geography = airport.geographic;
-  const halfRange = geography?.shortestHalfRange;
+  const { geographic: geography, terrainMap } = airport;
+  const halfRange = geography?.shortestHalfRange ?? (terrainMap ? 700 : undefined);
   const previewView = halfRange ? `${airport.x - halfRange} ${airport.y - halfRange} ${2 * halfRange} ${2 * halfRange}` : '0 0 1000 1000';
   const previewId = useId();
   const landingRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.landing);
@@ -36,7 +36,8 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
           aria-describedby={`${previewId}-description`} className="w-full h-full p-2">
           <title id={`${previewId}-title`}>{airport.icao} radar sector preview</title>
           <desc id={`${previewId}-description`}>Static airport layout with runways, approach guides and navigation fixes. No live traffic.</desc>
-          {!geography && <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />}
+          {!geography && !terrainMap && <rect x="0" y="0" width="1000" height="1000" fill={scopeColor.scope} />}
+          {terrainMap && <Terrain geography={terrainMap} />}
           {geography && <GeographicSector airport={airport} runwayConfig={runwayConfig} annotationScale={2.6} />}
           {/* Airspace Boundary Polygons */}
           {airport.airspacePolygons?.map(poly => (
@@ -111,6 +112,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
 
                 {/* Subdued gray runway bar */}
                 <rect
+                  data-map-pavement={terrainMap ? rwy.id : undefined}
                   x="-6"
                   y={-halfLen}
                   width="12"
@@ -153,6 +155,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
         <span>SIM ILS: {landingRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
         <span>DEP: {departureRunways.map(runway => runway.label).join(', ') || 'NONE'}</span>
       </div>}
+      <TerrainMapNotice map={terrainMap} />
       <GeographicNotice airport={airport} runwayConfig={runwayConfig} />
     </div>
   );

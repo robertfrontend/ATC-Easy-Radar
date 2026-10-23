@@ -2,6 +2,7 @@ import type { Airport } from '../types';
 import type { GeographicAirport } from './types';
 import { kbosData } from './kbos-data';
 import { runwayFrame } from './navigation';
+import { mdsdMap } from './mdsd-map';
 
 const adapted = new WeakMap<Airport, GeographicAirport>();
 function freeze<T>(value: T): T {
@@ -15,11 +16,25 @@ freeze(kbosData);
 
 /** Explicit opt-in only: canonical airport inventory and existing consumers stay untouched. */
 export function getGeographicAirport(airport: Airport): GeographicAirport {
-  if (airport.icao !== 'KBOS' || (airport as GeographicAirport).geographic) return airport;
+  const existing = airport as GeographicAirport;
+  if (existing.geographic || existing.terrainMap || !['KBOS', 'MDSD'].includes(airport.icao)) return airport;
   let result = adapted.get(airport);
   if (!result) {
-    const candidate = { ...structuredClone(airport), ...kbosData, holdingStacks: [], airspacePolygons: [] };
-    candidate.runways = candidate.runways.map(runway => ({ ...runway, heading: runwayFrame(candidate, runway).pavementHeading }));
+    const candidate: GeographicAirport = airport.icao === 'KBOS'
+      ? { ...structuredClone(airport), ...kbosData, holdingStacks: [], airspacePolygons: [] }
+      : { ...structuredClone(airport), terrainMap: mdsdMap,
+        airspacePolygons: structuredClone(airport.airspacePolygons?.filter(polygon => polygon.id !== 'mdsd-caribbean')) };
+    if (candidate.terrainMap) {
+      const [first, second] = candidate.terrainMap.physicalRunways[0].ends;
+      const center = { x: (first.position.x + second.position.x) / 2, y: (first.position.y + second.position.y) / 2 };
+      const length = Math.hypot(second.position.x - first.position.x, second.position.y - first.position.y);
+      const heading = (Math.atan2(second.position.x - first.position.x, first.position.y - second.position.y) * 180 / Math.PI + 360) % 360;
+      candidate.runways = candidate.runways.map(runway => ({ ...runway, length,
+        offsetX: center.x - candidate.x, offsetY: center.y - candidate.y,
+        heading: runway.label === first.id ? heading : (heading + 180) % 360 }));
+    } else {
+      candidate.runways = candidate.runways.map(runway => ({ ...runway, heading: runwayFrame(candidate, runway).pavementHeading }));
+    }
     result = freeze(candidate);
     adapted.set(airport, result);
   }

@@ -84,17 +84,17 @@ it.each(AIRPORTS)('shares the navy presentation without changing $icao geometry 
   const config = Object.fromEntries(airport.runways.map(runway => [runway.id, { landing: true, departure: true }]));
   act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: config })));
   expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
-  expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(airport.icao === 'KBOS' ? '108 108 784 784' : '0 0 1000 1000');
+  expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(airport.icao === 'KBOS' ? '108 108 784 784' : airport.icao === 'MDSD' ? '-200 -200 1400 1400' : '0 0 1000 1000');
   for (const fix of expected.waypoints) {
     expect(container.querySelector(`[data-preview-fix="${fix.id}"]`)?.getAttribute('transform')).toBe(`translate(${fix.x}, ${fix.y})`);
   }
   const isBoston = airport.icao === 'KBOS';
-  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston);
+  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston || airport.icao === 'MDSD');
   expect(!!container.querySelector('[data-geographic-notice]')).toBe(isBoston);
   act(() => root.render(createElement(RadarDisplay, { airport: expected, runwayConfig: config,
     planes: [], selectedId: null, onSelect: vi.fn() })));
   expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
-  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston);
+  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston || airport.icao === 'MDSD');
   expect(!!container.querySelector('[data-geographic-notice]')).toBe(isBoston);
   expect(container.querySelector('pattern')).toBeNull();
   if (!isBoston) expect(container.textContent).not.toMatch(/MassGIS|33L†|15R offset/);
@@ -218,5 +218,36 @@ it.each(AIRPORTS.filter(item => item.icao !== 'KBOS'))('keeps $icao legacy ILS l
     act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: config })));
     expect(container.querySelectorAll('line[y2="420"][x1="0"]')).toHaveLength(landing ? airport.runways.length : 0);
     expect(container.querySelector('[data-geographic-notice]')).toBeNull();
+  }
+});
+
+
+it('shares MDSD terrain/pavement with Home while keeping synthetic navigation explicit and active-only', () => {
+  const airport = getGeographicAirport(AIRPORTS.find(item => item.icao === 'MDSD')!);
+  const enabled = Object.fromEntries(airport.runways.map(runway => [runway.id, { landing: true, departure: true }]));
+  for (const preview of [true, false]) {
+    for (const landing of [true, false]) {
+      const config = landing ? enabled : {};
+      act(() => root.render(preview ? createElement(SectorPreview, { airport, runwayConfig: config })
+        : createElement(RadarDisplay, { airport, runwayConfig: config, planes: [], selectedId: null, onSelect: vi.fn() })));
+      const svg = container.querySelector('svg')!;
+      expect(svg.querySelector('[data-geographic-terrain]')).not.toBeNull();
+      expect(svg.getAttribute('viewBox')).toBe('-200 -200 1400 1400');
+      expect(svg.querySelectorAll('[data-map-pavement]')).toHaveLength(2);
+      for (const runway of airport.runways) {
+        const rect = svg.querySelector(`[data-map-pavement="${runway.id}"]`)!;
+        expect(Number(rect.getAttribute('height'))).toBe(runway.length);
+        expect(rect.parentElement!.getAttribute('transform')).toBe(`translate(${airport.x + runway.offsetX!}, ${airport.y + runway.offsetY!}) rotate(${runway.heading})`);
+      }
+      expect(container.querySelector('[data-map-notice]')?.textContent).toContain('synthetic');
+      expect(container.querySelector('[data-map-notice]')?.textContent).toContain('datum unspecified');
+      expect(container.textContent).not.toMatch(/MassGIS|FAA|33L†/);
+      expect(svg.querySelector('[data-localizer]')).toBeNull();
+      expect(svg.querySelector('polygon[points="100,550 400,520 700,540 900,580"]')).toBeNull();
+      expect(svg.querySelector('polygon[points="350,300 650,300 700,500 650,700 350,700 300,500"]')).not.toBeNull();
+      expect(svg.querySelectorAll(preview ? 'line[y2="420"][x1="0"]' : '[data-radar-action="ils-fix"]')).toHaveLength(landing ? 2 : 0);
+      expect(svg.querySelector('[data-geographic-terrain] > polygon')?.getAttribute('points'))
+        .toBe(airport.terrainMap!.coverage.water.worldRing.map(point => `${point.x},${point.y}`).join(' '));
+    }
   }
 });

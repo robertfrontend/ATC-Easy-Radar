@@ -29,7 +29,7 @@ describe('independent geographic contract, not active game configuration', () =>
     expect(adapted).not.toBe(canonical);
     expect(JSON.stringify(AIRPORTS)).toBe(before);
     expect(Object.isFrozen(canonical.airlines)).toBe(frozenBefore);
-    for (const airport of AIRPORTS.filter(item => item.icao !== 'KBOS')) {
+    for (const airport of AIRPORTS.filter(item => !['KBOS', 'MDSD'].includes(item.icao))) {
       expect(getGeographicAirport(airport)).toBe(airport);
       expect(toTrueHeading(360, airport)).toBe(360);
       expect(toMagneticHeading(360, airport)).toBe(360);

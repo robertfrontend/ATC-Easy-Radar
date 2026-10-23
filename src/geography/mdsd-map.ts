@@ -9,5 +9,5 @@ function freeze<T>(value: T): T {
   return value;
 }
 
-/** Inactive foundation package; consumers explicitly opt in in a separate integration unit. */
+/** Map-only source package; consumers opt in without asserting verified navigation. */
 export const mdsdMap = freeze(data as AirportTerrainMap);
