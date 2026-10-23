@@ -179,12 +179,25 @@ export function localizerGuidance(
  * so the same geometry is not a bad approach. A crashed track stays crashed.
  */
 export function approachStatus(
-  plane: Pick<Plane, 'status' | 'type'>,
-  airport: Pick<Airport, 'x' | 'y'>,
+  plane: Pick<Plane, 'status' | 'type'> & Partial<Pick<Plane, 'assignedRunwayId' | 'establishedRunwayId'>>,
+  airport: Pick<Airport, 'x' | 'y'> & Partial<Pick<GeographicAirport, 'terrainMap' | 'runways'>>,
   position: { x: number; y: number; altitude: number; speed: number; isEstablished: boolean },
+  runwayConfig?: RunwayConfig,
 ): Plane['status'] {
   let newStatus: Plane['status'] = plane.status === 'crashed' ? 'crashed' : 'normal';
-  const distToCenter = Math.hypot(position.x - airport.x, position.y - airport.y);
+  let distToCenter = Math.hypot(position.x - airport.x, position.y - airport.y);
+  if (airport.terrainMap && airport.runways) {
+    const mapped = airport as GeographicAirport;
+    const id = position.isEstablished ? plane.establishedRunwayId ?? plane.assignedRunwayId : plane.assignedRunwayId;
+    const eligible = mapped.runways.filter(runway => !runwayConfig || runwayConfig[runway.id]?.landing);
+    const distance = (runway: Runway) => {
+      const origin = runwayFrame(mapped, runway).threshold; // Simplified map-only center, not a surveyed threshold.
+      return Math.hypot(position.x - origin.x, position.y - origin.y);
+    };
+    const runway = id ? mapped.runways.find(runway => runway.id === id)
+      : eligible.sort((left, right) => distance(left) - distance(right))[0];
+    distToCenter = runway ? distance(runway) : Infinity;
+  }
   if (newStatus === 'normal' && plane.type !== 'departure') {
     if (distToCenter < 100 && position.altitude <= 2500 && !position.isEstablished) newStatus = 'bad_approach';
     else if (position.isEstablished && distToCenter < 50 && position.speed > 160) newStatus = 'bad_approach';

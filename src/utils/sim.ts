@@ -60,13 +60,13 @@ export function advancePlane(
       targetSpeed: currentTargetSpeed,
       isEstablished,
       establishedRunwayId,
-      status: approachStatus(plane, airport, {
+      status: approachStatus({ ...plane, establishedRunwayId }, airport, {
         x: moved.x,
         y: moved.y,
         altitude: moved.altitude,
         speed: moved.speed,
         isEstablished,
-      }),
+      }, runwayConfig),
       targetWaypoint: currentTargetWaypoint,
       markedForRemoval,
       conflict: false,

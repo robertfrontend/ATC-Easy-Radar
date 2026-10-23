@@ -29,7 +29,7 @@ Accepted rollout order: polish MDSD, then MPTO, EGLL, EHAM and OMDB. Preserve Bo
 
 | Already available | Proposed work before scaling |
 | --- | --- |
-| [Geographic contracts](../src/geography/types.ts), terrain reconstruction, immutable cached KBOS/MDSD adapter | Register packages by ICAO and bind each operative runway to its own sourced surface/end |
+| [Geographic contracts](../src/geography/types.ts), terrain reconstruction, immutable cached KBOS/MDSD adapter and explicit map-only registry/bindings | Add independent airport packages with verified operativeID-to-surface/end associations |
 | [Shared rendering](../src/components/GeographicSector.tsx), active-only localizers, Home/game reuse | Keep shared navy presentation independent of terrain; preserve airport-specific source notices and documented KBOS exceptions |
 | [Heading conversions](../src/geography/headings.ts) and [runway/LOC frames](../src/geography/navigation.ts) | Make per-airport range and simplified vector-target policies explicit |
 | Fixed responsive camera and frozen session domain | Measure package bytes/load costs; add selected-only loading only if measurements require it, before session mounting |
