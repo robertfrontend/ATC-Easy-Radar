@@ -1,14 +1,13 @@
 import type { GeographicPoint, WorldPoint } from './types';
 
-// Local NAD83/GRS80 azimuthal equidistant projection; never screen-fit coordinates.
+// Local ellipsoidal azimuthal equidistant projection; never screen-fit coordinates.
 const a = 6378137;
-const f = 1 / 298.257222101;
-const b = a * (1 - f);
 const rad = value => value * Math.PI / 180;
 const NM = 1852;
-export function inverseNad83(origin: GeographicPoint, point: GeographicPoint) {
+function inverseEllipsoid(origin: GeographicPoint, point: GeographicPoint, f: number) {
+  const b = a * (1 - f);
   for (const value of [origin, point]) {
-    if (!Number.isFinite(value.longitude) || !Number.isFinite(value.latitude) || Math.abs(value.longitude) > 180 || Math.abs(value.latitude) > 90) throw new RangeError('Invalid NAD83 longitude/latitude');
+    if (!Number.isFinite(value.longitude) || !Number.isFinite(value.latitude) || Math.abs(value.longitude) > 180 || Math.abs(value.latitude) > 90) throw new RangeError('Invalid longitude/latitude');
   }
   const { longitude: lon1, latitude: lat1 } = origin;
   const { longitude: lon2, latitude: lat2 } = point;
@@ -43,8 +42,14 @@ export function inverseNad83(origin: GeographicPoint, point: GeographicPoint) {
   return { distanceMetres: b * A * (sigma - delta), trueBearingDegrees: (Math.atan2(c2 * Math.sin(lambda), c1 * s2 - s1 * c2 * Math.cos(lambda)) * 180 / Math.PI + 360) % 360 };
 }
 
-export function projectNad83(origin: GeographicPoint, point: GeographicPoint): WorldPoint {
-  const { distanceMetres, trueBearingDegrees } = inverseNad83(origin, point);
+export const inverseNad83 = (origin: GeographicPoint, point: GeographicPoint) => inverseEllipsoid(origin, point, 1 / 298.257222101);
+export const inverseWgs84 = (origin: GeographicPoint, point: GeographicPoint) => inverseEllipsoid(origin, point, 1 / 298.257223563);
+
+function project(origin: GeographicPoint, point: GeographicPoint, inverse: typeof inverseNad83): WorldPoint {
+  const { distanceMetres, trueBearingDegrees } = inverse(origin, point);
   const distance = distanceMetres / NM * 22.4;
   return { x: 500 + distance * Math.sin(rad(trueBearingDegrees)), y: 500 - distance * Math.cos(rad(trueBearingDegrees)) };
 }
+
+export const projectNad83 = (origin: GeographicPoint, point: GeographicPoint) => project(origin, point, inverseNad83);
+export const projectWgs84 = (origin: GeographicPoint, point: GeographicPoint) => project(origin, point, inverseWgs84);
