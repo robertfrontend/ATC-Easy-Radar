@@ -122,8 +122,8 @@ input[type="range"] {
   }
 }
 
-/* Approved KBOS navy composition only; all legacy airport tokens remain unchanged. */
-[data-airport-theme="kbos"] {
+/* Shared airport presentation; geographic data and notices remain airport-specific. */
+[data-airport-theme="navy"] {
   --radar-blink-min-opacity: 0.75;
   --color-scope: #03060b;
   --color-scope-disk: #03060b;

@@ -29,7 +29,7 @@ function radar() {
 }
 it('renders the approved scoped geographic terrain, six physical surfaces and only available operative LOC axes', () => {
   radar();
-  expect(container.querySelector('[data-airport-theme="kbos"]')).not.toBeNull();
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
   expect(container.querySelector('[data-geographic-terrain]')).not.toBeNull();
   expect(container.querySelectorAll('[data-physical-runway]')).toHaveLength(6);
   for (const runway of boston.geographic!.physicalRunways) {
@@ -76,14 +76,28 @@ it('reuses projected KBOS geography and the common 35 NM core in the accessible 
   for (const waypoint of boston.waypoints) {
     expect(svg.querySelector(`[data-preview-fix="${waypoint.id}"]`)?.getAttribute('transform')).toContain(`translate(${waypoint.x}, ${waypoint.y})`);
   }
-  expect(container.querySelector('[data-airport-theme="kbos"]')).not.toBeNull();
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
   expect(container.textContent).toContain('MassGIS');
 });
-it('leaves non-KBOS previews on their existing geometry and theme', () => {
-  const airport = AIRPORTS.find(item => item.icao !== 'KBOS')!;
-  act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: {} })));
-  expect(container.querySelector('[data-geographic-terrain], [data-airport-theme="kbos"]')).toBeNull();
-  expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 1000 1000');
+it.each(AIRPORTS)('shares the navy presentation without changing $icao geometry or source notices', airport => {
+  const expected = getGeographicAirport(airport);
+  const config = Object.fromEntries(airport.runways.map(runway => [runway.id, { landing: true, departure: true }]));
+  act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: config })));
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
+  expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe(airport.icao === 'KBOS' ? '108 108 784 784' : '0 0 1000 1000');
+  for (const fix of expected.waypoints) {
+    expect(container.querySelector(`[data-preview-fix="${fix.id}"]`)?.getAttribute('transform')).toBe(`translate(${fix.x}, ${fix.y})`);
+  }
+  const isBoston = airport.icao === 'KBOS';
+  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston);
+  expect(!!container.querySelector('[data-geographic-notice]')).toBe(isBoston);
+  act(() => root.render(createElement(RadarDisplay, { airport: expected, runwayConfig: config,
+    planes: [], selectedId: null, onSelect: vi.fn() })));
+  expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
+  expect(!!container.querySelector('[data-geographic-terrain]')).toBe(isBoston);
+  expect(!!container.querySelector('[data-geographic-notice]')).toBe(isBoston);
+  expect(container.querySelector('pattern')).toBeNull();
+  if (!isBoston) expect(container.textContent).not.toMatch(/MassGIS|33L†|15R offset/);
 });
 
 it('keeps the four existing operative LOC actions and transmits their shared axis point, never 22L', () => {
@@ -196,11 +210,13 @@ it('rejects reference-only LOCs even when their operative id and landing config 
   expect(container.querySelectorAll('[data-localizer]')).toHaveLength(0);
 });
 
-it('keeps legacy operative ILS actions landing-gated rather than takeoff-gated', () => {
-  const airport = AIRPORTS.find(item => item.icao !== 'KBOS')!;
+it.each(AIRPORTS.filter(item => item.icao !== 'KBOS'))('keeps $icao legacy ILS landing-gated rather than takeoff-gated', airport => {
   for (const landing of [false, true, false]) {
     const config = Object.fromEntries(airport.runways.map(runway => [runway.id, { landing, departure: true }]));
     act(() => root.render(createElement(RadarDisplay, { airport, runwayConfig: config, planes: [], selectedId: null, onSelect: vi.fn() })));
     expect(container.querySelectorAll('[data-radar-action="ils-fix"]')).toHaveLength(landing ? airport.runways.length : 0);
+    act(() => root.render(createElement(SectorPreview, { airport, runwayConfig: config })));
+    expect(container.querySelectorAll('line[y2="420"][x1="0"]')).toHaveLength(landing ? airport.runways.length : 0);
+    expect(container.querySelector('[data-geographic-notice]')).toBeNull();
   }
 });

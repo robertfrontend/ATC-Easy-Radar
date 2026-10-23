@@ -393,7 +393,7 @@ export const GamePage: React.FC<GamePageProps> = ({
   const debriefEvent = [...events].reverse().find(event => event.kind === 'accident') ?? [...events].reverse().find(event => event.kind === 'warning' || event.kind === 'missed');
 
   return (
-    <div data-airport-theme={airport.geographic ? 'kbos' : undefined} className="flex flex-col md:flex-row min-h-screen md:h-screen md:min-h-[540px] bg-scope text-ink font-mono overflow-x-hidden md:overflow-hidden select-none">
+    <div data-airport-theme="navy" className="flex flex-col md:flex-row min-h-screen md:h-screen md:min-h-[540px] bg-scope text-ink font-mono overflow-x-hidden md:overflow-hidden select-none">
       {/* Main Radar Area */}
       <div className="md:flex-1 min-w-0 min-h-0 flex flex-col relative">
         {/* Sleek, Minimalist, Ultra-Clean ATC Top Bar */}

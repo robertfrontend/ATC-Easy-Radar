@@ -22,7 +22,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
   const departureRunways = airport.runways.filter(runway => runwayConfig[runway.id]?.departure);
 
   return (
-    <div data-airport-theme={geography ? 'kbos' : undefined} className={`bg-panel border border-line rounded-lg p-4 space-y-3 ${compact ? 'w-full max-w-xs justify-self-center md:justify-self-end' : ''}`}>
+    <div data-airport-theme="navy" className={`bg-panel border border-line rounded-lg p-4 space-y-3 ${compact ? 'w-full max-w-xs justify-self-center md:justify-self-end' : ''}`}>
       <div className="flex flex-wrap gap-2 items-center justify-between pb-2 border-b border-line text-xs">
         <span className="font-bold text-ink uppercase tracking-widest flex items-center gap-2">
           <span className="text-phosphor">◉</span> Static sector preview

@@ -1,0 +1,41 @@
+# Shared airport presentation rollout
+
+## Authorized outcome
+User explicitly approved the visual-only first phase: apply the Boston navy/black visual and interaction standard to all six airport preparation/game views, preserving current maps, data, simulation, IDs and progress. Publish through normal PR/CI/main/public verification. Full independently sourced geography is deferred, not a condition for this visual release.
+
+Original longer-term intent (not this release scope):
+User requests applying the existing airport implementation reference to all existing airports: EGLL, MDSD, OMDB, EHAM and MPTO, preserving published KBOS. Complete shared presentation and independently sourced airport geography, no invented equipment/fixes or copied Boston-specific restrictions. Existing automatic main/public delivery authorization applies only after appropriate checks and permitted sources; no external provider contact/report or rights bypass is authorized.
+
+## Base and preserved work
+Remote main200d5790451a9ccda565b5a0ef2b09da36bf5b12 verified. New feature branch from public main; prior local694e07f and its recovery history preserved. Existing dirty fixed-radar-surface.md/plain-black-radar.md, untracked.codegraph and user-requested docs/AIRPORT_IMPLEMENTATION_REFERENCE.md remain untouched. No game source changes or deployments in this exploration. Engram mirror odd/airport-geographic-rollout/tasks pending/prohibited: authoritative runtime identity unavailable.
+
+## Route and delivery
+Delegated-direct: CodeGraph map spans4+ files; regional independent read-only source investigations ran before any source writer. Future2+ nontrivial file units require bounded delegated writers. TDD ON from retained explicit session source, Vitest npm test -- --maxWorkers=1; typecheck/build/diff plus actual desktop/mobile/public checks. Visual-phase forecast: 250–380 authored changed lines including tests and recovery/reference documentation; no generated geographic assets. The earlier full-geography forecast of1000–1400 lines is deferred. Retain previously accepted auto-chain/stacked-to-main delivery vocabulary, one coherent behavior/package per slice;400 authored-line heuristic never justifies test/data omission or code golf. Visual-only implementation and normal publication are explicitly authorized. No geographic source substitutions are authorized. New-candidate review policy applies; previous one-off Boston omission is not global. Old terminal authority/locks untouched.
+
+## Verified source gate
+- OurAirports CSVs are public-domain; actual downloaded airports/runways/navaids fields do not provide LOC antennas/courses or RNAV fixes. Checked docs do not explicitly establish datum. Airports/runways cannot be represented as a complete operational package. MDSD additionally lists18/36, not authorization to change current17/35 inventory.
+- Natural Earth land5.1.1/lakes5.0.0 are public-domain/WGS84;10m means1:10-million cartographic scale, not10metre accuracy. Real generalized terrain is available, but does not supply airport operational facts.
+- NATS AIS incorporates NATS reuse restrictions; LVNL explicitly requires permission for electronic reproduction. No AIP incorporation/download past those gates.
+- IDAC AIC02/26 explicitly requires prior written permission for processing/reproduction/distribution including nonprofit use. MDSD source research identifies LOC17 only, no verified LOC35/GS17. Do not treat both legacy ILS controls as verified real equipment.
+- GCAA copyright restricts unauthorized reuse; OMDB WGS84/runway/antenna research cannot be redistributed as a cleared package. OA OMDB endpoints match displaced thresholds, so applying displacement a second time would be wrong.
+- MPTO official source contains INAT/03R actual equipment; other three operative LOCs, exact source course/status and reuse basis remain incomplete. Temporary published outage is not a permanent configuration inference.
+- OSM official license is ODbL with attribution/applicable share-alike, coordinates WGS84. Two bounded Overpass queries returned406; actual airport/LOC/fix coverage unverified. navigationaid tagging cannot be assumed to mean radio localizers; no datasets incorporated, no retries or endpoint bypass.
+- FlightGear actual nav.dat.gz/fix.dat.gz headers explicitly GPL-2.0-or-later RobinPeel, cycle2013.10. This is a historical simulator dataset, not current certified data; EGLL4/4 and OMDB4/4 LOC records, EHAM24 missing, MDSD35 missing, MPTO03L/21L/21R missing. Current status/restrictions/datum/magvariation unverified. No laundering restricted AIP into these alternatives or invented runway-aligned antennas.
+
+Primary sources: https://ourairports.com/data/ ; https://ourairports.com/help/data-dictionary.html ; https://www.naturalearthdata.com/about/terms-of-use/ ; https://www.naturalearthdata.com/features/ ; https://nats-uk.ead-it.com/cms-nats/opencms/en/agb/ ; https://www.lvnl.nl/diensten/aip/copyright-en-disclaimer ; https://aip.sna.gob.do/Datos/AIC_serieA/AIC_A_02-26.pdf ; https://www.gcaa.gov.ae/en/copyright ; https://www.openstreetmap.org/copyright ; https://gitlab.com/flightgear/fgdata/-/raw/next/Navaids/nav.dat.gz ; https://gitlab.com/flightgear/fgdata/-/raw/next/Navaids/fix.dat.gz . These findings are source-use gates and uncertainty records, not legal advice or blanket rights claims.
+Raw public sources/hashes outside repository: /private/tmp/atc-global-airport-sources ; /private/tmp/atc-airport-rollout/mdsd-mpto-provenance.json ; /private/tmp/atc-airport-rollout/flightgear-alternative-provenance.json . Do not copy raw copyrighted charts/compilations into product.
+
+## Tasks
+- [x] GEO-0 delegated read-only map and bounded primary-source investigation; distinguish available rights/geometry from missing operational facts. No implementation proof claimed.
+- [x] GEO-DECISION user approved shared presentation over current maps first. Real geographic packages remain deferred.
+- [x] VIS-1 delegated writer: generalize shared Boston visual tokens/track readability across six preparation/game views, preserving geographic-only metadata and legacy geometry. TDD observed RED/GREEN with focused regression tests; typecheck/build/full suite. Route evidence: theme/render/preview/test changes span 2+ nontrivial files; read-only mapping delegated first.
+- [ ] VIS-2 delegated browser QA and parent delivery: verify all-airport desktop/mobile presentation, selection/native typing, active-only ILS and mode compatibility; assess actual committed candidate, normal PR/CI/expected-head merge and public asset/browser verification. Record unavailable checks honestly.
+
+## Acceptance criteria
+All six existing airport views use the same navy/black presentation, readable neutral normal tracks and distinct selected/alert/conflict states. No decorative grid or new range rings. Current geography, runway/fix inventory, physics, IDs/progress and Learning remain unchanged. KBOS-only sources/restrictions appear only for KBOS. Stable console/focus and active-only ILS rules hold in both rendering paths.
+
+## Deferred work
+Generic geographic package registry/loading and independently licensed WGS84/ILS packages for EGLL/MDSD/OMDB/EHAM/MPTO are not part of this release. Preserve the verified source gates above for that later decision. No downloaded external data is incorporated.
+
+## Evidence and next action
+Base main200d5790451a9ccda565b5a0ef2b09da36bf5b12; feature branch codex/airport-geographic-rollout. VIS-1 implemented: four presentation-only production seams; seven source/test files, 64 authored changed lines. Observed TDD RED19 failures then GREEN55 focused tests; full638/638 tests in37 files, typecheck/build/diff checks passed. Existing module.register and large-bundle warnings remain. React checklist: no new hooks/state, unchanged geography branches and keyboard controls. Browser QA/public delivery pending. Work-unit commit identity follows in VIS-2 evidence. TDD ON (retained explicit session configuration), runner npm test -- --maxWorkers=1. Engram mirror pending/prohibited because no authoritative runtime identity is registered. Rollback: revert only shared visual-theme generalization and its tests, retaining all airport geography and behavior. No completed implementation, QA or release claimed yet.
