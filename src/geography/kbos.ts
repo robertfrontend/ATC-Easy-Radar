@@ -2,8 +2,7 @@ import type { Airport } from '../types';
 import type { GeographicAirport } from './types';
 import { kbosData } from './kbos-data';
 import { runwayFrame } from './navigation';
-import { mdsdMap } from './mdsd-map';
-import { mdsdSyntheticLayout } from './synthetic-layouts';
+import { airportMapRegistry, deriveMapRunways } from './map-registry';
 
 const adapted = new WeakMap<Airport, GeographicAirport>();
 function freeze<T>(value: T): T {
@@ -18,13 +17,14 @@ freeze(kbosData);
 /** Explicit opt-in only: canonical airport inventory and existing consumers stay untouched. */
 export function getGeographicAirport(airport: Airport): GeographicAirport {
   const existing = airport as GeographicAirport;
-  if (existing.geographic || existing.terrainMap || !['KBOS', 'MDSD'].includes(airport.icao)) return airport;
+  const mapDefinition = airportMapRegistry[airport.icao];
+  if (existing.geographic || existing.terrainMap || airport.icao !== 'KBOS' && !mapDefinition) return airport;
   let result = adapted.get(airport);
   if (!result) {
     const candidate: GeographicAirport = airport.icao === 'KBOS'
       ? { ...structuredClone(airport), ...kbosData, holdingStacks: [], airspacePolygons: [] }
-      : { ...structuredClone(airport), terrainMap: mdsdMap, syntheticLayout: mdsdSyntheticLayout,
-        airspacePolygons: structuredClone(airport.airspacePolygons?.filter(polygon => polygon.id !== 'mdsd-caribbean')) };
+      : { ...structuredClone(airport), terrainMap: mapDefinition!.map, syntheticLayout: mapDefinition!.syntheticLayout,
+        airspacePolygons: structuredClone(airport.airspacePolygons?.filter(polygon => !mapDefinition!.suppressedAirspaceIds?.includes(polygon.id))) };
     if (candidate.syntheticLayout) {
       const layout = candidate.syntheticLayout;
       candidate.waypoints = candidate.waypoints.map(fix => ({ ...fix, ...layout.fixPositions[fix.id] }));
@@ -34,13 +34,7 @@ export function getGeographicAirport(airport: Airport): GeographicAirport {
       });
     }
     if (candidate.terrainMap) {
-      const [first, second] = candidate.terrainMap.physicalRunways[0].ends;
-      const center = { x: (first.position.x + second.position.x) / 2, y: (first.position.y + second.position.y) / 2 };
-      const length = Math.hypot(second.position.x - first.position.x, second.position.y - first.position.y);
-      const heading = (Math.atan2(second.position.x - first.position.x, first.position.y - second.position.y) * 180 / Math.PI + 360) % 360;
-      candidate.runways = candidate.runways.map(runway => ({ ...runway, length,
-        offsetX: center.x - candidate.x, offsetY: center.y - candidate.y,
-        heading: runway.label === first.id ? heading : (heading + 180) % 360 }));
+      candidate.runways = deriveMapRunways(airport, mapDefinition!);
     } else {
       candidate.runways = candidate.runways.map(runway => ({ ...runway, heading: runwayFrame(candidate, runway).pavementHeading }));
     }
