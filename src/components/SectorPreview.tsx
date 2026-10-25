@@ -1,3 +1,4 @@
+import { mapPavementActive } from '../geography/map-registry';
 import { useId } from 'react';
 import type { AIRPORTS } from '../config/airports';
 import type { RunwayConfig } from '../types';
@@ -86,6 +87,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
           {!geography && airport.runways.map(rwy => {
             const isLanding = !!runwayConfig[rwy.id]?.landing;
             const isDep = !!runwayConfig[rwy.id]?.departure;
+            const pavementActive = terrainMap ? mapPavementActive(airport, rwy.id, runwayConfig) : isLanding || isDep;
             const rwyX = airport.x + (rwy.offsetX || 0);
             const rwyY = airport.y + (rwy.offsetY || 0);
             const rwyLength = rwy.length || 85;
@@ -119,7 +121,7 @@ export function SectorPreview({ airport: selectedAirport, runwayConfig, compact 
                   y={-halfLen}
                   width="12"
                   height={rwyLength}
-                  fill={isLanding || isDep ? scopeColor.runway : scopeColor.runwayIdle}
+                  fill={pavementActive ? scopeColor.runway : scopeColor.runwayIdle}
                   rx="1.5"
                 />
                 <line x1="0" y1={-halfLen + 4} x2="0" y2={halfLen - 4} stroke={scopeColor.centerline} strokeWidth="1.5" />

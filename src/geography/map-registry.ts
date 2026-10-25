@@ -1,8 +1,9 @@
-import type { Airport, Runway } from '../types';
+import type { Airport, Runway, RunwayConfig } from '../types';
 import type { AirportTerrainMap } from './map-types';
 import type { SyntheticLayout } from './synthetic-layouts';
-import { mdsdSyntheticLayout } from './synthetic-layouts';
+import { mdsdSyntheticLayout, mptoSyntheticLayout } from './synthetic-layouts';
 import { mdsdMap } from './mdsd-map';
+import { mptoMap } from './mpto-map';
 
 export interface MapAirportDefinition {
   map: AirportTerrainMap;
@@ -12,6 +13,15 @@ export interface MapAirportDefinition {
 }
 
 export const airportMapRegistry: Partial<Record<string, MapAirportDefinition>> = {
+  MPTO: {
+    map: mptoMap, syntheticLayout: mptoSyntheticLayout, suppressedAirspaceIds: ['mpto-canal-zone'],
+    bindings: [
+      { runwayId: 'mpto-03l', surfaceId: '03L/21R', endId: '03L' },
+      { runwayId: 'mpto-03r', surfaceId: '03R/21L', endId: '03R' },
+      { runwayId: 'mpto-21l', surfaceId: '03R/21L', endId: '21L' },
+      { runwayId: 'mpto-21r', surfaceId: '03L/21R', endId: '21R' },
+    ],
+  },
   MDSD: {
     map: mdsdMap, syntheticLayout: mdsdSyntheticLayout, suppressedAirspaceIds: ['mdsd-caribbean'],
     bindings: [
@@ -62,4 +72,14 @@ export function deriveMapRunways(airport: Airport, definition: MapAirportDefinit
     return { ...runway, length, offsetX: center.x - airport.x, offsetY: center.y - airport.y,
       heading: binding.endId === first.id ? heading : (heading + 180) % 360 };
   });
+}
+
+
+/** Reciprocal controls paint one source surface; approach availability remains per operative end. */
+export function mapPavementActive(airport: Airport, runwayId: string, config: RunwayConfig): boolean {
+  const bindings = airportMapRegistry[airport.icao]?.bindings ?? [];
+  const surfaceId = bindings.find(binding => binding.runwayId === runwayId)?.surfaceId;
+  return surfaceId !== undefined && bindings.some(binding => binding.surfaceId === surfaceId &&
+    airport.runways.some(runway => runway.id === binding.runwayId) &&
+    (config[binding.runwayId]?.landing || config[binding.runwayId]?.departure));
 }
