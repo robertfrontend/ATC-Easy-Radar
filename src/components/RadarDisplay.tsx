@@ -1,3 +1,4 @@
+import { mapPavementActive } from '../geography/map-registry';
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { Plane, Airport, RunwayConfig, RadarLayers, GameSpeed } from '../types';
 import { audioManager } from '../utils/audio';
@@ -460,6 +461,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           {!geography && airport.runways.map(rwy => {
             const isLanding = !!runwayConfig[rwy.id]?.landing;
             const isDeparture = !!runwayConfig[rwy.id]?.departure;
+            const pavementActive = terrainMap ? mapPavementActive(airport, rwy.id, runwayConfig) : isLanding || isDeparture;
             const rwyX = airport.x + (rwy.offsetX || 0);
             const rwyY = airport.y + (rwy.offsetY || 0);
             const rwyLength = rwy.length || 85;
@@ -543,7 +545,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
                     y={-halfLen}
                     width="8"
                     height={rwyLength}
-                    fill={isLanding || isDeparture ? scopeColor.runway : scopeColor.runwayIdle}
+                    fill={pavementActive ? scopeColor.runway : scopeColor.runwayIdle}
                     rx="1"
                   />
                   
@@ -588,7 +590,7 @@ export const RadarDisplay: React.FC<RadarDisplayProps> = ({
           {/* Aeronautical Waypoints / Fixes (Authentic Double-Circle Symbol ◎) */}
           {layers.showFixes && airport.waypoints.map(wp => {
             const isHovered = mousePos && Math.hypot(mousePos.x - wp.x, mousePos.y - wp.y) * projectionScale < 22;
-            const label = geography ? referenceLabelSide(wp, wp.label, view, fixAnnotationScale) : { x: 8, anchor: 'start' as const };
+            const label = geography || terrainMap ? referenceLabelSide(wp, wp.label, view, fixAnnotationScale) : { x: 8, anchor: 'start' as const };
             return (
               <g
                 key={wp.id}

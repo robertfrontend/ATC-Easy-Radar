@@ -590,12 +590,22 @@ it.each(AIRPORTS)('uses shared navy controls while retaining $icao identity and 
   expect(container.querySelector('[data-airport-theme="navy"]')).not.toBeNull();
   expect(capturedAirport!.id).toBe(airport.id);
   expect(capturedAirport!.runways.map(runway => runway.id)).toEqual(airport.runways.map(runway => runway.id));
-  if (!['KBOS', 'MDSD'].includes(airport.icao)) expect(capturedAirport).toBe(airport);
-  if (airport.icao === 'MDSD') {
+  if (!['KBOS', 'MDSD', 'MPTO'].includes(airport.icao)) expect(capturedAirport).toBe(airport);
+  if (['MDSD', 'MPTO'].includes(airport.icao)) {
     expect(capturedAirport!.terrainMap).toBeDefined();
     expect(capturedAirport!.waypoints.map(fix => [fix.id, fix.label])).toEqual(airport.waypoints.map(fix => [fix.id, fix.label]));
     expect(capturedAirport!.syntheticLayout?.kind).toBe('synthetic');
     expect(capturedAirport!.geographic).toBeUndefined();
   }
   expect(consoleInput().parentElement!.classList.contains('h-8')).toBe(true);
+});
+
+it.each(['free', 'shift', 'tutorial', 'challenge'] as const)('uses the same cached MPTO map/layout and four controls in %s', mode => {
+  const airport = AIRPORTS.find(item => item.icao === 'MPTO')!;
+  act(() => root.render(createElement(GamePage, { airport, mode, challengeLevel: 1,
+    difficulty: 'easy', highScore: 0, onExit, onSave, onScoreUpdate })));
+  expect(capturedAirport!.terrainMap?.referenceKind).toBe('derived selected endpoint mean');
+  expect(capturedAirport!.waypoints.map(fix => fix.id)).toEqual(airport.waypoints.map(fix => fix.id));
+  expect(capturedAirport!.runways.map(runway => runway.id)).toEqual(airport.runways.map(runway => runway.id));
+  expect(capturedAirport!.syntheticLayout?.holdFixIds['stack-canal']).toBe('WP-P1');
 });

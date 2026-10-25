@@ -31,7 +31,7 @@ it('binds by operative/surface/end IDs, independent of array order or ambiguous 
   entry.map.physicalRunways.forEach(surface => surface.ends.reverse());
   expect(deriveMapRunways(airport, entry)).toEqual(runways);
   expect(airport.runways[0].heading).toBe(180);
-  expect(airportMapRegistry.MPTO).toBeUndefined();
+  for (const icao of ['EGLL', 'EHAM', 'OMDB']) expect(airportMapRegistry[icao]).toBeUndefined();
 });
 
 it('keeps MDSD current derived geometry exactly and reuses the cached shared airport', () => {

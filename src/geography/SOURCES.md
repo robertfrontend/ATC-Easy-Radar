@@ -1,6 +1,6 @@
 # Airport geographic sources and limitations
 
-Boston's documented geographic/navigation package and Las Americas' approximate map-only package are published. They share presentation but deliberately use different factual contracts. This is an unofficial simplified game, not navigation data, an authoritative survey, a certified procedure or an agency-endorsed product. Canonical airport records and progression identifiers remain unchanged; runtime consumers use immutable derived airports.
+Boston's documented geographic/navigation package and Las Americas' and Tocumen's approximate map-only packages use separate factual contracts. They share presentation but deliberately use different factual contracts. This is an unofficial simplified game, not navigation data, an authoritative survey, a certified procedure or an agency-endorsed product. Canonical airport records and progression identifiers remain unchanged; runtime consumers use immutable derived airports.
 
 ## Source boundary
 
@@ -35,7 +35,7 @@ For the standalone contract/math slice, run from the repository root:
 npm test -- src/geography/projection.test.ts --maxWorkers=1
 ```
 
-The raw package stores transparent SVG command fragments at most 30,000 bytes each. The Vite loader reassembles manifest → indexes → fragments by pathIndex and rejects missing, duplicate, gapped or unexpected fragment inventories. CI integrity tests check index/path/facts hashes and reconstruct the original three-line generated source, including its property order, to SHA256 `b9046ff5f8f5f99ab044a5f8c14f08e0d3aaf955d7c06b8d3359abbf427c5995`. Home and GamePage share the cached adapter: KBOS uses documented geographic frames; MDSD uses separate terrainMap metadata and simplified runway-aligned guidance. Other airports currently retain canonical objects; all non-KBOS heading semantics remain simplified.
+The raw package stores transparent SVG command fragments at most 30,000 bytes each. The Vite loader reassembles manifest → indexes → fragments by pathIndex and rejects missing, duplicate, gapped or unexpected fragment inventories. CI integrity tests check index/path/facts hashes and reconstruct the original three-line generated source, including its property order, to SHA256 `b9046ff5f8f5f99ab044a5f8c14f08e0d3aaf955d7c06b8d3359abbf427c5995`. Home and GamePage share the cached adapter: KBOS uses documented geographic frames; MDSD/MPTO use separate terrainMap metadata and simplified runway-aligned guidance. Other airports currently retain canonical objects; all non-KBOS heading semantics remain simplified.
 
 ### Generator safety
 
@@ -67,3 +67,9 @@ Terrain is clipped to explicit coverage without vertex simplification; unknown a
 ## Configurable map-only generation
 The shared offline generator scripts/build-airport-map.ts consumes explicit ICAO/surface/bounds/provenance configuration from scripts/airport-map-config.ts. It validates the pinned runway CSV hash, selects independent source rows and never applies raw displacement cells as geometry offsets. Multiple selected endpoint pairs use an explicitly derived mean, not an official ARP. MDSD generation remains byte-identical to the published package.
 Prefer the generic CLI with explicit source-directory, serialized config JSON and staging output JSON paths: node --experimental-strip-types scripts/build-airport-map.ts <sources> <config.json> <staging-output.json>. Inputs include the pinned runway CSV, Natural Earth SHP/PRJ files and original ZIP archives for provenance hashes. The compatibility MDSD wrapper still writes its relative runtime JSON path; use staging unless intentionally regenerating that reviewed asset. No network fetch or new runtime dependency is introduced.
+
+
+## MPTO approximate map-only package
+Tocumen uses the same pinned public-domain OurAirports snapshot and Natural Earth archives as MDSD, with source hashes retained in mpto-map-data.json. Two independently selected source spans are03L/21R and03R/21L, with explicit bindings for exactly four existing controls. Their derived four-endpoint mean is latitude9.071385145187378,longitude-79.38344955444336, not an official ARP. Blank displacement is unknown; source datum is unspecified and WGS84 is an approximate mapping assumption. No real localizer, surveyed threshold or current operational status is asserted.
+Coverage[-81,7.5,-77.8,10.7] clips generalized coast/land-water without vertex simplification; unqueried space stays black. The44,331-byte package contains five land paths and one lake path, not elevation relief or detailed canal infrastructure. CANAL/TABOG/DARIW/CHAGR positions and named CANAL hold are deliberately synthetic gameplay; identities/functions remain stable. Only the old decorative canal-zone polyline is suppressed; the CTR remains explicitly synthetic.
+Home, runtime, departure and simplified capture/prediction share immutable derived runway centers/axes. Warning radii100/50 and map-only arrival tolerance30 are world units, not nautical miles; configured motion, difficulty and scoring rules remain unchanged. Source positions/projection controls do not certify real-world navigation accuracy.
