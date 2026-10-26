@@ -36,6 +36,39 @@ it('offers three destinations without exposing setup or competing launch actions
   expect(container.textContent).toContain('Exit tutorial');
 });
 
+it('frames the landing around the Boston backdrop and a clear Spanish primary action', () => {
+  const hero = container.querySelector('section.landing-hero');
+  expect(hero).not.toBeNull();
+  expect(hero?.querySelector('h1')?.textContent).toBe('Toma el control del radar');
+  expect(hero?.querySelector('[data-decorative-airport="KBOS"]')).not.toBeNull();
+  expect(hero?.querySelector('.landing-radar-frame, svg[role="img"]')).toBeNull();
+  expect(hero?.textContent).not.toContain('VISTA DEL SECTOR');
+  expect(container.querySelector('a[aria-label="Jugar libre"]')?.textContent).toContain('Iniciar práctica');
+  expect(container.querySelector('[aria-label="Choose an experience"]')).not.toBeNull();
+});
+
+it('keeps the Boston backdrop decorative while airport metadata follows the selected sector', () => {
+  const backdrop = container.querySelector('[data-decorative-airport="KBOS"]');
+  expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
+  expect(backdrop?.querySelector('[data-geographic-terrain="true"]')).not.toBeNull();
+  expect(backdrop?.querySelector('svg > g[transform="translate(0 1000) scale(1 -1)"]')).not.toBeNull();
+  expect(backdrop?.querySelectorAll('[data-physical-runway]')).toHaveLength(6);
+  expect(backdrop?.querySelector('svg[role], [role="button"], [tabindex], a, button, input')).toBeNull();
+  expect(container.querySelector('.landing-eyebrow')?.textContent).toContain(AIRPORTS[0].icao);
+  expect(container.querySelector('.landing-sector-meta')?.textContent).toContain(AIRPORTS[0].name);
+  expect(container.querySelector('.landing-sector-meta')?.textContent).toContain('4 pistas');
+  expect(container.querySelector('.landing-radar-frame')).toBeNull();
+
+  click('Jugar libre');
+  act(() => button('KBOS').click());
+  click('Cancel');
+  expect(container.querySelector('[data-decorative-airport="KBOS"]')).not.toBeNull();
+  expect(container.querySelector('.landing-eyebrow')?.textContent).toContain('KBOS');
+  expect(container.querySelector('.landing-sector-meta')?.textContent).toContain('Logan Intl Airport');
+  expect(container.querySelector('.landing-sector-meta')?.textContent).toContain('4 pistas');
+  expect(container.querySelector('.landing-radar-frame')).toBeNull();
+});
+
 it('preserves airport, difficulty, runway toggles and shift goal across cancellation and route remount', () => {
   localStorage.setItem('atc_learning_progress', 'untouched');
   click('Jugar libre');
@@ -83,42 +116,29 @@ it('defaults to free play and supports preparation through browser history', () 
 });
 
 
-it('shows an accessible static airport preview after the destinations and tutorial, without launching a game', () => {
-  const preview = container.querySelector('svg[role="img"]');
-  expect(preview).not.toBeNull();
-  expect(preview?.querySelector('title')?.textContent).toBe(`${AIRPORTS[0].icao} radar sector preview`);
-  expect(preview?.querySelector('desc')?.textContent).toContain('Static airport layout');
-  expect(preview?.getAttribute('aria-labelledby')).toBe(preview?.querySelector('title')?.id);
-  expect(preview?.getAttribute('aria-describedby')).toBe(preview?.querySelector('desc')?.id);
-  expect(preview?.getAttribute('viewBox')).toBe('0 0 1000 1000');
-  expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('width')).toBe('1000');
-  expect(preview?.querySelectorAll('animate, animateTransform').length).toBe(0);
-  const rings = [...preview!.querySelectorAll('circle[cx="500"][cy="500"]')];
-  expect(rings).toHaveLength(0);
-  expect(preview?.querySelector('rect[x="0"][y="0"]')?.getAttribute('fill')).toBe('var(--color-scope)');
-  expect(preview?.querySelector('pattern, [data-sector-grid], rect[fill^="url("]')).toBeNull();
-  expect(preview?.querySelector('desc')?.textContent).not.toContain('grid');
-  for (const waypoint of AIRPORTS[0].waypoints) {
-    expect(preview?.textContent).toContain(waypoint.label);
-    expect(preview?.querySelector(`g[transform="translate(${waypoint.x}, ${waypoint.y})"] circle[r="7"]`)).not.toBeNull();
-  }
+it('keeps the landing free of a foreground airport panel without launching a game', () => {
+  expect(container.querySelector('.landing-radar-frame')).toBeNull();
+  expect(container.querySelector('.landing-radar-label')).toBeNull();
+  expect(container.querySelector('section.landing-hero svg[role="img"]')).toBeNull();
+  expect(container.querySelector('[data-decorative-airport="KBOS"]')?.getAttribute('aria-hidden')).toBe('true');
   const tutorial = [...container.querySelectorAll('button')].find(el => el.textContent?.includes('¿Primera vez?'))!;
-  expect(tutorial.compareDocumentPosition(preview!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(container.textContent).toContain('Static sector preview');
-  expect(container.textContent).not.toContain('Live Sector');
+  expect(tutorial).toBeDefined();
+  expect(container.textContent).not.toContain('VISTA DEL SECTOR');
+  expect(container.textContent).not.toContain('Static sector preview');
   expect(container.textContent).not.toContain('Exit free');
   expect(container.querySelector('input')).toBeNull();
 });
 
-it('reuses the selected airport preview in preparation and after cancelling without changing the setup', () => {
+it('uses the selected airport preview in setup but returns to the backdrop-only landing', () => {
   click('Jugar libre');
   act(() => button('KBOS').click());
   const title = () => container.querySelector('svg[role="img"] title')?.textContent;
   expect(title()).toBe('KBOS radar sector preview');
   expect(container.querySelectorAll('svg[role="img"]').length).toBe(1);
   click('Cancel');
-  expect(title()).toBe('KBOS radar sector preview');
-  expect(container.querySelectorAll('svg[role="img"]').length).toBe(1);
+  expect(title()).toBeUndefined();
+  expect(container.querySelectorAll('svg[role="img"]').length).toBe(0);
+  expect(container.querySelector('[data-decorative-airport="KBOS"]')).not.toBeNull();
   click('Jugar libre');
   expect(button('KBOS').getAttribute('aria-pressed')).toBe('true');
   expect(title()).toBe('KBOS radar sector preview');
