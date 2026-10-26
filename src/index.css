@@ -134,7 +134,6 @@ input[type="range"] {
   overflow: hidden;
   padding: clamp(1.25rem, 4vw, 3.5rem);
   border: 1px solid var(--color-line-strong);
-  border-left: 3px solid var(--color-phosphor);
   background: var(--color-header);
 }
 
@@ -173,8 +172,7 @@ input[type="range"] {
   mask-image: radial-gradient(ellipse, #000 48%, transparent 82%);
 }
 
-.landing-hero-copy,
-.landing-radar-frame {
+.landing-hero-copy {
   position: relative;
   z-index: 1;
   min-width: 0;
@@ -185,7 +183,6 @@ input[type="range"] {
 }
 
 .landing-eyebrow,
-.landing-radar-label,
 .landing-experience-index {
   color: var(--color-ink-faint);
   font-size: 0.68rem;
@@ -260,29 +257,6 @@ input[type="range"] {
 
 .landing-tutorial:hover {
   color: var(--color-phosphor);
-}
-
-.landing-radar-frame {
-  padding: 0.9rem;
-  border: 1px solid var(--color-line);
-  background: var(--color-scope);
-  box-shadow: 0 0 0 0.4rem color-mix(in srgb, var(--color-line) 20%, transparent);
-}
-
-.landing-radar-label {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.15rem 0.15rem 0.75rem;
-  color: var(--color-phosphor);
-}
-
-.landing-radar-frame > div:not(.landing-radar-label) {
-  width: 100%;
-  max-width: none;
-  padding: 0;
-  border: 0;
-  background: transparent;
 }
 
 .landing-experiences {
