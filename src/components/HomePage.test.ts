@@ -36,6 +36,15 @@ it('offers three destinations without exposing setup or competing launch actions
   expect(container.textContent).toContain('Exit tutorial');
 });
 
+it('frames the landing around the live sector preview and a clear Spanish primary action', () => {
+  const hero = container.querySelector('section.landing-hero');
+  expect(hero).not.toBeNull();
+  expect(hero?.querySelector('h1')?.textContent).toBe('Toma el control del radar');
+  expect(hero?.querySelector('svg[role="img"]')).not.toBeNull();
+  expect(container.querySelector('a[aria-label="Jugar libre"]')?.textContent).toContain('Iniciar práctica');
+  expect(container.querySelector('[aria-label="Choose an experience"]')).not.toBeNull();
+});
+
 it('preserves airport, difficulty, runway toggles and shift goal across cancellation and route remount', () => {
   localStorage.setItem('atc_learning_progress', 'untouched');
   click('Jugar libre');

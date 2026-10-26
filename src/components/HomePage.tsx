@@ -162,36 +162,50 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
       </div>
 
       <main className="w-full max-w-6xl">
-        <h1 ref={headingRef} tabIndex={-1} className="text-xl md:text-3xl font-bold text-ink-bright mb-3">
-          {preparing ? 'Prepare free play' : 'Choose how to play'}
-        </h1>
+        {preparing && <h1 ref={headingRef} tabIndex={-1} className="text-xl md:text-3xl font-bold text-ink-bright mb-3">Prepare free play</h1>}
         {!preparing ? <>
-          <p className="text-sm text-ink-dim mb-6">Practice freely, take on a challenge, or learn radar control.</p>
-          <nav aria-label="Choose an experience" className="grid gap-3 md:grid-cols-3">
-            <Link ref={freeLinkRef} aria-label="Jugar libre" to="/?setup=free" className="p-4 md:p-5 border border-phosphor rounded-lg bg-panel hover:bg-panel-raised">
-              <span className="block text-lg font-bold text-phosphor">Jugar libre</span>
-              <span className="block text-sm text-ink mt-2">Open-ended practice with your own airport and traffic settings.</span>
+          <section className="landing-hero" aria-label="Radar preview">
+            <div className="landing-hero-copy">
+              <p className="landing-eyebrow"><span aria-hidden="true">◉</span> SIMULADOR DE CONTROL AÉREO <span className="landing-eyebrow-divider">/</span> {selectedAirport.icao}</p>
+              <h1>Toma el control del radar</h1>
+              <p className="landing-intro">Ordena el tráfico, guía cada aproximación y mantén el cielo en movimiento.</p>
+              <div className="landing-sector-meta" aria-label="Sector seleccionado">
+                <span className="landing-live-dot" aria-hidden="true" />
+                <span>SECTOR ACTIVO</span>
+                <strong>{selectedAirport.name}</strong>
+                <span aria-hidden="true">·</span>
+                <span>{selectedAirport.runways.length} pistas</span>
+              </div>
+              <button className="landing-tutorial min-h-11"
+                onClick={() => onNewGame('easy', AIRPORTS[0].id, defaultRunways(AIRPORTS[0].id), 'tutorial', 10)}>
+                ¿Primera vez? Aprende los controles
+              </button>
+            </div>
+            <div className="landing-radar-frame">
+              <div className="landing-radar-label"><span>VISTA DEL SECTOR</span><span>{utcTime || '00:00:00Z'}</span></div>
+              <SectorPreview airport={selectedAirport} runwayConfig={runwayConfig} />
+            </div>
+          </section>
+          <nav aria-label="Choose an experience" className="landing-experiences">
+            <Link ref={freeLinkRef} aria-label="Jugar libre" to="/?setup=free" className="landing-experience landing-experience-primary">
+              <span className="landing-experience-index">01 / PRÁCTICA</span>
+              <span className="landing-experience-title">Jugar libre</span>
+              <span className="landing-experience-description">Configura el aeropuerto, las pistas y la densidad de tráfico a tu ritmo.</span>
+              <span className="landing-experience-action">Iniciar práctica <span aria-hidden="true">→</span></span>
             </Link>
-            <Link aria-label="Retos" to="/challenges" className="p-4 md:p-5 border border-line-strong rounded-lg bg-panel hover:border-phosphor">
-              <span className="block text-lg font-bold text-ink-bright">Retos</span>
-              <span className="block text-sm text-ink mt-2">120 progressive five-minute levels across six airports.</span>
+            <Link aria-label="Retos" to="/challenges" className="landing-experience">
+              <span className="landing-experience-index">02 / PROGRESO</span>
+              <span className="landing-experience-title">Retos</span>
+              <span className="landing-experience-description">Supera 120 niveles de cinco minutos en seis aeropuertos.</span>
+              <span className="landing-experience-action">Ver retos <span aria-hidden="true">→</span></span>
             </Link>
-            <Link aria-label="Learning" to="/learning" className="p-4 md:p-5 border border-line-strong rounded-lg bg-panel hover:border-phosphor">
-              <span className="block text-lg font-bold text-ink-bright">Learning</span>
-              <span className="block text-sm text-ink mt-2">Learn radar control through Spanish lessons and guided practice.</span>
+            <Link aria-label="Learning" to="/learning" className="landing-experience">
+              <span className="landing-experience-index">03 / APRENDIZAJE</span>
+              <span className="landing-experience-title">Learning</span>
+              <span className="landing-experience-description">Aprende control radar con lecciones en español y práctica guiada.</span>
+              <span className="landing-experience-action">Explorar lecciones <span aria-hidden="true">→</span></span>
             </Link>
           </nav>
-          <button className="mt-5 min-h-11 text-sm text-ink underline underline-offset-4 hover:text-phosphor"
-            onClick={() => onNewGame('easy', AIRPORTS[0].id, defaultRunways(AIRPORTS[0].id), 'tutorial', 10)}>
-            ¿Primera vez? Aprende los controles
-          </button>
-          <section aria-label="Radar preview" className="mt-6 grid gap-4 md:grid-cols-2 items-center">
-            <div>
-              <h2 className="text-lg font-bold text-ink-bright">Your radar, before you take control</h2>
-              <p className="mt-2 text-sm text-ink-dim max-w-md">See the airport layout, navigation fixes and runway approaches. Choose an experience above to start controlling traffic.</p>
-            </div>
-            <SectorPreview airport={selectedAirport} runwayConfig={runwayConfig} compact />
-          </section>
         </> : <>
           <div className="home-launch sticky top-0 z-10 bg-header border border-line rounded-lg p-3 mb-5 flex flex-wrap items-center gap-3">
             <Link to="/" className="min-h-11 px-3 flex items-center rounded border border-line hover:border-phosphor">Cancel</Link>

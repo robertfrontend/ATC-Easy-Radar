@@ -122,6 +122,245 @@ input[type="range"] {
   }
 }
 
+/* Home landing: an instrument-panel feature spread, not another setup card grid. */
+.landing-hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  align-items: center;
+  gap: clamp(1.5rem, 4vw, 4rem);
+  min-height: 31rem;
+  overflow: hidden;
+  padding: clamp(1.25rem, 4vw, 3.5rem);
+  border: 1px solid var(--color-line-strong);
+  border-left: 3px solid var(--color-phosphor);
+  background: var(--color-header);
+}
+
+.landing-hero::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 46%;
+  width: 10rem;
+  border-right: 1px dashed var(--color-line-strong);
+  border-left: 1px dashed var(--color-line-strong);
+  content: "";
+  opacity: 0.42;
+  transform: skewX(-18deg);
+}
+
+.landing-hero-copy,
+.landing-radar-frame {
+  min-width: 0;
+}
+
+.landing-hero-copy {
+  max-width: 34rem;
+}
+
+.landing-eyebrow,
+.landing-radar-label,
+.landing-experience-index {
+  color: var(--color-ink-faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+}
+
+.landing-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--color-phosphor);
+}
+
+.landing-eyebrow-divider {
+  color: var(--color-ink-faint);
+}
+
+.landing-hero h1 {
+  max-width: 10ch;
+  margin: 1.25rem 0 1rem;
+  color: var(--color-ink-bright);
+  font-size: clamp(2.5rem, 5vw, 4.7rem);
+  font-weight: 800;
+  letter-spacing: -0.065em;
+  line-height: 0.98;
+}
+
+.landing-intro {
+  max-width: 31rem;
+  color: var(--color-ink-dim);
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.landing-sector-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1.5rem;
+  color: var(--color-ink-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.landing-sector-meta strong {
+  color: var(--color-ink-bright);
+}
+
+.landing-live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-phosphor);
+  box-shadow: 0 0 0 3px var(--color-halo-stroke);
+}
+
+.landing-tutorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  color: var(--color-ink);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 0.25rem;
+}
+
+.landing-tutorial:hover {
+  color: var(--color-phosphor);
+}
+
+.landing-radar-frame {
+  padding: 0.9rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-scope);
+  box-shadow: 0 0 0 0.4rem color-mix(in srgb, var(--color-line) 20%, transparent);
+}
+
+.landing-radar-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0.15rem 0.75rem;
+  color: var(--color-phosphor);
+}
+
+.landing-radar-frame > div:not(.landing-radar-label) {
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.landing-experiences {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr;
+  gap: 1px;
+  margin-top: 1.25rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-line);
+}
+
+.landing-experience {
+  display: flex;
+  min-width: 0;
+  min-height: 11rem;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.25rem clamp(1rem, 2.3vw, 1.75rem);
+  background: var(--color-panel);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.landing-experience:hover {
+  background: var(--color-panel-raised);
+}
+
+.landing-experience-primary {
+  background: color-mix(in srgb, var(--color-panel) 84%, var(--color-phosphor));
+}
+
+.landing-experience-primary:hover {
+  background: color-mix(in srgb, var(--color-panel-raised) 78%, var(--color-phosphor));
+}
+
+.landing-experience-title {
+  margin-top: 0.65rem;
+  color: var(--color-ink-bright);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.landing-experience-primary .landing-experience-title,
+.landing-experience-primary .landing-experience-action {
+  color: var(--color-phosphor);
+}
+
+.landing-experience-description {
+  max-width: 30rem;
+  margin-top: 0.4rem;
+  color: var(--color-ink-dim);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.landing-experience-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  color: var(--color-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    gap: 1.5rem;
+  }
+
+  .landing-hero::before {
+    left: auto;
+    right: 1.5rem;
+    width: 4rem;
+  }
+
+  .landing-hero h1 {
+    max-width: 12ch;
+    font-size: clamp(2.4rem, 12vw, 3.75rem);
+  }
+
+  .landing-experiences {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .landing-experience {
+    min-height: 9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-experience {
+    transition: none;
+  }
+}
+
 /* Shared airport presentation; geographic data and notices remain airport-specific. */
 [data-airport-theme="navy"] {
   --radar-blink-min-opacity: 0.75;
