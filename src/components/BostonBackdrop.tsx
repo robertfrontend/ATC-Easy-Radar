@@ -10,8 +10,10 @@ export function BostonBackdrop() {
   return (
     <div className="landing-boston-backdrop" data-airport-theme="navy" data-decorative-airport="KBOS" aria-hidden="true">
       <svg viewBox="300 300 400 400" preserveAspectRatio="xMidYMid meet" focusable="false">
-        <GeographicSector airport={boston} runwayConfig={noActiveRunways} annotationScale={2.6}
-          showFixes={false} showLocalizers={false} />
+        <g transform="translate(0 1000) scale(1 -1)">
+          <GeographicSector airport={boston} runwayConfig={noActiveRunways} annotationScale={2.6}
+            showFixes={false} showLocalizers={false} />
+        </g>
       </svg>
     </div>
   );
