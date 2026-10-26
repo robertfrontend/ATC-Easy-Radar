@@ -45,6 +45,23 @@ it('frames the landing around the live sector preview and a clear Spanish primar
   expect(container.querySelector('[aria-label="Choose an experience"]')).not.toBeNull();
 });
 
+it('shows a decorative KBOS map independently of the selected gameplay preview', () => {
+  const backdrop = container.querySelector('[data-decorative-airport="KBOS"]');
+  expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
+  expect(backdrop?.querySelector('[data-geographic-terrain="true"]')).not.toBeNull();
+  expect(backdrop?.querySelectorAll('[data-physical-runway]')).toHaveLength(6);
+  expect(backdrop?.querySelector('svg[role], [role="button"], [tabindex], a, button, input')).toBeNull();
+  expect(container.querySelector('section.landing-hero svg[role="img"] title')?.textContent)
+    .toBe(`${AIRPORTS[0].icao} radar sector preview`);
+
+  click('Jugar libre');
+  act(() => button('KBOS').click());
+  click('Cancel');
+  expect(container.querySelector('[data-decorative-airport="KBOS"]')).not.toBeNull();
+  expect(container.querySelector('section.landing-hero svg[role="img"] title')?.textContent)
+    .toBe('KBOS radar sector preview');
+});
+
 it('preserves airport, difficulty, runway toggles and shift goal across cancellation and route remount', () => {
   localStorage.setItem('atc_learning_progress', 'untouched');
   click('Jugar libre');

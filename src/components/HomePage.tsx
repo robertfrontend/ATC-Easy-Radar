@@ -4,6 +4,7 @@ import { Radio, Clock, Trophy, Trash2, MapPin, Shield } from 'lucide-react';
 import { Difficulty, SavedGame, RunwayConfig } from '../types';
 import { AIRPORTS } from '../config/airports';
 import { SectorPreview } from './SectorPreview';
+import { BostonBackdrop } from './BostonBackdrop';
 import { SessionMode } from '../hooks/useGameLoop';
 import { getGeographicAirport } from '../geography/kbos';
 import { toMagneticHeading } from '../geography/headings';
@@ -165,6 +166,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
         {preparing && <h1 ref={headingRef} tabIndex={-1} className="text-xl md:text-3xl font-bold text-ink-bright mb-3">Prepare free play</h1>}
         {!preparing ? <>
           <section className="landing-hero" aria-label="Radar preview">
+            <BostonBackdrop />
             <div className="landing-hero-copy">
               <p className="landing-eyebrow"><span aria-hidden="true">◉</span> SIMULADOR DE CONTROL AÉREO <span className="landing-eyebrow-divider">/</span> {selectedAirport.icao}</p>
               <h1>Toma el control del radar</h1>
