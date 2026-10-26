@@ -140,7 +140,7 @@ input[type="range"] {
 
 .landing-hero::before {
   position: absolute;
-  z-index: -1;
+  z-index: 0;
   top: 0;
   bottom: 0;
   left: 46%;
@@ -152,8 +152,31 @@ input[type="range"] {
   transform: skewX(-18deg);
 }
 
+.landing-boston-backdrop {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.landing-boston-backdrop svg {
+  position: absolute;
+  top: 50%;
+  left: -4%;
+  width: min(92%, 60rem);
+  height: auto;
+  aspect-ratio: 1;
+  opacity: 0.3;
+  filter: brightness(1.2);
+  transform: translateY(-50%);
+  mask-image: radial-gradient(ellipse, #000 48%, transparent 82%);
+}
+
 .landing-hero-copy,
 .landing-radar-frame {
+  position: relative;
+  z-index: 1;
   min-width: 0;
 }
 
@@ -339,6 +362,16 @@ input[type="range"] {
     left: auto;
     right: 1.5rem;
     width: 4rem;
+  }
+
+  .landing-boston-backdrop svg {
+    top: 0;
+    left: auto;
+    right: -10%;
+    width: 100%;
+    opacity: 0.2;
+    transform: none;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 88%);
   }
 
   .landing-hero h1 {
