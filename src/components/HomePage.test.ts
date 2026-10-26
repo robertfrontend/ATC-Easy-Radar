@@ -51,6 +51,7 @@ it('keeps the Boston backdrop decorative while airport metadata follows the sele
   const backdrop = container.querySelector('[data-decorative-airport="KBOS"]');
   expect(backdrop?.getAttribute('aria-hidden')).toBe('true');
   expect(backdrop?.querySelector('[data-geographic-terrain="true"]')).not.toBeNull();
+  expect(backdrop?.querySelector('svg > g[transform="translate(0 1000) scale(1 -1)"]')).not.toBeNull();
   expect(backdrop?.querySelectorAll('[data-physical-runway]')).toHaveLength(6);
   expect(backdrop?.querySelector('svg[role], [role="button"], [tabindex], a, button, input')).toBeNull();
   expect(container.querySelector('.landing-eyebrow')?.textContent).toContain(AIRPORTS[0].icao);
