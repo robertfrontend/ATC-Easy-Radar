@@ -165,7 +165,7 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
       <main className="w-full max-w-6xl">
         {preparing && <h1 ref={headingRef} tabIndex={-1} className="text-xl md:text-3xl font-bold text-ink-bright mb-3">Prepare free play</h1>}
         {!preparing ? <>
-          <section className="landing-hero" aria-label="Radar preview">
+          <section className="landing-hero">
             <BostonBackdrop />
             <div className="landing-hero-copy">
               <p className="landing-eyebrow"><span aria-hidden="true">◉</span> SIMULADOR DE CONTROL AÉREO <span className="landing-eyebrow-divider">/</span> {selectedAirport.icao}</p>
@@ -182,10 +182,6 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
                 onClick={() => onNewGame('easy', AIRPORTS[0].id, defaultRunways(AIRPORTS[0].id), 'tutorial', 10)}>
                 ¿Primera vez? Aprende los controles
               </button>
-            </div>
-            <div className="landing-radar-frame">
-              <div className="landing-radar-label"><span>VISTA DEL SECTOR</span><span>{utcTime || '00:00:00Z'}</span></div>
-              <SectorPreview airport={selectedAirport} runwayConfig={runwayConfig} />
             </div>
           </section>
           <nav aria-label="Choose an experience" className="landing-experiences">
