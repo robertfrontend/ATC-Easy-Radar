@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDGES, NODES, findRoute } from './airport';
+import { EDGES, NODES, RUNWAYS, distance, findRoute } from './airport';
 import { advanceGround, commandGround, createGroundState, getAircraftActions, runwayOccupancy } from './simulation';
 import type { GroundState } from './model';
 
@@ -164,7 +164,7 @@ describe('resource recovery and traffic soak', () => {
         minimum = Math.min(minimum, Math.hypot(surface[j].position.x - surface[k].position.x, surface[j].position.y - surface[k].position.y));
       }
     }
-    expect(state.shift).toBe('complete');
+    expect(state.shift, JSON.stringify({ reservation: state.reservation, taxiOwner: state.taxiOwner, aircraft: state.aircraft })).toBe('complete');
     expect(state.operations.arrivals).toBeGreaterThan(1);
     expect(state.operations.departures).toBeGreaterThan(1);
     expect(state.reservation).toBeNull();
@@ -242,4 +242,71 @@ it('does not place a departure hold on the landing approach path', () => {
     expect(state.reservation).toBeNull();
     expect(plane(state, 'GC101').phase).toBe('holding');
   }
+});
+
+
+describe('landing rollout deceleration', () => {
+  it.each(['09', '36'] as const)('slows on runway %s before turning onto the exit', runwayId => {
+    const initial = createGroundState();
+    initial.aircraft = initial.aircraft.filter(a => a.id === 'GC202');
+    initial.nextSpawn = Infinity;
+    const arrival = plane(initial, 'GC202');
+    const runway = RUNWAYS[runwayId];
+    arrival.runway = runwayId;
+    arrival.nodeId = runway.approach;
+    arrival.position = { ...NODES[runway.approach] };
+    const cleared = send(initial, arrival.id, 'land');
+
+    function sample(progress: number) {
+      const state = structuredClone(cleared);
+      const aircraft = plane(state, arrival.id);
+      const start = NODES[runway.threshold];
+      const end = NODES[runway.rollout];
+      aircraft.nodeId = runway.threshold;
+      aircraft.routeIndex = 1;
+      aircraft.position = {
+        x: start.x + (end.x - start.x) * progress,
+        y: start.y + (end.y - start.y) * progress,
+      };
+      const before = { ...aircraft.position };
+      const after = step(state, 1 / 30);
+      expect(plane(after, arrival.id).phase).toBe('landing');
+      expect(after.reservation?.owner).toBe(arrival.id);
+      expect(runwayOccupancy(after)[runwayId]).toContain(arrival.id);
+      return distance(before, plane(after, arrival.id).position) * 30;
+    }
+
+    const touchdownSpeed = sample(0.1);
+    const exitApproachSpeed = sample(0.9);
+    expect(exitApproachSpeed).toBeLessThan(touchdownSpeed * 0.75);
+    expect(exitApproachSpeed).toBeGreaterThanOrEqual(20);
+    expect(exitApproachSpeed).toBeLessThan(30);
+  });
+});
+
+
+describe('landing exit availability', () => {
+  it('refuses a landing reservation while the previous arrival is still at its exit', () => {
+    let state = send(createGroundState(), 'GC202', 'land');
+    state = until(state, s => plane(s, 'GC202').phase === 'awaiting-taxi');
+    const incoming = structuredClone(plane(createGroundState(), 'GC202'));
+    incoming.id = 'GC999';
+    state.aircraft.push(incoming);
+    expect(state.reservation).toBeNull();
+    const landing = getAircraftActions(state, incoming.id).find(action => action.type === 'land');
+    expect(landing?.blocked).toMatch(/exit.*GC202/i);
+    expect(plane(send(state, incoming.id, 'land'), incoming.id).phase).toBe('approach');
+    // A nearby aircraft needs its full separation buffer, not just the exact exit node.
+    plane(state, 'GC202').position.y += 25;
+    expect(getAircraftActions(state, incoming.id).find(action => action.type === 'land')?.blocked).toMatch(/exit.*GC202/i);
+    plane(state, 'GC202').position.y -= 25;
+
+    state = send(state, 'GC202', 'taxi');
+    state = until(state, s => plane(s, 'GC202').phase === 'crossing-hold');
+    expect(getAircraftActions(state, incoming.id).find(action => action.type === 'land')?.blocked).toBeNull();
+    state = send(state, incoming.id, 'land');
+    state = until(state, s => plane(s, incoming.id).phase === 'awaiting-taxi');
+    expect(state.reservation).toBeNull();
+    expect(getAircraftActions(state, 'GC202').find(action => action.type === 'cross')?.blocked).toBeNull();
+  });
 });

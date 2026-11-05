@@ -83,7 +83,15 @@ export function getAircraftActions(state: GroundState, id: string): AircraftActi
   if (aircraft.phase === 'taxiing' || aircraft.phase === 'crossing-hold') actions.push({ type: 'stop', label: 'Stop taxi', blocked: null });
   if (aircraft.phase === 'stopped') actions.push({ type: 'resume', label: 'Resume taxi', blocked: null });
   if (aircraft.phase === 'holding') actions.push({ type: 'takeoff', label: `Clear takeoff ${aircraft.runway}`, blocked: runwayReason });
-  if (aircraft.phase === 'approach') actions.push({ type: 'land', label: `Clear landing ${aircraft.runway}`, blocked: runwayReason ?? (!freeStand(state) ? 'No free stand. Arrival will fly a visible circuit.' : null) });
+  if (aircraft.phase === 'approach') {
+    const exit = NODES[RUNWAYS[aircraft.runway].exit];
+    const exitTraffic = state.aircraft.find(other => other.id !== id && groundAircraft(other) && distance(other.position, exit) < SEPARATION);
+    const exitReason = exitTraffic ? `Runway exit occupied by ${exitTraffic.id}. Clear its taxi route before landing.` : null;
+    actions.push({
+      type: 'land', label: `Clear landing ${aircraft.runway}`,
+      blocked: runwayReason ?? exitReason ?? (!freeStand(state) ? 'No free stand. Arrival will fly a visible circuit.' : null),
+    });
+  }
   if (aircraft.phase === 'crossing-hold') actions.push({ type: 'cross', label: `Cross runway ${nextCrossing(aircraft)}`, blocked: runwayReason });
   return actions.map(action => ({ ...action, blocked: state.paused ? 'Simulation paused. Resume before issuing clearances.' : action.blocked }));
 }
@@ -213,6 +221,23 @@ function finishWaypoint(state: GroundState, aircraft: Aircraft) {
     setRoute(aircraft, []);
   }
 }
+/** Slow on the paved landing rollout, reaching exit speed before the turn. */
+function movementSpeed(aircraft: Aircraft): number {
+  switch (aircraft.phase) {
+    case 'approach': return 5;
+    case 'go-around': return 32;
+    case 'taking-off': return 75;
+    case 'exiting': return 20;
+    case 'landing': {
+      const runway = RUNWAYS[aircraft.runway];
+      if (aircraft.route[aircraft.routeIndex] !== runway.rollout) return 55;
+      const length = distance(NODES[runway.threshold], NODES[runway.rollout]);
+      const remaining = distance(aircraft.position, NODES[runway.rollout]);
+      return 20 + 35 * Math.min(1, remaining / length);
+    }
+    default: return TAXI_SPEED;
+  }
+}
 function tickAircraft(state: GroundState, aircraft: Aircraft, dt: number) {
   aircraft.age += dt;
   if (aircraft.phase === 'turnaround') {
@@ -248,7 +273,7 @@ function tickAircraft(state: GroundState, aircraft: Aircraft, dt: number) {
   }
   const target = NODES[aircraft.route[aircraft.routeIndex]];
   if (!target) return;
-  const speed = aircraft.phase === 'approach' ? 5 : aircraft.phase === 'go-around' ? 32 : aircraft.phase === 'taking-off' ? 75 : aircraft.phase === 'landing' ? 55 : aircraft.phase === 'exiting' ? 20 : TAXI_SPEED;
+  const speed = movementSpeed(aircraft);
   const reached = move(aircraft, target, speed, dt, state);
   // A taxi clearance does not vacate a stand: keep it reserved until physically clear.
   if (aircraft.kind === 'departure' && aircraft.standId && distance(aircraft.position, NODES[aircraft.standId]) > SEPARATION) aircraft.standId = null;

@@ -4,7 +4,7 @@ ATC Easy Radar is a React and TypeScript air-traffic-control game. Manage arriva
 
 ## Choose a session
 
-Home offers three destinations: **Jugar libre**, **Retos** and **Learning**, with a separate first-time tutorial link. Choose Jugar libre before configuring airport, runways/ILS and difficulty. Open-ended play is the default; an optional five-minute shift has its own operation goal and does not unlock Retos levels. The launch button stays visible while scrolling preparation.
+Home offers four destinations: **Jugar libre**, **Ground Control**, **Retos** and **Learning**, with a separate first-time tutorial link. Choose Jugar libre before configuring airport, runways/ILS and difficulty. Open-ended play is the default; an optional five-minute shift has its own operation goal and does not unlock Retos levels. The launch button stays visible while scrolling preparation.
 
 Cancel, browser Back and returning from a game retain preparation settings for the current app session; reloading the page resets this draft. Learning and Retos keep their existing independent progress storage and URLs. Previous Sessions remains available as a collapsible log, not a saved-game resume action.
 
@@ -20,7 +20,35 @@ A landing or cleared departure handoff earns 100 points. Each additional clean o
 
 Shift traffic begins easy, rises to medium after 3 safe operations and hard after 6, never above the difficulty you chose. That also changes the ILS cone width. Free play uses the selected difficulty immediately. Game speed changes aircraft motion and traffic cadence; the shift timer always measures active running time.
 
-## Controls
+## Ground Control
+
+Choose **Ground Control** on Home, or open `/ground-control`, to manage the fictional Willow Field airport from above. This is a separate eight-minute surface-control shift, not a replacement for radar. Aircraft use connected taxiways, explicit clearances and two intersecting runways; no external map or paid service is needed.
+
+### Complete the initial two flights
+
+1. Select **GC101** on the map or in **Flights**. Choose **Taxi to runway 09**. The dashed route follows taxiway B and ends outside the runway at its hold point; taxi clearance never grants takeoff.
+2. Once GC101 says **Holding short**, choose **Clear takeoff 09**. The shared runway reservation remains until its departure is complete. The operation is counted once, after the aircraft leaves the map.
+3. Select **GC202**. Choose **Clear landing 09** when it is on approach and the action is available. Without clearance it flies a visible go-around circuit and returns; wait for the next approach rather than trying to clear it mid-circuit.
+4. GC202 lands, slows on the runway and exits automatically. **Exiting runway** still counts as occupied: wait for **Runway clear · awaiting taxi**. Choose **Taxi to stand** to send it toward its reserved parking position.
+5. At the marked crossing it stops again. Choose **Cross runway 36** when available. Reaching its stand completes the arrival and adds exactly one operation.
+
+**Stop taxi** and **Resume taxi** preserve an aircraft's route. An aircraft already landing, taking off or crossing cannot be stopped mid-runway. Map aircraft can be selected with Tab then Enter/Space; the flight list provides larger touch targets.
+
+### Timing, safety and results
+
+- **Pause/Resume** freezes or resumes movement, spawning, waiting penalties and the shift clock together. **1×/2×** changes simulated time for all of those equally. **Restart** clears aircraft, reservations, counters and clock, returning to the same initial flights. **Back to modes** discards this shift without changing radar records or saved sessions.
+- Each continuous wait allows 30 simulated seconds free; every later second adds one aircraft-second of delay. Moving resets the waiting allowance; a missed approach does not. Performance is `max(0, 100 × completed operations − whole delay seconds)`; there is no early defeat.
+- At eight simulated minutes, no new traffic is generated. Resolve the pending flights to finish the gradual closeout and see the final evaluation. Arrivals at their stand are complete; while the traffic window is still open, they can turn around into a departure after 25 simulated seconds.
+- A landing reserves a free stand in advance. A physically occupied runway exit blocks the next landing until its aircraft taxis clear, preventing a runway/crossing queue deadlock. Runway reservations and physical occupancy are shown separately.
+- Both runways share one conservative operational reservation. Landing, takeoff and crossing clearances are blocked when incompatible, even before an aircraft physically reaches the intersection. Disabled actions state the reason and the flight that must move first.
+
+### First-version limits and checks
+
+Willow Field is an original hand-authored airport with four stands. Traffic is deterministic, increases gradually and is capped at six active aircraft. Taxi movement uses one shared corridor queue: additional clearances wait with an explanation rather than attempting simultaneous opposing or junction movements. This favors recoverable, understandable play over maximum airport throughput. Approach circuits, braking and turning are simplified; this is entertainment, not operational ATC training. Results are local to the current shift and are not saved.
+
+Run `npm test -- src/ground/simulation.test.ts src/ground/GroundControl.test.ts src/components/HomePage.test.ts` for focused checks. Domain tests cover both runway flows, mandatory crossings, shared reservations, physical runway/stand release, separation, rollout deceleration, pause/speed/reset, once-only scoring and mixed traffic through closeout. DOM integration tests use the real simulation and controlled animation frames to complete both initial flights and check navigation/clock cleanup. Use `npm test`, `npm run typecheck` and `npm run build` for the full project checks.
+
+## Radar controls
 
 1. Select an aircraft by clicking its symbol/data block or focusing it with Tab and pressing Enter/Space.
 2. The side panel **prepares** heading, altitude, speed and approach instructions. Press **TRANSMIT CLEARANCE** to apply them. A draft badge distinguishes planned changes from the active clearance.

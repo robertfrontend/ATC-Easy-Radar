@@ -114,6 +114,15 @@
 .ground-summary h2 { font-size: 20px; margin: 0 0 5px; }
 .ground-summary p { font-size: 12px; line-height: 1.6; margin: 3px 0; }
 .ground-summary > div { flex: 1; }
+/* Keep every stand and runway visible alongside the clearance desk on desktop. */
+@media (min-width: 1051px) {
+  .ground-map { height: clamp(300px, calc(100dvh - 330px), 740px); aspect-ratio: auto; }
+  .ground-aircraft-label { font-size: 18px; }
+  .ground-map-caption { font-size: 16px; }
+  .ground-runway-number { font-size: 20px; }
+  .ground-taxi-label { font-size: 20px; }
+  .ground-sidebar { max-height: max(420px, calc(100dvh - 240px)); overflow-y: auto; padding: 3px; }
+}
 @media (min-width: 1700px) { .ground-control { max-width: 1800px; margin: 0 auto; } }
 @media (max-width: 1050px) {
   .ground-workspace { grid-template-columns: minmax(0, 1fr); }
