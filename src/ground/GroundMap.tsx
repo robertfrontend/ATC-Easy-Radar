@@ -73,7 +73,6 @@ export function GroundMap({ state, selectedId, onSelect }: {
       </pattern>
     </defs>
     <rect x={GROUND_VIEW.x} y={GROUND_VIEW.y} width={GROUND_VIEW.width} height={GROUND_VIEW.height} fill="url(#ground-grass)" />
-    <path d="M 50 680 L 50 60 L 1020 60 L 1020 725" fill="none" stroke="#526354" strokeWidth={3} strokeDasharray="5 9" />
     <rect x={215} y={623} width={330} height={126} rx={20} fill="#626b68" />
     {EDGES.map(edge => <g key={`${edge.from}-${edge.to}`} data-taxi-pavement="true">
       <line x1={NODES[edge.from].x} y1={NODES[edge.from].y} x2={NODES[edge.to].x} y2={NODES[edge.to].y}
@@ -104,8 +103,6 @@ export function GroundMap({ state, selectedId, onSelect }: {
     </g>)}
     <rect x={215} y={766} width={330} height={30} rx={3} fill="#182c28" stroke="#7f9990" />
     <text x={380} y={786} textAnchor="middle" className="ground-map-caption">Willow Field terminal</text>
-    <text x={60} y={105} className="ground-map-title">Willow Field</text>
-    <text x={60} y={128} className="ground-map-caption">Fictional airport · Not for navigation</text>
     <g transform="translate(1000 125)" className="ground-map-caption"><path d="M 0 20 V -20 M -7 -12 L 0 -22 L 7 -12" fill="none" stroke="#f5f7f5" strokeWidth={2} /><text y={-32} textAnchor="middle">N</text></g>
     {remainingRoute.length > 1 && <polyline data-selected-route="true" points={pointString(remainingRoute)} fill="none" stroke="#b2e5ff" strokeWidth={4} strokeDasharray="9 6" strokeLinejoin="round" />}
     {state.aircraft.map(aircraft => <AircraftSymbol key={aircraft.id} aircraft={aircraft} selected={aircraft.id === selectedId} onSelect={onSelect} />)}

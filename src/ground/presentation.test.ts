@@ -29,6 +29,18 @@ describe('airport scene presentation', () => {
     expect(markup).toContain('data-hold-point="hold-09"');
   });
 
+  it('omits decorative airport perimeter and map heading while retaining operational landmarks and accessibility', () => {
+    const markup = renderToStaticMarkup(createElement(GroundMap, { state: createGroundState(), selectedId: null, onSelect() {} }));
+    expect(markup).not.toContain('M 50 680 L 50 60 L 1020 60 L 1020 725');
+    expect(markup).not.toContain('class="ground-map-title"');
+    expect(markup).not.toContain('Fictional airport · Not for navigation');
+    expect(markup).toContain('aria-label="Willow Field airport map"');
+    expect(markup).toContain('Willow Field terminal');
+    expect(markup).toContain('data-boarding-gate="stand-1"');
+    expect(markup).toContain('data-hold-point="hold-09"');
+    expect(markup).toContain('data-runway="09"');
+  });
+
   it('renders stable single- and twin-engine profiles within their physical separation envelope', () => {
     const state = createGroundState();
     const departure = aircraftAppearance(state.aircraft[0].id);
