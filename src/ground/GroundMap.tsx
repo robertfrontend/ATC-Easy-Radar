@@ -1,8 +1,10 @@
 import { GROUND_VIEW, EDGES, NODES, RUNWAYS, RUNWAY_WIDTH, STANDS } from './airport';
 import type { Aircraft, GroundState, Point } from './model';
 import { runwayOccupancy } from './simulation';
-import { AircraftShape } from './AircraftShape';
-import { aircraftAppearance, aircraftHeight } from './presentation';
+import { useEffect, useRef, useState } from 'react';
+import { groundTrackPresentation } from './presentation';
+import { scopeColor } from '../theme/radarTheme';
+import { nearestTrack } from '../utils/trackPresentation';
 
 const pointString = (points: Point[]) => points.map(point => `${point.x},${point.y}`).join(' ');
 const runwayEntries = Object.values(RUNWAYS);
@@ -14,7 +16,7 @@ function Runway({ runway, occupied, reserved }: {
   const length = Math.hypot(runway.end.x - runway.start.x, runway.end.y - runway.start.y);
   const angle = Math.atan2(runway.end.y - runway.start.y, runway.end.x - runway.start.x) * 180 / Math.PI;
   return <g data-runway={runway.id} transform={`translate(${runway.start.x} ${runway.start.y}) rotate(${angle})`}>
-    <title>Runway {runway.id}/{runway.reciprocal}: {occupied.length ? `occupied by ${occupied.join(', ')}` : reserved ? 'reserved' : 'clear'}</title>
+    <title>{`Runway ${runway.id}/${runway.reciprocal}: ${occupied.length ? `occupied by ${occupied.join(', ')}` : reserved ? 'reserved' : 'clear'}`}</title>
     <rect x={-20} y={-RUNWAY_WIDTH / 2 - 5} width={length + 40} height={RUNWAY_WIDTH + 10} rx={3} fill="#89918a" />
     <rect x={-18} y={-RUNWAY_WIDTH / 2} width={length + 36} height={RUNWAY_WIDTH} fill="#262e31" />
     <line x1={60} y1={0} x2={length - 60} y2={0} stroke="#f5f7f5" strokeWidth={2} strokeDasharray="22 16" />
@@ -28,39 +30,67 @@ function Runway({ runway, occupied, reserved }: {
   </g>;
 }
 
-function AircraftSymbol({ aircraft, selected, onSelect }: {
+function AircraftSymbol({ aircraft, selected, onSelect, scale, nearbyIndex, clusterSize }: {
   aircraft: Aircraft; selected: boolean; onSelect: (id: string) => void;
+  scale: number; nearbyIndex: number; clusterSize: number;
 }) {
-  const appearance = aircraftAppearance(aircraft.id);
-  const height = aircraftHeight(aircraft);
-  const stateLabel = aircraft.phase === 'approach' ? 'Landing clearance needed' : aircraft.phase === 'landing' ? height > 0 ? 'Descending' : 'Touchdown' : aircraft.phase === 'turnaround' ? 'At gate' : aircraft.phase === 'awaiting-taxi' ? 'Taxi clearance needed' : '';
+  const metrics = groundTrackPresentation(aircraft, scale, nearbyIndex, clusterSize);
+  const color = selected ? scopeColor.selected : aircraft.blocked ? scopeColor.alert : aircraft.kind === 'arrival' ? scopeColor.arrival : scopeColor.departure;
   return <g role="button" tabIndex={0} aria-label={`Select ${aircraft.id}`} aria-pressed={selected}
     data-aircraft-id={aircraft.id} data-aircraft-kind={aircraft.kind} data-aircraft-phase={aircraft.phase}
-    data-airframe={appearance.airframe} data-aircraft-height={height.toFixed(2)}
     transform={`translate(${aircraft.position.x} ${aircraft.position.y})`}
-    className="ground-aircraft" onClick={() => onSelect(aircraft.id)}
+    className="ground-aircraft ground-radar-track" onClick={() => onSelect(aircraft.id)}
     onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(aircraft.id); } }}>
-    <title>{aircraft.id}: {appearance.name}. {aircraft.phase.replaceAll('-', ' ')}. {aircraft.destination}</title>
-    <circle r={30} fill="transparent" />
-    {selected && <circle r={29} fill="#b2e5ff20" stroke="#b2e5ff" strokeWidth={2.5} strokeDasharray="5 3" />}
-    <g transform={`translate(${3 + height * 13} ${3 + height * 13}) rotate(${aircraft.heading})`} opacity={0.18 + height * 0.16} aria-hidden="true">
-      <ellipse rx={appearance.radius} ry={appearance.engines === 2 ? 8 : 5} fill="#0b1e15" />
-      <ellipse rx={5} ry={appearance.engines === 2 ? 16 : 13} fill="#0b1e15" />
+    <title>{`${aircraft.id}: ${metrics.readout.line2}. ${aircraft.destination}`}</title>
+    <circle data-ground-track-hit r={metrics.hitRadius} fill="transparent" />
+    <g data-track-annotation data-inverse-scale={metrics.inverseScale} transform={`scale(${metrics.inverseScale})`}>
+      {selected && <circle data-ground-track-selection="true" r={16} fill={scopeColor.selectedSoft} stroke={color} strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />}
+      <text data-ground-radar-target="true" x={0} y={3.5} fill={color} fontSize={metrics.symbolSize} fontFamily="monospace" fontWeight="bold" textAnchor="middle" className="symbol-glow">✳</text>
+      {metrics.heading !== null && <g data-ground-heading-arrow transform={`rotate(${metrics.heading})`} pointerEvents="none">
+        <path d="M0 -6V-20 M-2.5 -16L0 -20L2.5 -16" fill="none" stroke={color} strokeWidth={.85} strokeLinecap="round" strokeLinejoin="round" />
+      </g>}
+      <line x1={metrics.labelX > 0 ? 5 : -5} y1={metrics.labelY > 0 ? 5 : -5}
+        x2={metrics.labelX} y2={metrics.labelY} stroke={color} strokeWidth={1} strokeDasharray="2 2" opacity={.65} pointerEvents="none" />
+      <g data-ground-track-block transform={`translate(${metrics.labelX} ${metrics.labelY})`} className="ground-track-block">
+        {[metrics.readout.line1, metrics.readout.line2, metrics.readout.line3].map((line, index) =>
+          <text key={index} x={0} y={index * 14} fill={color} stroke="#000000" strokeWidth={3} strokeLinejoin="round" paintOrder="stroke"
+            fontSize={index === 0 ? metrics.callsignSize : metrics.readoutSize} fontFamily="monospace" fontWeight="bold">{line}</text>)}
+      </g>
+      {aircraft.blocked && <text data-ground-track-warning="true" x={-14} y={-12} fill={color} stroke="#000000" strokeWidth={3} paintOrder="stroke" fontSize={15}>!</text>}
     </g>
-    <g transform={`rotate(${aircraft.heading})`}><AircraftShape twin={appearance.engines === 2} /></g>
-    <text x={24} y={-25} className="ground-aircraft-label">{aircraft.id}</text>
-    {stateLabel && <text x={24} y={-5} className="ground-aircraft-status">{stateLabel}</text>}
-    {aircraft.blocked && <text x={-30} y={-20} className="ground-aircraft-warning">!</text>}
   </g>;
 }
 
 export function GroundMap({ state, selectedId, onSelect }: {
   state: GroundState; selectedId: string | null; onSelect: (id: string) => void;
 }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const next = svg.getScreenCTM?.()?.a;
+      if (next && Number.isFinite(next) && next > 0) setScale(current => Math.abs(current - next) > .001 ? next : current);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, []);
   const selected = state.aircraft.find(aircraft => aircraft.id === selectedId);
   const occupancy = runwayOccupancy(state);
   const remainingRoute = selected ? [selected.position, ...selected.route.slice(selected.routeIndex).map(id => NODES[id]).filter(Boolean)] : [];
-  return <svg className="ground-map" viewBox={`${GROUND_VIEW.x} ${GROUND_VIEW.y} ${GROUND_VIEW.width} ${GROUND_VIEW.height}`} aria-label="Willow Field airport map">
+  return <svg ref={svgRef} className="ground-map" viewBox={`${GROUND_VIEW.x} ${GROUND_VIEW.y} ${GROUND_VIEW.width} ${GROUND_VIEW.height}`} aria-label="Willow Field airport map"
+    onClickCapture={event => {
+      if (event.detail === 0 || !(event.target instanceof Element) || !event.target.hasAttribute('data-ground-track-hit')) return;
+      const matrix = event.currentTarget.getScreenCTM?.();
+      if (!matrix) return;
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      const track = nearestTrack(state.aircraft.map(aircraft => ({ id: aircraft.id, ...aircraft.position })), point, 22 / scale);
+      if (track) { event.stopPropagation(); onSelect(track.id); }
+    }}>
     <title>Willow Field: two intersecting runways and connected taxiways</title>
     <desc>Select an aircraft here or in the flight list. Dashed blue lines show its cleared route. Double hold bars require a separate runway clearance.</desc>
     <defs>
@@ -105,6 +135,11 @@ export function GroundMap({ state, selectedId, onSelect }: {
     <text x={380} y={786} textAnchor="middle" className="ground-map-caption">Willow Field terminal</text>
     <g transform="translate(1000 125)" className="ground-map-caption"><path d="M 0 20 V -20 M -7 -12 L 0 -22 L 7 -12" fill="none" stroke="#f5f7f5" strokeWidth={2} /><text y={-32} textAnchor="middle">N</text></g>
     {remainingRoute.length > 1 && <polyline data-selected-route="true" points={pointString(remainingRoute)} fill="none" stroke="#b2e5ff" strokeWidth={4} strokeDasharray="9 6" strokeLinejoin="round" />}
-    {state.aircraft.map(aircraft => <AircraftSymbol key={aircraft.id} aircraft={aircraft} selected={aircraft.id === selectedId} onSelect={onSelect} />)}
+    {state.aircraft.map((aircraft, index) => {
+      const closeTo = (other: Aircraft) => Math.hypot(other.position.x - aircraft.position.x, other.position.y - aircraft.position.y) * scale < 115;
+      const nearbyIndex = state.aircraft.slice(0, index).filter(closeTo).length;
+      return <AircraftSymbol key={aircraft.id} aircraft={aircraft} selected={aircraft.id === selectedId} onSelect={onSelect}
+        scale={scale} nearbyIndex={nearbyIndex} clusterSize={state.aircraft.filter(closeTo).length} />;
+    })}
   </svg>;
 }

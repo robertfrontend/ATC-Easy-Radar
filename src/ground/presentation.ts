@@ -1,5 +1,40 @@
 import { NODES, RUNWAYS, distance } from './airport';
-import type { Aircraft } from './model';
+import type { Aircraft, Phase } from './model';
+import { trackPresentation } from '../utils/trackPresentation';
+import { GROUND_VIEW } from './airport';
+
+const groundPhase: Record<Phase, string> = {
+  parked: 'PARKED', taxiing: 'TAXI', stopped: 'STOPPED',
+  'crossing-hold': 'HOLD CROSS', crossing: 'CROSSING', holding: 'HOLD SHORT',
+  'taking-off': 'TAKEOFF', approach: 'APPROACH', 'go-around': 'GO AROUND',
+  landing: 'LANDING', exiting: 'EXITING', 'awaiting-taxi': 'AWAIT TAXI', turnaround: 'AT GATE',
+};
+
+/** Ground tracks have no invented airspace altitude, speed or exit-fix readout. */
+export function groundTrackReadout(aircraft: Aircraft) {
+  const atGate = aircraft.phase === 'parked' || aircraft.phase === 'turnaround';
+  const taxiToGate = aircraft.kind === 'arrival' && ['taxiing', 'stopped', 'crossing-hold', 'crossing', 'awaiting-taxi'].includes(aircraft.phase);
+  const gate = (atGate || taxiToGate) && aircraft.standId?.split('-')[1];
+  return { line1: aircraft.id, line2: groundPhase[aircraft.phase], line3: gate ? `GATE ${gate}` : `RWY ${aircraft.runway}` };
+}
+
+export function groundTrackPresentation(aircraft: Aircraft, scale: number, nearbyIndex = 0, clusterSize = 1) {
+  const readout = groundTrackReadout(aircraft);
+  const view = { x: GROUND_VIEW.x, y: GROUND_VIEW.y, w: GROUND_VIEW.width, h: GROUND_VIEW.height };
+  const metrics = trackPresentation(aircraft.position, readout, view, scale);
+  const projection = 1 / metrics.inverseScale;
+  const top = (view.y - aircraft.position.y) * projection + 15;
+  const bottom = (view.y + view.h - aircraft.position.y) * projection - 33;
+  // Vertically stagger close gate blocks; keep the whole cluster inside the scene.
+  const firstRow = Math.max(top, Math.min(-40, bottom - (clusterSize - 1) * 44));
+  const moving = !aircraft.blocked && ['taxiing', 'crossing', 'taking-off', 'approach', 'go-around', 'landing', 'exiting'].includes(aircraft.phase);
+  return {
+    ...metrics, readout,
+    labelY: Math.max(top, Math.min(bottom, firstRow + nearbyIndex * 44)),
+    // Existing radar arrows point north at zero; surface headings start at east.
+    heading: moving ? aircraft.heading + 90 : null,
+  };
+}
 
 /** Fictional silhouettes share the same protected surface envelope. */
 export function aircraftAppearance(id: string) {

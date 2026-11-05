@@ -61,6 +61,7 @@
 .ground-map-caption { fill: #f5f7f5; font-size: 13px; }
 .ground-map-title { fill: #f5f7f5; font-size: 28px; font-weight: 600; letter-spacing: -1px; }
 .ground-aircraft { cursor: pointer; }
+.ground-track-block text { pointer-events: all; }
 .ground-aircraft-label { fill: #fff; font-size: 22px; font-weight: 600; stroke: #17231e; stroke-width: 5px; paint-order: stroke; }
 .ground-aircraft-warning { fill: #ffe08a; stroke: #17231e; stroke-width: 4px; paint-order: stroke; font-size: 22px; font-weight: 700; }
 .ground-aircraft:focus-visible > circle:first-of-type { stroke: #ffe08a; stroke-width: 3px; }
