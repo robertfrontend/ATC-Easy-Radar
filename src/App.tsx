@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import { HomePage, HomeSetup, initialHomeSetup } from './components/HomePage';
 import { GamePage } from './components/GamePage';
+import { GroundControl } from './ground/GroundControl';
 import { LearningPage } from './learning/LearningPage';
 import { ChallengeSelector } from './challenges/ChallengeSelector';
 import { ChallengeGame } from './challenges/ChallengeGame';
@@ -157,6 +158,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/ground-control" element={<GroundControl />} />
         <Route path="/challenges" element={<ChallengeSelector />} />
         <Route path="/learning/*" element={<LearningPage />} />
         <Route

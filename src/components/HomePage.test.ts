@@ -27,9 +27,9 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
 
-it('offers three destinations without exposing setup or competing launch actions', () => {
+it('offers four destinations without exposing setup or competing launch actions', () => {
   expect([...container.querySelectorAll('[aria-label="Choose an experience"] a')].map(el => el.getAttribute('aria-label')))
-    .toEqual(['Jugar libre', 'Retos', 'Learning']);
+    .toEqual(['Jugar libre', 'Retos', 'Learning', 'Ground Control']);
   expect(container.textContent).not.toContain('Select Control Sector');
   expect(container.textContent).not.toContain('START FIVE-MINUTE SHIFT');
   click('¿Primera vez? Aprende los controles');
@@ -159,4 +159,24 @@ it('uses the shared KBOS operational metadata and magnetic runway readouts witho
   ]);
   expect(ils.map(el => el.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false', 'false']);
   expect(JSON.stringify(AIRPORTS)).toBe(canonical);
+});
+
+
+it('enters the independent ground mode and returns without modifying radar setup or scores', () => {
+  vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  localStorage.setItem('atc_highscore', '27');
+  click('Ground Control');
+  expect(window.location.pathname).toBe('/ground-control');
+  expect(container.querySelector('h1')?.textContent).toBe('Ground Control');
+  expect(container.querySelector('[aria-label="Willow Field airport map"]')).not.toBeNull();
+  click('Back to modes');
+  expect(window.location.pathname).toBe('/');
+  expect(localStorage.getItem('atc_highscore')).toBe('27');
+  click('Jugar libre');
+  expect(button(AIRPORTS[0].icao).getAttribute('aria-pressed')).toBe('true');
+  click('START FREE PLAY');
+  expect(container.textContent).toContain('Exit free');
+  click('Exit free');
+  vi.unstubAllGlobals();
 });

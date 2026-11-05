@@ -203,6 +203,12 @@ export const HomePage: React.FC<HomePageProps> = ({ savedGames, onNewGame, onDel
               <span className="landing-experience-description">Aprende control radar con lecciones en español y práctica guiada.</span>
               <span className="landing-experience-action">Explorar lecciones <span aria-hidden="true">→</span></span>
             </Link>
+            <Link aria-label="Ground Control" to="/ground-control" className="landing-experience">
+              <span className="landing-experience-index">04 / SUPERFICIE</span>
+              <span className="landing-experience-title">Ground Control</span>
+              <span className="landing-experience-description">Coordina rodajes, aterrizajes y despegues en un aeropuerto con pistas cruzadas.</span>
+              <span className="landing-experience-action">Controlar superficie <span aria-hidden="true">→</span></span>
+            </Link>
           </nav>
         </> : <>
           <div className="home-launch sticky top-0 z-10 bg-header border border-line rounded-lg p-3 mb-5 flex flex-wrap items-center gap-3">
