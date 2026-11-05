@@ -26,11 +26,15 @@ Choose **Ground Control** on Home, or open `/ground-control`, to manage the fict
 
 ### Complete the initial two flights
 
-1. Select **GC101** on the map or in **Flights**. Choose **Taxi to runway 09**. The dashed route follows taxiway B and ends outside the runway at its hold point; taxi clearance never grants takeoff.
+1. Select **GC101** on the map or in **Flights**. Choose **Taxi to runway 09**. The cyan dashed route follows the plain grey pavement and ends outside the runway at its white hold bars; taxi clearance never grants takeoff.
 2. Once GC101 says **Holding short**, choose **Clear takeoff 09**. The shared runway reservation remains until its departure is complete. The operation is counted once, after the aircraft leaves the map.
 3. Select **GC202**. Choose **Clear landing 09** when it is on approach and the action is available. Without clearance it flies a visible go-around circuit and returns; wait for the next approach rather than trying to clear it mid-circuit.
-4. GC202 lands, slows on the runway and exits automatically. **Exiting runway** still counts as occupied: wait for **Runway clear · awaiting taxi**. Choose **Taxi to stand** to send it toward its reserved parking position.
+4. GC202 lands, slows on the runway and exits automatically. **Exiting runway** still counts as occupied: wait for **Runway clear · awaiting taxi**. Choose **Taxi to stand 2** to send the initial arrival toward its reserved boarding gate. Landing clearance alone never sends it to the terminal.
 5. At the marked crossing it stops again. Choose **Cross runway 36** when available. Reaching its stand completes the arrival and adds exactly one operation.
+
+The enlarged view includes grass beyond both runway ends, the approach circuits and the terminal. Flights have stable original single-engine propeller or twin-engine jet profiles; the model stays the same after turnaround. An offset shadow and **Descending** cue distinguish flight from touchdown and ground rollout. **Gate 1–4** labels and terminal connections identify the destination; arriving aircraft remain visible while waiting for your next clearance.
+
+The initial approach lasts about 54 simulated seconds on runway 09 and 62 on runway 36 before a missed approach. Select the arrival and authorize landing during that window, or wait for its visible circuit to return. **Landing → taxi to stand → runway crossing** are three separate permissions; the selected flight and flight list explain which one is needed.
 
 **Stop taxi** and **Resume taxi** preserve an aircraft's route. An aircraft already landing, taking off or crossing cannot be stopped mid-runway. Map aircraft can be selected with Tab then Enter/Space; the flight list provides larger touch targets.
 
@@ -44,7 +48,7 @@ Choose **Ground Control** on Home, or open `/ground-control`, to manage the fict
 
 ### First-version limits and checks
 
-Willow Field is an original hand-authored airport with four stands. Traffic is deterministic, increases gradually and is capped at six active aircraft. Taxi movement uses one shared corridor queue: additional clearances wait with an explanation rather than attempting simultaneous opposing or junction movements. This favors recoverable, understandable play over maximum airport throughput. Approach circuits, braking and turning are simplified; this is entertainment, not operational ATC training. Results are local to the current shift and are not saved.
+Willow Field is an original hand-authored airport with four stands. Taxi pavement is deliberately unlabelled grey without yellow centerlines; runway identifiers, white safety holds and cyan selected routes remain visible. Traffic is deterministic, increases gradually and is capped at six active aircraft. Taxi movement uses one shared corridor queue: additional clearances wait with an explanation rather than attempting simultaneous opposing or junction movements. This favors recoverable, understandable play over maximum airport throughput. Approach circuits, braking and turning are simplified; this is entertainment, not operational ATC training. Results are local to the current shift and are not saved.
 
 Run `npm test -- src/ground/simulation.test.ts src/ground/GroundControl.test.ts src/components/HomePage.test.ts` for focused checks. Domain tests cover both runway flows, mandatory crossings, shared reservations, physical runway/stand release, separation, rollout deceleration, pause/speed/reset, once-only scoring and mixed traffic through closeout. DOM integration tests use the real simulation and controlled animation frames to complete both initial flights and check navigation/clock cleanup. Use `npm test`, `npm run typecheck` and `npm run build` for the full project checks.
 

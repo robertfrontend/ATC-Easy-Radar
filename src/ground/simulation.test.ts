@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AIRCRAFT_RADIUS, EDGES, NODES, RUNWAYS, distance, findRoute } from './airport';
+import { AIRCRAFT_RADIUS, EDGES, GROUND_VIEW, NODES, RUNWAYS, distance, findRoute } from './airport';
 import { advanceGround, commandGround, createGroundState, getAircraftActions, runwayOccupancy } from './simulation';
 import type { GroundState } from './model';
 
@@ -298,9 +298,9 @@ describe('landing exit availability', () => {
     expect(landing?.blocked).toMatch(/exit.*GC202/i);
     expect(plane(send(state, incoming.id, 'land'), incoming.id).phase).toBe('approach');
     // A nearby aircraft needs its full separation buffer, not just the exact exit node.
-    plane(state, 'GC202').position.y += 25;
+    plane(state, 'GC202').position.y += 45;
     expect(getAircraftActions(state, incoming.id).find(action => action.type === 'land')?.blocked).toMatch(/exit.*GC202/i);
-    plane(state, 'GC202').position.y -= 25;
+    plane(state, 'GC202').position.y -= 45;
 
     state = send(state, 'GC202', 'taxi');
     state = until(state, s => plane(s, 'GC202').phase === 'crossing-hold');
@@ -309,5 +309,71 @@ describe('landing exit availability', () => {
     state = until(state, s => plane(s, incoming.id).phase === 'awaiting-taxi');
     expect(state.reservation).toBeNull();
     expect(getAircraftActions(state, 'GC202').find(action => action.type === 'cross')?.blocked).toBeNull();
+  });
+});
+
+
+describe('expanded airport camera lifecycle', () => {
+  it.each(['09', '36'] as const)('keeps departure %s until its full airframe clears the expanded view', runwayId => {
+    const initial = createGroundState();
+    initial.nextSpawn = Infinity;
+    let state = send(initial, 'GC101', 'taxi', runwayId);
+    if (runwayId === '36') {
+      state = until(state, s => plane(s, 'GC101').phase === 'crossing-hold');
+      state = send(state, 'GC101', 'cross');
+    }
+    state = until(state, s => plane(s, 'GC101').phase === 'holding');
+    state = send(state, 'GC101', 'takeoff');
+    expect(plane(state, 'GC101').phase).toBe('taking-off');
+    let removed = false;
+    for (let i = 0; i < 1200 && !removed; i++) {
+      const before = plane(state, 'GC101');
+      const next = step(state, 0.1);
+      const after = next.aircraft.find(a => a.id === 'GC101');
+      if (after) {
+        expect(distance(before.position, after.position)).toBeLessThanOrEqual(7.50001);
+        expect(next.operations.departures).toBe(0);
+        expect(next.reservation?.owner).toBe(before.id);
+      } else {
+        if (runwayId === '09') expect(before.position.x - AIRCRAFT_RADIUS).toBeGreaterThan(GROUND_VIEW.x + GROUND_VIEW.width);
+        else expect(before.position.y + AIRCRAFT_RADIUS).toBeLessThan(GROUND_VIEW.y);
+        expect(next.operations.departures).toBe(1);
+        expect(next.reservation).toBeNull();
+        removed = true;
+      }
+      state = next;
+    }
+    expect(removed).toBe(true);
+    expect(step(state, 2).operations.departures).toBe(1);
+  });
+
+  it.each(['09', '36'] as const)('keeps uncleared arrival %s visible through approach and its missed-approach circuit', runwayId => {
+    const state = createGroundState();
+    state.nextSpawn = Infinity;
+    const arrival = plane(state, 'GC202');
+    const runway = RUNWAYS[runwayId];
+    arrival.runway = runwayId;
+    arrival.nodeId = runway.approach;
+    arrival.position = { ...NODES[runway.approach] };
+    arrival.route = [runway.decision];
+    let current = step(state, 45);
+    expect(plane(current, arrival.id).phase).toBe('approach');
+    expect(getAircraftActions(current, arrival.id).find(action => action.type === 'land')?.blocked).toBeNull();
+    let observedCircuit = false;
+    let observedReturn = false;
+    for (let i = 0; i < 240; i++) {
+      current = step(current, 0.25);
+      const aircraft = plane(current, arrival.id);
+      expect(aircraft).toBeDefined();
+      expect(aircraft.position.x - AIRCRAFT_RADIUS).toBeGreaterThan(GROUND_VIEW.x);
+      expect(aircraft.position.x + AIRCRAFT_RADIUS).toBeLessThan(GROUND_VIEW.x + GROUND_VIEW.width);
+      expect(aircraft.position.y - AIRCRAFT_RADIUS).toBeGreaterThan(GROUND_VIEW.y);
+      expect(aircraft.position.y + AIRCRAFT_RADIUS).toBeLessThan(GROUND_VIEW.y + GROUND_VIEW.height);
+      observedCircuit ||= aircraft.phase === 'go-around';
+      observedReturn ||= observedCircuit && aircraft.phase === 'approach';
+      expect(current.operations.arrivals).toBe(0);
+    }
+    expect(observedCircuit).toBe(true);
+    expect(observedReturn).toBe(true);
   });
 });
