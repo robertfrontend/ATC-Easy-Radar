@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Pause, Play, RotateCcw, Plane, CircleAlert, Check, Route } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RotateCcw, Plane, CircleAlert, Check, X } from 'lucide-react';
 import { GroundMap } from './GroundMap';
 import { useGroundGame } from './useGroundGame';
 import { getAircraftActions, getGroundAlerts, runwayOccupancy } from './simulation';
 import type { AircraftAction, Phase } from './model';
 import './ground.css';
-import { aircraftAppearance, arrivalInstruction } from './presentation';
+import { arrivalInstruction } from './presentation';
 
 const phaseLabels: Record<Phase, string> = {
   parked: 'Parked · awaiting taxi', taxiing: 'Taxiing', stopped: 'Stopped',
@@ -23,6 +23,7 @@ const actionLabel = (action: AircraftAction) => action.type === 'stop' ? 'Stop t
 export function GroundControl() {
   const { state, dispatch } = useGroundGame();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const mapStageRef = useRef<HTMLDivElement>(null);
   const selected = state.aircraft.find(aircraft => aircraft.id === selectedId);
   const actions = selected ? getAircraftActions(state, selected.id) : [];
   const alerts = getGroundAlerts(state);
@@ -31,6 +32,11 @@ export function GroundControl() {
   const pending = state.aircraft.filter(aircraft => aircraft.phase !== 'turnaround').length;
   const score = Math.max(0, completed * 100 - Math.floor(state.totalDelay));
   const reset = () => { dispatch({ type: 'restart' }); setSelectedId(null); };
+  const closeControls = () => {
+    const aircraft = mapStageRef.current?.querySelector<SVGGElement>(`[data-aircraft-id="${selectedId}"]`);
+    setSelectedId(null);
+    aircraft?.focus();
+  };
 
   return <main className="ground-control">
     <header className="ground-header">
@@ -75,7 +81,34 @@ export function GroundControl() {
           <span><span className="ground-status-symbol" aria-hidden="true">{state.paused ? 'Ⅱ' : '●'}</span>{state.paused ? 'Simulation paused' : state.shift === 'complete' ? 'Traffic clear' : 'Surface live'}</span>
           <span>09/27 + 18/36 <small>Shared intersection</small></span>
         </div>
-        <GroundMap state={state} selectedId={selectedId} onSelect={setSelectedId} />
+        <div className="ground-map-stage" data-ground-map-stage ref={mapStageRef}>
+          <GroundMap state={state} selectedId={selectedId} onSelect={setSelectedId} />
+          {selected && <section className="ground-aircraft-controls" aria-label="Selected aircraft"
+            onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); closeControls(); } }}>
+            <header className="ground-command-heading">
+              <div><strong>{selected.id}</strong><p>{phaseLabels[selected.phase]}</p></div>
+              <button type="button" className="ground-command-close" aria-label="Close aircraft controls" onClick={closeControls}>
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
+            <div className="ground-actions">
+              {actions.map(action => <div key={`${action.type}-${action.runway ?? ''}`}>
+                <button type="button" data-command={action.type} data-target-runway={action.runway}
+                  disabled={!!action.blocked || state.paused || state.shift === 'complete'}
+                  aria-describedby={state.paused ? 'ground-paused-reason' : action.blocked ? `ground-reason-${action.type}-${action.runway ?? ''}` : undefined}
+                  onClick={() => dispatch({ type: action.type, id: selected.id, runway: action.runway })}>
+                  {actionLabel(action)}
+                </button>
+                {action.blocked && !state.paused && <p id={`ground-reason-${action.type}-${action.runway ?? ''}`} className="ground-action-reason">{action.blocked}</p>}
+              </div>)}
+            </div>
+            {selected.blocked && <p className="ground-command-note">{selected.blocked}</p>}
+            {state.paused && <p id="ground-paused-reason" className="ground-command-note">Resume the simulation to issue clearances.</p>}
+            {!actions.length && <p className="ground-command-note">{selected.phase === 'go-around'
+              ? 'Landing clearance becomes available when the aircraft returns to approach.'
+              : arrivalInstruction(selected) || 'Completing the current clearance. No action needed.'}</p>}
+          </section>}
+        </div>
         <div className="ground-legend" aria-label="Map legend">
           <span><Plane size={16} aria-hidden="true" />Aircraft</span>
           <span><i className="ground-legend-route" aria-hidden="true" />Selected route</span>
@@ -92,31 +125,6 @@ export function GroundControl() {
             <span>{occupancy[id].length ? `■ Occupied: ${occupancy[id].join(', ')}` : state.reservation ? `▧ Reserved: ${state.reservation.owner}` : '✓ Clear'}</span>
           </div>)}
           <p>{state.reservation ? `Shared intersection reserved for ${state.reservation.owner}.` : 'Shared intersection available.'}</p>
-        </section>
-
-        <section className="ground-panel ground-selected" aria-label="Selected aircraft">
-          <h2><Route size={16} aria-hidden="true" />Flight clearance</h2>
-          {selected ? <>
-            <div className="ground-flight-heading"><strong>{selected.id}</strong><span>{selected.kind === 'arrival' ? '↓ Arrival' : '↑ Departure'}</span></div>
-            <p className="ground-phase">{phaseLabels[selected.phase]}</p>
-            <p className="ground-airframe-description">{aircraftAppearance(selected.id).name}</p>
-            {arrivalInstruction(selected) && <p className="ground-arrival-instruction">{arrivalInstruction(selected)}</p>}
-            <dl><div><dt>Destination</dt><dd>{selected.destination}</dd></div><div><dt>Delay</dt><dd>{Math.floor(selected.delay)}s</dd></div></dl>
-            {selected.blocked && <p className="ground-blocked"><CircleAlert size={15} aria-hidden="true" />{selected.blocked}</p>}
-            <div className="ground-actions">
-              {actions.map(action => <div key={`${action.type}-${action.runway ?? ''}`}>
-                <button type="button" data-command={action.type} data-target-runway={action.runway}
-                  disabled={!!action.blocked || state.paused || state.shift === 'complete'}
-                  aria-describedby={action.blocked ? `ground-reason-${action.type}-${action.runway ?? ''}` : undefined}
-                  onClick={() => dispatch({ type: action.type, id: selected.id, runway: action.runway })}>
-                  {actionLabel(action)}
-                </button>
-                {action.blocked && <p id={`ground-reason-${action.type}-${action.runway ?? ''}`} className="ground-action-reason">{action.blocked}</p>}
-              </div>)}
-            </div>
-            {state.paused && <p className="ground-action-reason">Resume the simulation to issue clearances.</p>}
-            {!actions.length && <p className="ground-action-reason">{selected.phase === 'go-around' ? 'Landing clearance becomes available when the aircraft returns to approach.' : selected.phase === 'turnaround' ? 'Arrival counted. The aircraft will prepare for departure while traffic remains open.' : 'The aircraft is completing its clearance. No action needed.'}</p>}
-          </> : <div className="ground-no-selection"><Plane size={30} aria-hidden="true" /><p>Select an aircraft on the map or in the flight list.</p></div>}
         </section>
 
         <section className="ground-panel ground-flight-list" aria-label="Flight list">

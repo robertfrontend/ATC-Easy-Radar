@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -116,7 +117,14 @@ it('completes a departure and an arrival through real UI clearances, including a
   select('GC101'); command('taxi', '09');
   until(() => phase('GC101') === 'holding');
   expect(container.querySelector('[aria-label="Shift statistics"]')?.textContent).toContain('0 departures');
-  command('takeoff'); until(() => !phase('GC101'));
+  command('takeoff');
+  select('GC202');
+  const blockedLanding = container.querySelector<HTMLButtonElement>('[data-command="land"]')!;
+  expect(blockedLanding.disabled).toBe(true);
+  expect(container.querySelector(`[id="${blockedLanding.getAttribute('aria-describedby')}"]`)?.textContent).toMatch(/reserved|occupied/i);
+  select('GC101');
+  until(() => !phase('GC101'));
+  expect(container.querySelector('[aria-label="Selected aircraft"]')).toBeNull();
   expect(container.querySelector('[aria-label="Shift statistics"]')?.textContent).toContain('1 departures');
   until(() => phase('GC202') === 'approach');
   select('GC202'); command('land');
@@ -140,7 +148,7 @@ it('explains why a go-around must return before receiving landing clearance', ()
   expect(container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase')).toBe('go-around');
   expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Landing clearance becomes available when the aircraft returns to approach.');
   expect(container.querySelector('[data-command="land"]')).toBeNull();
-});
+}, 30_000);
 
 
 it('makes the arrival landing request visible before selection without silently granting it', () => {
@@ -148,9 +156,65 @@ it('makes the arrival landing request visible before selection without silently 
   expect(arrival.textContent).toContain('Landing clearance needed');
   act(() => arrival.click());
   expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Clear landing 09');
-  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Twin-engine jet');
+  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).not.toContain('Twin-engine jet');
   frame(0); frame(40);
   expect(container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase')).toBe('approach');
   expect(container.querySelector('[data-command="land"]')).not.toBeNull();
   expect(container.querySelector('[aria-label="Shift statistics"]')?.textContent).toContain('0 arrivals');
+});
+
+
+it('shows one compact command region inside the map stage, never in the desk or legend', () => {
+  expect(container.querySelector('[aria-label="Selected aircraft"]')).toBeNull();
+  act(() => container.querySelector<HTMLButtonElement>('[data-flight-id="GC101"]')!.click());
+  const stage = container.querySelector('[data-ground-map-stage]')!;
+  const controls = container.querySelector('[aria-label="Selected aircraft"]')!;
+  expect(stage).not.toBeNull();
+  expect(stage.contains(container.querySelector('svg[aria-label="Willow Field airport map"]'))).toBe(true);
+  expect(stage.contains(controls)).toBe(true);
+  expect(container.querySelectorAll('[aria-label="Selected aircraft"]')).toHaveLength(1);
+  expect(controls.classList.contains('ground-aircraft-controls')).toBe(true);
+  expect(controls.querySelector('dl')).toBeNull();
+  expect(controls.textContent).not.toContain('Destination');
+  expect(container.querySelector('[aria-label="Ground control desk"] [data-command]')).toBeNull();
+  expect(container.querySelector('[aria-label="Map legend"] [data-command]')).toBeNull();
+  expect(controls.getAttribute('role')).not.toBe('dialog');
+});
+
+it('switches, closes and reopens floating clearances without stale selection or duplicate actions', () => {
+  const select = (id: string) => act(() => container.querySelector<HTMLButtonElement>(`[data-flight-id="${id}"]`)!.click());
+  const controls = () => container.querySelector('[aria-label="Selected aircraft"]');
+  select('GC101');
+  expect(controls()?.textContent).toContain('GC101');
+  expect(controls()?.querySelectorAll('[data-command="taxi"]')).toHaveLength(2);
+  select('GC202');
+  expect(controls()?.textContent).toContain('GC202');
+  expect(controls()?.textContent).not.toContain('GC101');
+  expect(controls()?.querySelector('[data-command="taxi"]')).toBeNull();
+  expect(controls()?.querySelector('[data-command="land"]')).not.toBeNull();
+  click('Close aircraft controls');
+  expect(controls()).toBeNull();
+  const aircraft = container.querySelector<SVGGElement>('[data-aircraft-id="GC202"]')!;
+  expect(document.activeElement).toBe(aircraft);
+  expect(aircraft.getAttribute('aria-pressed')).toBe('false');
+  act(() => aircraft.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  expect(controls()?.textContent).toContain('GC202');
+  click('Pause');
+  expect(controls()?.textContent).toContain('Resume the simulation to issue clearances.');
+  expect(controls()?.querySelector<HTMLButtonElement>('[data-command="land"]')?.disabled).toBe(true);
+  act(() => controls()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  expect(controls()).toBeNull();
+  select('GC101');
+  click('Restart');
+  expect(controls()).toBeNull();
+  expect(container.querySelectorAll('[data-command]')).toHaveLength(0);
+});
+
+
+it('keeps narrow map commands viewport-sticky without an ancestor scroll container', () => {
+  const css = readFileSync('src/ground/ground.css', 'utf8');
+  expect(css).toMatch(/\.ground-airport\s*\{[^}]*overflow:\s*clip/);
+  expect(css).toMatch(/@media\s*\(max-width:\s*1050px\)[\s\S]*?\.ground-aircraft-controls\s*\{[^}]*position:\s*sticky/);
+  expect(css).toContain('grid-area: 1 / 1');
+  expect(css).toContain('calc(100dvh - 32px)');
 });
