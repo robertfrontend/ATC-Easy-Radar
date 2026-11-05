@@ -55,21 +55,20 @@
 .ground-map-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; min-height: 45px; padding: 8px 14px; font-size: 11px; background: #1a2b21; }
 .ground-map-toolbar small { color: var(--ground-muted); margin-left: 8px; }
 .ground-status-symbol { color: #e8c56a; margin-right: 8px; }
-.ground-map { width: 100%; height: auto; display: block; aspect-ratio: 1100 / 800; }
+.ground-map { width: 100%; height: auto; display: block; aspect-ratio: 1580 / 1280; background: #314d3c; }
 .ground-map text { user-select: none; pointer-events: none; }
 .ground-runway-number { fill: #f5f7f5; font-size: 14px; font-weight: 700; }
 .ground-map-caption { fill: #f5f7f5; font-size: 13px; }
 .ground-map-title { fill: #f5f7f5; font-size: 28px; font-weight: 600; letter-spacing: -1px; }
-.ground-taxi-label { fill: #ffe08a; font-size: 16px; font-weight: 700; stroke: #25352a; stroke-width: 5px; paint-order: stroke; }
 .ground-aircraft { cursor: pointer; }
-.ground-aircraft-label { fill: #fff; font-size: 13px; font-weight: 600; stroke: #17231e; stroke-width: 5px; paint-order: stroke; }
+.ground-aircraft-label { fill: #fff; font-size: 22px; font-weight: 600; stroke: #17231e; stroke-width: 5px; paint-order: stroke; }
 .ground-aircraft-warning { fill: #ffe08a; stroke: #17231e; stroke-width: 4px; paint-order: stroke; font-size: 22px; font-weight: 700; }
 .ground-aircraft:focus-visible > circle:first-of-type { stroke: #ffe08a; stroke-width: 3px; }
 .ground-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; padding: 11px 14px; background: #1a2b21; font-size: 10px; color: #d4dfd7; }
 .ground-legend > span { display: flex; align-items: center; gap: 7px; }
-.ground-legend-route { display: block; width: 25px; border-top: 2px dashed #ffe08a; }
+.ground-legend-route { display: block; width: 25px; border-top: 2px dashed #b2e5ff; }
 .ground-legend-reserved { display: block; height: 12px; width: 22px; border: 1px dashed #e8c56a; }
-.ground-legend b { color: #ffe08a; font-size: 19px; line-height: 12px; }
+.ground-legend b { color: #f5f7f5; font-size: 19px; line-height: 12px; }
 .ground-sidebar { display: grid; gap: 12px; }
 .ground-panel { padding: 15px; background: var(--ground-panel); border: 1px solid var(--ground-border); border-radius: 7px; }
 .ground-panel h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 13px; font-size: 13px; font-weight: 600; }
@@ -117,10 +116,9 @@
 /* Keep every stand and runway visible alongside the clearance desk on desktop. */
 @media (min-width: 1051px) {
   .ground-map { height: clamp(300px, calc(100dvh - 330px), 740px); aspect-ratio: auto; }
-  .ground-aircraft-label { font-size: 18px; }
+  .ground-aircraft-label { font-size: 22px; }
   .ground-map-caption { font-size: 16px; }
   .ground-runway-number { font-size: 20px; }
-  .ground-taxi-label { font-size: 20px; }
   .ground-sidebar { max-height: max(420px, calc(100dvh - 240px)); overflow-y: auto; padding: 3px; }
 }
 @media (min-width: 1700px) { .ground-control { max-width: 1800px; margin: 0 auto; } }
@@ -153,3 +151,8 @@
   .ground-summary > div { flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .ground-control *, .ground-control *::before, .ground-control *::after { scroll-behavior: auto; animation: none; transition: none; } }
+
+.ground-aircraft-status { fill: #dbeaf0; font-size: 17px; stroke: #17231e; stroke-width: 4px; paint-order: stroke; }
+.ground-selected .ground-airframe-description { margin: -6px 0 10px; color: #c1d3db; }
+.ground-selected .ground-arrival-instruction { padding: 10px; border-left: 2px solid #b2e5ff; color: #edf5f4; background: #21362d; }
+.ground-next-clearance { display: block; margin-top: 6px; font-size: 10px; color: #b2e5ff; }

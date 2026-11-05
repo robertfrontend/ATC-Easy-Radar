@@ -6,6 +6,7 @@ import { useGroundGame } from './useGroundGame';
 import { getAircraftActions, getGroundAlerts, runwayOccupancy } from './simulation';
 import type { AircraftAction, Phase } from './model';
 import './ground.css';
+import { aircraftAppearance, arrivalInstruction } from './presentation';
 
 const phaseLabels: Record<Phase, string> = {
   parked: 'Parked · awaiting taxi', taxiing: 'Taxiing', stopped: 'Stopped',
@@ -98,6 +99,8 @@ export function GroundControl() {
           {selected ? <>
             <div className="ground-flight-heading"><strong>{selected.id}</strong><span>{selected.kind === 'arrival' ? '↓ Arrival' : '↑ Departure'}</span></div>
             <p className="ground-phase">{phaseLabels[selected.phase]}</p>
+            <p className="ground-airframe-description">{aircraftAppearance(selected.id).name}</p>
+            {arrivalInstruction(selected) && <p className="ground-arrival-instruction">{arrivalInstruction(selected)}</p>}
             <dl><div><dt>Destination</dt><dd>{selected.destination}</dd></div><div><dt>Delay</dt><dd>{Math.floor(selected.delay)}s</dd></div></dl>
             {selected.blocked && <p className="ground-blocked"><CircleAlert size={15} aria-hidden="true" />{selected.blocked}</p>}
             <div className="ground-actions">
@@ -123,6 +126,7 @@ export function GroundControl() {
               onClick={() => setSelectedId(aircraft.id)}>
               <span><strong>{aircraft.id}</strong><small>{aircraft.kind === 'arrival' ? '↓ Arrival' : '↑ Departure'}</small></span>
               <span className="ground-list-phase">{phaseLabels[aircraft.phase]}</span>
+              {aircraft.kind === 'arrival' && ['approach', 'awaiting-taxi', 'crossing-hold'].includes(aircraft.phase) && <span className="ground-next-clearance">{aircraft.phase === 'approach' ? 'Landing clearance needed' : aircraft.phase === 'awaiting-taxi' ? 'Taxi to gate clearance needed' : 'Runway crossing clearance needed'}</span>}
             </button>
           </li>)}</ul> : <p>No pending aircraft. Start another shift to play again.</p>}
         </section>

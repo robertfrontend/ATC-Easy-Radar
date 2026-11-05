@@ -1,8 +1,9 @@
 import type { Point, RunwayId } from './model';
 
 export const AIRPORT = { name: 'Willow Field', width: 1100, height: 800 };
+export const GROUND_VIEW = { x: -240, y: -240, width: 1580, height: 1280 };
 export const RUNWAY_WIDTH = 44;
-export const AIRCRAFT_RADIUS = 13;
+export const AIRCRAFT_RADIUS = 21;
 export const NODES: Record<string, Point> = {
   'stand-1': { x: 260, y: 720 },
   'stand-2': { x: 340, y: 720 },
@@ -30,19 +31,19 @@ export const NODES: Record<string, Point> = {
   'threshold-09': { x: 160, y: 320 },
   'rollout-09': { x: 800, y: 320 },
   'end-09': { x: 940, y: 320 },
-  'depart-09': { x: 1140, y: 320 },
+  'depart-09': { x: 1400, y: 320 },
   'threshold-36': { x: 600, y: 600 },
   'rollout-36': { x: 600, y: 180 },
   'end-36': { x: 600, y: 100 },
-  'depart-36': { x: 600, y: -40 },
-  'approach-09': { x: 20, y: 320 },
+  'depart-36': { x: 600, y: -300 },
+  'approach-09': { x: -130, y: 320 },
   'decision-09': { x: 140, y: 320 },
-  'circuit-09-a': { x: 100, y: 210 },
-  'circuit-09-b': { x: 20, y: 210 },
-  'approach-36': { x: 600, y: 780 },
+  'circuit-09-a': { x: -20, y: 150 },
+  'circuit-09-b': { x: -130, y: 150 },
+  'approach-36': { x: 600, y: 930 },
   'decision-36': { x: 600, y: 620 },
-  'circuit-36-a': { x: 750, y: 740 },
-  'circuit-36-b': { x: 750, y: 780 },
+  'circuit-36-a': { x: 790, y: 820 },
+  'circuit-36-b': { x: 790, y: 930 },
 };
 export interface TaxiEdge { from: string; to: string; label: string; runway?: RunwayId }
 export const EDGES: TaxiEdge[] = [

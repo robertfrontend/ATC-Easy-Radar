@@ -124,17 +124,33 @@ it('completes a departure and an arrival through real UI clearances, including a
   expect(container.querySelector('[aria-label="Runway status"]')?.textContent).toContain('Occupied: GC202');
   until(() => phase('GC202') === 'awaiting-taxi');
   expect(container.querySelector('[aria-label="Runway status"]')?.textContent).not.toContain('Occupied: GC202');
+  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Taxi to stand');
+  expect(container.querySelector('[data-flight-id="GC202"]')?.textContent).toContain('Taxi to gate clearance needed');
   command('taxi'); until(() => phase('GC202') === 'crossing-hold');
   frame(2); expect(phase('GC202')).toBe('crossing-hold');
   command('cross'); until(() => phase('GC202') === 'turnaround');
   expect(container.querySelector('[aria-label="Shift statistics"]')?.textContent).toContain('1 arrivals');
+  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toMatch(/Gate \d reached/);
 }, 30_000);
 
 it('explains why a go-around must return before receiving landing clearance', () => {
   frame(0);
-  for (let i = 0; i < 160 && container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase') !== 'go-around'; i++) frame(0.25);
+  for (let i = 0; i < 80 && container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase') !== 'go-around'; i++) frame(1);
   act(() => container.querySelector<HTMLButtonElement>('[data-flight-id="GC202"]')!.click());
   expect(container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase')).toBe('go-around');
   expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Landing clearance becomes available when the aircraft returns to approach.');
   expect(container.querySelector('[data-command="land"]')).toBeNull();
+});
+
+
+it('makes the arrival landing request visible before selection without silently granting it', () => {
+  const arrival = container.querySelector<HTMLButtonElement>('[data-flight-id="GC202"]')!;
+  expect(arrival.textContent).toContain('Landing clearance needed');
+  act(() => arrival.click());
+  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Clear landing 09');
+  expect(container.querySelector('[aria-label="Selected aircraft"]')?.textContent).toContain('Twin-engine jet');
+  frame(0); frame(40);
+  expect(container.querySelector('[data-aircraft-id="GC202"]')?.getAttribute('data-aircraft-phase')).toBe('approach');
+  expect(container.querySelector('[data-command="land"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Shift statistics"]')?.textContent).toContain('0 arrivals');
 });

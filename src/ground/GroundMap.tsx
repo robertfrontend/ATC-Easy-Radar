@@ -1,11 +1,12 @@
-import { AIRPORT, EDGES, NODES, RUNWAYS, RUNWAY_WIDTH, STANDS } from './airport';
+import { GROUND_VIEW, EDGES, NODES, RUNWAYS, RUNWAY_WIDTH, STANDS } from './airport';
 import type { Aircraft, GroundState, Point } from './model';
 import { runwayOccupancy } from './simulation';
+import { AircraftShape } from './AircraftShape';
+import { aircraftAppearance, aircraftHeight } from './presentation';
 
 const pointString = (points: Point[]) => points.map(point => `${point.x},${point.y}`).join(' ');
 const runwayEntries = Object.values(RUNWAYS);
 const holdPoints = ['hold-09', 'hold-36', 'cross-36-west', 'cross-36-east', 'cross-09-north', 'cross-09-south'];
-const flightShape = 'M 18 0 L 5 -4 L -3 -17 L -8 -17 L -5 -4 L -14 -3 L -18 -8 L -21 -8 L -18 0 L -21 8 L -18 8 L -14 3 L -5 4 L -8 17 L -3 17 L 5 4 Z';
 
 function Runway({ runway, occupied, reserved }: {
   runway: typeof runwayEntries[number]; occupied: string[]; reserved: boolean;
@@ -30,17 +31,25 @@ function Runway({ runway, occupied, reserved }: {
 function AircraftSymbol({ aircraft, selected, onSelect }: {
   aircraft: Aircraft; selected: boolean; onSelect: (id: string) => void;
 }) {
-  const color = aircraft.kind === 'arrival' ? '#f5f7f5' : '#85c9ed';
+  const appearance = aircraftAppearance(aircraft.id);
+  const height = aircraftHeight(aircraft);
+  const stateLabel = aircraft.phase === 'approach' ? 'Landing clearance needed' : aircraft.phase === 'landing' ? height > 0 ? 'Descending' : 'Touchdown' : aircraft.phase === 'turnaround' ? 'At gate' : aircraft.phase === 'awaiting-taxi' ? 'Taxi clearance needed' : '';
   return <g role="button" tabIndex={0} aria-label={`Select ${aircraft.id}`} aria-pressed={selected}
     data-aircraft-id={aircraft.id} data-aircraft-kind={aircraft.kind} data-aircraft-phase={aircraft.phase}
+    data-airframe={appearance.airframe} data-aircraft-height={height.toFixed(2)}
     transform={`translate(${aircraft.position.x} ${aircraft.position.y})`}
     className="ground-aircraft" onClick={() => onSelect(aircraft.id)}
     onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(aircraft.id); } }}>
-    <title>{aircraft.id}: {aircraft.phase.replaceAll('-', ' ')}. {aircraft.destination}</title>
-    <circle r={25} fill="transparent" />
-    {selected && <circle r={24} fill="#e8c56a20" stroke="#e8c56a" strokeWidth={2.5} strokeDasharray="5 3" />}
-    <path d={flightShape} transform={`rotate(${aircraft.heading})`} fill={selected ? '#e8c56a' : color} stroke="#17231e" strokeWidth={1.6} />
-    <text x={20} y={-23} className="ground-aircraft-label">{aircraft.id}</text>
+    <title>{aircraft.id}: {appearance.name}. {aircraft.phase.replaceAll('-', ' ')}. {aircraft.destination}</title>
+    <circle r={30} fill="transparent" />
+    {selected && <circle r={29} fill="#b2e5ff20" stroke="#b2e5ff" strokeWidth={2.5} strokeDasharray="5 3" />}
+    <g transform={`translate(${3 + height * 13} ${3 + height * 13}) rotate(${aircraft.heading})`} opacity={0.18 + height * 0.16} aria-hidden="true">
+      <ellipse rx={appearance.radius} ry={appearance.engines === 2 ? 8 : 5} fill="#0b1e15" />
+      <ellipse rx={5} ry={appearance.engines === 2 ? 16 : 13} fill="#0b1e15" />
+    </g>
+    <g transform={`rotate(${aircraft.heading})`}><AircraftShape twin={appearance.engines === 2} /></g>
+    <text x={24} y={-25} className="ground-aircraft-label">{aircraft.id}</text>
+    {stateLabel && <text x={24} y={-5} className="ground-aircraft-status">{stateLabel}</text>}
     {aircraft.blocked && <text x={-30} y={-20} className="ground-aircraft-warning">!</text>}
   </g>;
 }
@@ -51,9 +60,9 @@ export function GroundMap({ state, selectedId, onSelect }: {
   const selected = state.aircraft.find(aircraft => aircraft.id === selectedId);
   const occupancy = runwayOccupancy(state);
   const remainingRoute = selected ? [selected.position, ...selected.route.slice(selected.routeIndex).map(id => NODES[id]).filter(Boolean)] : [];
-  return <svg className="ground-map" viewBox={`0 0 ${AIRPORT.width} ${AIRPORT.height}`} aria-label="Willow Field airport map">
+  return <svg className="ground-map" viewBox={`${GROUND_VIEW.x} ${GROUND_VIEW.y} ${GROUND_VIEW.width} ${GROUND_VIEW.height}`} aria-label="Willow Field airport map">
     <title>Willow Field: two intersecting runways and connected taxiways</title>
-    <desc>Select an aircraft here or in the flight list. Dashed gold lines show its cleared route. Double hold bars require a separate runway clearance.</desc>
+    <desc>Select an aircraft here or in the flight list. Dashed blue lines show its cleared route. Double hold bars require a separate runway clearance.</desc>
     <defs>
       <pattern id="ground-grass" width={48} height={48} patternUnits="userSpaceOnUse">
         <rect width={48} height={48} fill="#314d3c" />
@@ -63,14 +72,12 @@ export function GroundMap({ state, selectedId, onSelect }: {
         <line x1={0} y1={0} x2={0} y2={8} stroke="#e8c56a" strokeWidth={2} />
       </pattern>
     </defs>
-    <rect width={AIRPORT.width} height={AIRPORT.height} fill="url(#ground-grass)" />
+    <rect x={GROUND_VIEW.x} y={GROUND_VIEW.y} width={GROUND_VIEW.width} height={GROUND_VIEW.height} fill="url(#ground-grass)" />
     <path d="M 50 680 L 50 60 L 1020 60 L 1020 725" fill="none" stroke="#526354" strokeWidth={3} strokeDasharray="5 9" />
     <rect x={215} y={623} width={330} height={126} rx={20} fill="#626b68" />
-    {EDGES.map(edge => <g key={`${edge.from}-${edge.to}`}>
+    {EDGES.map(edge => <g key={`${edge.from}-${edge.to}`} data-taxi-pavement="true">
       <line x1={NODES[edge.from].x} y1={NODES[edge.from].y} x2={NODES[edge.to].x} y2={NODES[edge.to].y}
         stroke="#626b68" strokeWidth={35} strokeLinecap="round" />
-      <line x1={NODES[edge.from].x} y1={NODES[edge.from].y} x2={NODES[edge.to].x} y2={NODES[edge.to].y}
-        stroke="#e0c75f" strokeWidth={1.8} />
     </g>)}
     {runwayEntries.map(runway => <g key={runway.id}>
       <polyline points={pointString([NODES[runway.hold], NODES[runway.threshold]])} stroke="#626b68" fill="none" strokeWidth={35} />
@@ -85,21 +92,22 @@ export function GroundMap({ state, selectedId, onSelect }: {
       const angle = runway ? Math.atan2(runway.start.y - point.y, runway.start.x - point.x) * 180 / Math.PI
         : id.startsWith('cross-36') ? 0 : 90;
       return <g key={id} data-hold-point={id} transform={`translate(${point.x} ${point.y}) rotate(${angle})`}>
-        <path d="M -4 -19 V 19 M 2 -19 V 19" stroke="#f4d06a" strokeWidth={2.5} />
-        <path d="M 8 -19 V 19 M 14 -19 V 19" stroke="#f4d06a" strokeWidth={2} strokeDasharray="4 3" />
+        <path d="M -4 -19 V 19 M 2 -19 V 19" stroke="#f5f7f5" strokeWidth={2.5} />
+        <path d="M 8 -19 V 19 M 14 -19 V 19" stroke="#f5f7f5" strokeWidth={2} strokeDasharray="4 3" />
       </g>;
     })}
-    {STANDS.map((id, index) => <g key={id} transform={`translate(${NODES[id].x} ${NODES[id].y})`}>
-      <path d="M -23 -24 V 22 H 23 V -24" fill="none" stroke="#e0c75f" strokeWidth={1.5} />
-      <text y={39} textAnchor="middle" className="ground-map-caption">P{index + 1}</text>
+    {STANDS.map((id, index) => <g key={id} data-boarding-gate={id} transform={`translate(${NODES[id].x} ${NODES[id].y})`}>
+      <path d="M -23 -24 V 22 H 23 V -24" fill="none" stroke="#becbc8" strokeWidth={1.5} />
+      <path d="M 12 18 V 46" fill="none" stroke="#c4cecb" strokeWidth={7} />
+      <path d="M 12 18 V 46" fill="none" stroke="#758884" strokeWidth={2} />
+      <text x={-8} y={40} textAnchor="middle" className="ground-map-caption">Gate {index + 1}</text>
     </g>)}
     <rect x={215} y={766} width={330} height={30} rx={3} fill="#182c28" stroke="#7f9990" />
     <text x={380} y={786} textAnchor="middle" className="ground-map-caption">Willow Field terminal</text>
-    <g className="ground-taxi-label"><text x={302} y={633}>A</text><text x={85} y={465}>B</text><text x={466} y={475}>C</text><text x={746} y={587}>D</text><text x={828} y={440}>E</text><text x={450} y={225}>F</text></g>
     <text x={60} y={105} className="ground-map-title">Willow Field</text>
     <text x={60} y={128} className="ground-map-caption">Fictional airport · Not for navigation</text>
     <g transform="translate(1000 125)" className="ground-map-caption"><path d="M 0 20 V -20 M -7 -12 L 0 -22 L 7 -12" fill="none" stroke="#f5f7f5" strokeWidth={2} /><text y={-32} textAnchor="middle">N</text></g>
-    {remainingRoute.length > 1 && <polyline data-selected-route="true" points={pointString(remainingRoute)} fill="none" stroke="#ffe08a" strokeWidth={4} strokeDasharray="9 6" strokeLinejoin="round" />}
+    {remainingRoute.length > 1 && <polyline data-selected-route="true" points={pointString(remainingRoute)} fill="none" stroke="#b2e5ff" strokeWidth={4} strokeDasharray="9 6" strokeLinejoin="round" />}
     {state.aircraft.map(aircraft => <AircraftSymbol key={aircraft.id} aircraft={aircraft} selected={aircraft.id === selectedId} onSelect={onSelect} />)}
   </svg>;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDGES, NODES, RUNWAYS, distance, findRoute } from './airport';
+import { AIRCRAFT_RADIUS, EDGES, NODES, RUNWAYS, distance, findRoute } from './airport';
 import { advanceGround, commandGround, createGroundState, getAircraftActions, runwayOccupancy } from './simulation';
 import type { GroundState } from './model';
 
@@ -83,7 +83,7 @@ describe('ground clearances and flows', () => {
     expect(state.operations.arrivals).toBe(1);
   });
   it('keeps uncleared arrivals visible through a missed approach', () => {
-    const state = step(createGroundState(), 30);
+    const state = until(createGroundState(), s => plane(s, 'GC202').phase === 'go-around');
     expect(plane(state, 'GC202')).toBeDefined();
     expect(plane(state, 'GC202').goArounds).toBeGreaterThan(0);
     expect(state.message).toMatch(/go-around/i);
@@ -180,7 +180,8 @@ describe('physical reservations and second runway', () => {
     expect(plane(state, 'GC101').standId).toBe('stand-1');
     state = step(state, 0.5);
     expect(plane(state, 'GC101').standId).toBe('stand-1');
-    state = step(state, 1);
+    state = until(state, s => plane(s, 'GC101').standId === null);
+    expect(distance(plane(state, 'GC101').position, NODES['stand-1'])).toBeGreaterThan(AIRCRAFT_RADIUS * 2 + 8);
     expect(plane(state, 'GC101').standId).toBeNull();
   });
   it('stop/resume at a crossing never substitutes for crossing clearance', () => {
